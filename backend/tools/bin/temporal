@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+CLI_PATH="${DIR}/cli_temporal_${TEMPORAL_CLI_VERSION}"
+
+# download cli if not found
+if [ ! -e "${CLI_PATH}" ]; then
+  echo "temporal cli not found, downloading..."
+  rm -rf "$DIR/.download"
+  mkdir -p "$DIR/.download"
+  CLI_TAR="$DIR/.download/cli_temporal.tar.gz"
+  $DIR/download "https://github.com/temporalio/cli/releases/download/v${TEMPORAL_CLI_VERSION}/temporal_cli_${TEMPORAL_CLI_VERSION}_$($DIR/osarch --platform)_$($DIR/osarch --arch).tar.gz" "$CLI_TAR"
+  tar -xzf "$CLI_TAR" -C "$DIR/.download"
+  rm -f ${DIR}/cli_temporal*
+  mv "$DIR/.download/temporal" "$CLI_PATH"
+  rm -rf "$DIR/.download"
+fi
+
+$CLI_PATH "$@"

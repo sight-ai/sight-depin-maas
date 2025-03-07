@@ -1,0 +1,36 @@
+{
+  "name": "common",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/libs/common/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/libs/common",
+        "main": "packages/libs/common/src/index.ts",
+        "tsConfig": "packages/libs/common/tsconfig.lib.json",
+        "assets": ["packages/libs/common/*.md"]
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "packages/libs/common/**/*.ts",
+          "packages/libs/common/package.json"
+        ]
+      }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "packages/libs/common/jest.config.ts"
+      }
+    }
+  },
+  "tags": []
+}

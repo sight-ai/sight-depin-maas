@@ -1,0 +1,3 @@
+table:
+  name: telegram_users
+  schema: saito_auth

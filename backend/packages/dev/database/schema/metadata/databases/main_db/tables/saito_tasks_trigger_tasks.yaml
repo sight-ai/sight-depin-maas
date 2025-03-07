@@ -1,0 +1,3 @@
+table:
+  name: trigger_tasks
+  schema: saito_tasks

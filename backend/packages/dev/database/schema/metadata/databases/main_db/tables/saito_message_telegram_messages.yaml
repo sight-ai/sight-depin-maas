@@ -1,0 +1,3 @@
+table:
+  name: telegram_messages
+  schema: saito_message

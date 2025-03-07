@@ -1,0 +1,27 @@
+{
+  "name": "dev-nats",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/dev/nats",
+  "projectType": "application",
+  "implicitDependencies": [
+    "dev-network"
+  ],
+  "targets": {
+    "up": {
+      "command": "dev-nats up"
+    },
+    "sync": {
+      "command": "dev-nats sync"
+    },
+    "logs": {
+      "command": "dev-nats logs"
+    },
+    "recreate": {
+      "command": "dev-nats reset"
+    },
+    "down": {
+      "command": "dev-nats clean"
+    }
+  },
+  "tags": []
+}

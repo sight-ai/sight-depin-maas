@@ -1,0 +1,3 @@
+table:
+  name: session_messages
+  schema: saito_message

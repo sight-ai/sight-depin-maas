@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+cd $DIR/../..
+
+green() {
+  echo -e "\033[1;32m$1\033[0m"
+}
+
+main() {
+  local CMD="${1:-}"
+  case "${CMD}" in
+  start)
+    temporal server start-dev --log-format pretty --log-level "error" &
+    PID=$!
+    green "- start temporal"
+    trap 'echo exiting dev environment && kill $PID && dev-database down && dev-nats down' SIGINT EXIT
+
+    dev-database up
+    dev-nats up
+    hasura seed apply --all-databases
+
+    green "dev environment started, press ctrl-c to exit"
+    wait $PID
+    ;;
+  stop)
+    pkill -f cli_temporal
+    dev-database down
+    dev-nats down
+    ;;
+  *)
+    echo "unknown command: ${CMD}"
+    ;;
+  esac
+}
+
+main $@

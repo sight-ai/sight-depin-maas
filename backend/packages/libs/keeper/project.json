@@ -1,0 +1,29 @@
+{
+  "name": "lib-keeper",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/libs/keeper/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/libs/keeper",
+        "main": "packages/libs/keeper/src/index.ts",
+        "tsConfig": "packages/libs/keeper/tsconfig.lib.json",
+        "assets": ["packages/libs/keeper/*.md"]
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "packages/libs/keeper/**/*.ts",
+          "packages/libs/keeper/package.json"
+        ]
+      }
+    }
+  },
+  "tags": []
+}

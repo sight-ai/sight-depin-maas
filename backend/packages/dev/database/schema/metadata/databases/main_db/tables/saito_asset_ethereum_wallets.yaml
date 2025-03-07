@@ -1,0 +1,3 @@
+table:
+  name: ethereum_wallets
+  schema: saito_asset

@@ -1,0 +1,24 @@
+{
+  "name": "@saito/common",
+  "version": "0.0.1",
+  "dependencies": {
+    "safe-json-stringify": "^1.2.0",
+    "slonik": "^37.2.0",
+    "zod": "^3.22.2",
+    "@t3-oss/env-core": "^0.7.1",
+    "@nestjs/common": "^10.2.4",
+    "memoizee": "^0.4.15",
+    "nestjs-pino": "^3.4.0",
+    "pino-pretty": "^10.2.0",
+    "rxjs": "^7.8.1",
+    "p-queue": "^6.6.2",
+    "ramda": "^0.29.0",
+    "p-retry": "^4.6.2",
+    "got-cjs": "^12.5.4",
+    "@saito/models": "*",
+    "class-validator": "^0.14.0"
+  },
+  "type": "commonjs",
+  "main": "./src/index.js",
+  "typings": "./src/index.d.ts"
+}

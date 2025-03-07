@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+BASE="$( cd "$( dirname "$0" )" >/dev/null 2>&1 && pwd )"
+ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd ../.. && pwd )"
+
+pushd "$ROOT"
+
+red() { echo -e "\033[0;31m$1\033[0m"; }
+
+main() {
+    ENV=$1
+
+    if [ -z "$ENV" ]; then
+        echo "Usage: $0 <env>"
+        exit 1
+    fi
+
+    if [ -f "env/.envrc.$ENV" ]; then
+        echo "use .envrc.$ENV"
+    else
+        echo "No $(red "env/.envrc.$ENV") file found"
+        exit 1
+    fi
+
+    mkdir -p env/base
+    pushd env/base/
+    FILES=$(find . -type f)
+    popd
+
+    for f in $FILES
+    do
+      writeTemplateFile "$f"
+    done
+
+    echo "$ENV" > env/.current_profile
+    export CURRENT_PROFILE=$ENV
+    echo "switched to env $ENV. current profile: $CURRENT_PROFILE"
+    direnv allow
+}
+
+linkFile() {
+  ORIGIN_FILE_PATH=$1
+  LINK_FILE_PATH=$2
+  rm -f $LINK_FILE_PATH
+  ln -s $ORIGIN_FILE_PATH $LINK_FILE_PATH
+}
+
+copyFile() {
+  ORIGIN_FILE_PATH=$1
+  COPY_FILE_PATH=$2
+  rm -f $COPY_FILE_PATH
+  cp $ORIGIN_FILE_PATH $COPY_FILE_PATH
+  chmod 400 $COPY_FILE_PATH
+}
+
+writeTemplateFile() {
+  FILE_PATH=$1
+  FILE_DIR=$(dirname "${FILE_PATH}")
+  mkdir -p "$FILE_DIR"
+  rm -f "$ROOT"/"$FILE_PATH"
+  "$BASE"/mo "$ROOT"/env/base/"$FILE_PATH" > "$ROOT"/"$FILE_PATH"
+  chmod 400 "$ROOT"/"$FILE_PATH"
+}
+
+if [ -n "${1-}" ]
+then
+  main "$1"
+else
+  printf 'use ENV \nexample: use dev'
+fi

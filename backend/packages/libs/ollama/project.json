@@ -1,0 +1,36 @@
+{
+  "name": "ollama",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/libs/ollama/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/libs/ollama",
+        "main": "packages/libs/ollama/src/index.ts",
+        "tsConfig": "packages/libs/ollama/tsconfig.lib.json",
+        "assets": ["packages/libs/ollama/*.md"]
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "packages/libs/ollama/**/*.ts",
+          "packages/libs/ollama/package.json"
+        ]
+      }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "packages/libs/ollama/jest.config.ts"
+      }
+    }
+  },
+  "tags": []
+}

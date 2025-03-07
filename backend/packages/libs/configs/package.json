@@ -1,0 +1,13 @@
+{
+  "name": "@saito/configs",
+  "version": "0.0.1",
+  "type": "commonjs",
+  "main": "./src/index.js",
+  "typings": "./src/index.d.ts",
+  "dependencies": {
+    "viem": "^1.18.2",
+    "@t3-oss/env-core": "^0.7.1",
+    "memoizee": "^0.4.15",
+    "zod": "^3.22.4"
+  }
+}

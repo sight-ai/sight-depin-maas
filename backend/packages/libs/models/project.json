@@ -1,0 +1,36 @@
+{
+  "name": "models",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/libs/models/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/libs/models",
+        "main": "packages/libs/models/src/index.ts",
+        "tsConfig": "packages/libs/models/tsconfig.lib.json",
+        "assets": ["packages/libs/models/*.md"]
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "packages/libs/models/**/*.ts",
+          "packages/libs/models/package.json"
+        ]
+      }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "packages/libs/models/jest.config.ts"
+      }
+    }
+  },
+  "tags": []
+}
