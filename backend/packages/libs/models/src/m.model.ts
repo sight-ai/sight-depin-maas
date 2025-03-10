@@ -5,6 +5,7 @@ import { AppSchema } from './app';
 import { OpenAIModel } from './openai/openai.schema';
 import { SaitoMemorySchema } from "./db/saito_memory.model";
 import { OllamaModel } from "./ollama/ollama.schema";
+import { MinerModel } from "./miner/miner.schema";
 export { ModelOfOpenAI } from './openai/openai.schema';
 
 const Models = {
@@ -19,7 +20,6 @@ export type ModelOfDatabase<
   S extends keyof typeof Models.database,
   T extends keyof (typeof Models.database)[S],
 > = (typeof Models.database)[S][T] extends z.ZodType<infer O> ? O : never;
-
 
 export type ModelOfApp<T extends keyof typeof Models.app> =
   (typeof Models.app)[T] extends z.ZodType<infer O> ? O : never;
@@ -36,6 +36,9 @@ export const m = {
   },
   openai<T extends keyof typeof OpenAIModel>(type: T) {
     return OpenAIModel[type];
+  },
+  miner<T extends keyof typeof MinerModel>(type: T) {
+    return MinerModel[type];
   },
   app<T extends keyof typeof Models.app>(type: T) {
     return Models.app[type];

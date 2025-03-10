@@ -1,6 +1,6 @@
 # Saito Miner
 
-- We use [Nx](./README_NX.md) as our build system
+- We use [Nx](./README_NX.md) as our build system.
 
 ## Workflow development
 

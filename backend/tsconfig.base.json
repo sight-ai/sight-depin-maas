@@ -24,6 +24,7 @@
       "@saito/ollama": ["packages/libs/ollama/src/index.ts"],
       "@saito/persistent": ["packages/libs/persistent/src/index.ts"],
       "@saito/keeper": ["packages/libs/keeper/src/index.ts"],
+      "@saito/miner": ["packages/libs/miner/src/index.ts"],
       "@saito/ethstorage": ["packages/libs/ethstorage/src/index.ts"]
     }
   },
