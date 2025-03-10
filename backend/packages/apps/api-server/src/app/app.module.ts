@@ -6,11 +6,12 @@ import { KeeperController } from "./controllers/keeper.controller";
 import { KeeperModule } from "@saito/keeper";
 import { OllamaModule } from "@saito/ollama";
 import { ModelController } from "./controllers/model.controller";
-import { MiningController } from "./controllers/mining.controller";
+import { MinerController } from "./controllers/miner.controller";
+import { MinerModule } from "@saito/miner";
 
 @Module({
-  imports: [KeeperModule, OllamaModule],
-  controllers: [IndexController, KeeperController, ModelController, MiningController],
+  imports: [KeeperModule, OllamaModule, MinerModule],
+  controllers: [IndexController, KeeperController, ModelController, MinerController],
   providers: [
     {
       provide: APP_PIPE,

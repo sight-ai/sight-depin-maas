@@ -1,0 +1,29 @@
+{
+  "name": "lib-miner",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/libs/miner/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/libs/miner",
+        "main": "packages/libs/miner/src/index.ts",
+        "tsConfig": "packages/libs/miner/tsconfig.lib.json",
+        "assets": ["packages/libs/miner/*.md"]
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "packages/libs/miner/**/*.ts",
+          "packages/libs/miner/package.json"
+        ]
+      }
+    }
+  },
+  "tags": []
+}
