@@ -36,9 +36,14 @@ export default function DashboardPage() {
             </div>
             <UptimeCard />
             <Card className=' rounded-lg' style={{
-                backgroundColor: isDark ? '#1a1a1a':'#f6f6f6'
+                backgroundColor: isDark ? '#1a1a1a':'#f6f6f6',
+                // height: '15rem'
+            borderRadius: '2rem'
+                
             }} >
-                <div className="space-y-5 p-3 rounded-lg m-5">
+                <div className="space-y-5 p-3 rounded-lg m-5" style={{
+                    height: '25rem'
+                }}>
                     <div className="flex items-center justify-between">
                         <h2 className="text-2xl font-semibold text-black" style={{
                             color: isDark ? '#fff': '#000'
@@ -49,7 +54,12 @@ export default function DashboardPage() {
                         }}><Image src={isDark ? "/Refresh (1).svg" : "/Refresh.svg"} alt="SIGHT Logo" width={25} height={25} className="mr-3" /> Refresh</span>
                         </Button>
                     </div>
-                    <Echarts></Echarts>
+                   <div style={{
+                     height: '10rem',
+                     marginTop: '2rem'
+                   }}>
+                   <Echarts></Echarts>
+                   </div>
                 </div>
             </Card>
         </main>

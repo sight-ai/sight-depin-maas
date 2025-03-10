@@ -1,0 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Aldrich&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+.font-aldrich {
+    font-family: 'Aldrich', monospace;
+}
+
+.font-ibm-mono {
+    font-family: 'IBM Plex Mono', monospace;
+}

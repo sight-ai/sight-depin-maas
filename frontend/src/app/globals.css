@@ -1,7 +1,14 @@
+@import url('https://fonts.googleapis.com/css2?family=Alata&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
   min-height: 100vh;
+  font-family: 'Alata', sans-serif;
+}
+
+/* 全局应用 Alata 字体 */
+* {
+  font-family: 'Alata', sans-serif;
 }
