@@ -1,5 +1,6 @@
 import { request } from '@/utils/request';
-import type { ApiResponse, HistoryResponse, PaginationParams } from '@/types/api';
+import type { HistoryResponse, PaginationParams, SummaryResponse} from '@/types/api';
+
 
 export const apiService = {
     async getHistory(params: PaginationParams): Promise<HistoryResponse> {
@@ -16,5 +17,9 @@ export const apiService = {
             limit: params.limit.toString()
         }).toString();
         return request<HistoryResponse>(`/miner/history?${queryString}`);
+    },
+
+    async getSummary(): Promise<SummaryResponse> {
+        return request<SummaryResponse>('/miner/summary');
     }
 };

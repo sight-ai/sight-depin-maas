@@ -29,3 +29,20 @@ export interface PaginationParams {
     page: number;
     limit: number;
 }
+
+
+
+export interface SummaryResponse {
+    earning_info: {
+        total_block_rewards: number;
+        total_job_rewards: number;
+    };
+    device_info: {
+        name: string;
+        status: string;
+    };
+    statistics: {
+        up_time_percentage: number;
+        earning_serials: number[];
+    };
+}
