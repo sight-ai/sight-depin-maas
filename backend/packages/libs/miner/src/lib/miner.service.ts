@@ -2,7 +2,6 @@ import { DeviceInfo, EarningInfo, JSONType, ModelOfMiner, Statistics } from "@sa
 import { MinerService } from "./miner.interface";
 import { MinerRepository } from "./miner.repository";
 import { Inject } from "@nestjs/common";
-
 export class DefaultMinerService implements MinerService {
 
   constructor(@Inject(MinerRepository) private readonly repository: MinerRepository) {}
@@ -39,7 +38,6 @@ export class DefaultMinerService implements MinerService {
       return this.repository.getTasks(conn, page, limit);
     })
   }
-
 }
 
 export const MinerServiceProvider = {

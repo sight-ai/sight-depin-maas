@@ -1,59 +1,69 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-
-interface HistoryItem {
-  requestId: string
-  tokenUsage: string
-  reward: string
-  status: string
-}
+import { useState, useEffect, useCallback } from 'react';
+import { apiService } from '@/services/api';
+import type { HistoryItem } from '@/types/api';
 
 export function useHistory() {
-  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([
-    { requestId: 'abs7efg', tokenUsage: '135', reward: '100', status: 'In-Progress' },
-    { requestId: 'suwnajd', tokenUsage: '255', reward: '250', status: 'Done' },
-    { requestId: 'swbdhxa', tokenUsage: '127', reward: '100', status: 'Active' },
-    { requestId: 'shqlid87', tokenUsage: '201', reward: '200', status: 'Active' },
-    { requestId: 'shqiy567', tokenUsage: '418', reward: '400', status: 'Active' },
-    { requestId: 'shwisb4s', tokenUsage: '189', reward: '200', status: 'Active' },
-    { requestId: 'abs7efg', tokenUsage: '245', reward: '200', status: 'Active' },
-    { requestId: 'suwnajd', tokenUsage: '127', reward: '100', status: 'Active' },
-    { requestId: 'shqiy567', tokenUsage: '421', reward: '400', status: 'Active' },
-    { requestId: 'shwisb4s', tokenUsage: '189', reward: '200', status: 'Active' },
-  ])
+    const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [page, setPage] = useState(1);
+    const limit = 10;
 
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+    const fetchHistory = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const response = await apiService.getHistory({ page, limit });
+            console.log(response)
+            // 转换响应数据格式
+            const items: HistoryItem[] = response.tasks.map(task => ({
+                status: task.status === 'in-progress' ? 'In-Progress' :
+                    task.status === 'done' ? 'Done' : 'Failed',
+                requestId: task.id,
+                tokenUsage: `${task.prompt_eval_count + task.eval_count}`,
+                reward: `$${((task.total_duration || 0) * 0.1).toFixed(2)}`
+            }));
+            console.log(items)
+            setHistoryItems(items);
+        } catch (err) {
+            // setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    }, [page]);
 
-  useEffect(() => {
-    // TODO: 从API获取历史数据
-    // fetchHistoryData()
-  }, [])
+    const refreshHistory = useCallback(async () => {
+        setPage(1);
+        try {
+            setLoading(true);
+            setError(null);
+            const response = await apiService.refreshHistory({ page: 1, limit });
+            setHistoryItems(response.tasks.map(task => ({
+                status: task.status === 'in-progress' ? 'In-Progress' :
+                    task.status === 'done' ? 'Done' : 'Failed',
+                requestId: task.id,
+                tokenUsage: `${task.prompt_eval_count + task.eval_count}`,
+                reward: `$${((task.total_duration || 0) * 0.1).toFixed(2)}`
+            })));
+        } catch (err) {
+            // setError(err.message)
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
-  const fetchHistoryData = async () => {
-    try {
-      setLoading(true)
-      // TODO: 实现从API获取历史数据的逻辑
-      // const response = await api.getHistory()
-      // setHistoryItems(response.data)
-      setError(null)
-    } catch (err) {
-      setError('获取历史数据失败')
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
-  }
+    useEffect(() => {
+        fetchHistory();
+    }, [fetchHistory]);
 
-  const refreshHistory = async () => {
-    await fetchHistoryData()
-  }
-
-  return {
-    historyItems,
-    loading,
-    error,
-    refreshHistory
-  }
+    return {
+        historyItems,
+        loading,
+        error,
+        refreshHistory,
+        page,
+        setPage
+    };
 }

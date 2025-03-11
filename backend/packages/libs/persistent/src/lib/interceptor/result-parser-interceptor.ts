@@ -20,7 +20,23 @@ export const createResultParserInterceptor = (): Interceptor => {
         return row;
       }
 
-      const validationResult = resultParser.safeParse(row);
+      // 处理数据类型转换
+      const transformedRow = Object.entries(row).reduce((acc, [key, value]) => {
+        if (typeof value === 'bigint') {
+          acc[key] = Number(value);
+        } else if (key.endsWith('_at') && typeof value === 'number') {
+          // 处理日期时间字段
+          acc[key] = new Date(value).toISOString();
+        } else if (typeof value === 'string' && value.endsWith('n')) {
+          // 处理数字字符串
+          acc[key] = Number(value.slice(0, -1));
+        } else {
+          acc[key] = value;
+        }
+        return acc;
+      }, {} as Record<string, unknown>);
+
+      const validationResult = resultParser.safeParse(transformedRow);
 
       if (validationResult.success === false) {
         logger.error(

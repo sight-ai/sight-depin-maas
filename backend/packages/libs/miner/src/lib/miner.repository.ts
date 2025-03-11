@@ -52,33 +52,51 @@ export class MinerRepository {
 
   async getTasks(
     conn: DatabaseTransactionConnection,
-    page: number,
-    limit: number
+    page: number | string,
+    limit: number | string
   ) {
-    const offset = (page - 1) * limit;
+    // 确保参数为数字类型
+    const parsedPage = Number(page);
+    const parsedLimit = Number(limit);
+    
+    if (isNaN(parsedPage) || isNaN(parsedLimit)) {
+      throw new Error('Invalid page or limit parameter');
+    }
 
-    // Fetch the total count of tasks
-    const total = await conn.one(SQL.type(z.number())`
-      select count(*) as total
+    const offset = (parsedPage - 1) * parsedLimit;
+
+    const { count } = await conn.one(SQL.type(
+      z.object({ count: z.number() })
+    )`
+      select cast(count(*) as integer) as count
       from saito_miner.tasks;
     `);
 
-    // Fetch the paginated tasks
-    const result = await conn.query(SQL.type(
-      m.miner('task'),
+    const tasks = await conn.any(SQL.type(
+      m.miner('task')
     )`
-      select *
+      select 
+        id,
+        model,
+        to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at,
+        status,
+        cast(total_duration as integer) as total_duration,
+        cast(load_duration as integer) as load_duration,
+        cast(prompt_eval_count as integer) as prompt_eval_count,
+        cast(prompt_eval_duration as integer) as prompt_eval_duration,
+        cast(eval_count as integer) as eval_count,
+        cast(eval_duration as integer) as eval_duration,
+        to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as updated_at
       from saito_miner.tasks
       order by created_at desc
-      limit ${limit} offset ${offset};
+      limit ${parsedLimit} offset ${offset};
     `);
 
-    // Return the response in the specified format
     return m.miner('task_history_response').parse({
-      page,
-      limit,
-      total, // Convert to number, since count returns a string
-      tasks: result.rows,
+      page: parsedPage,
+      limit: parsedLimit,
+      total: count,
+      tasks,
     });
   }
 }
