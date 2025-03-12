@@ -13,7 +13,8 @@ export const EarningInfo = z.object({
 
 export const Statistics = z.object({
   up_time_percentage: z.number(),
-  earning_serials: z.array(z.number())
+  earning_serials: z.array(z.number()),
+  task_activity: z.array(z.number())
 })
 
 export const Task = z.object({

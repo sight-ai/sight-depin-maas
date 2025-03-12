@@ -2,32 +2,12 @@
 
 import { useThemeCus } from '@/hooks/useTheme'
 import { Card } from '@nextui-org/react'
-import { useEffect, useState } from 'react'
-import { apiService } from '@/services/api'
+import { useDashboard } from '@/hooks/useDashboard'
 import { SummaryResponse } from '@/types/api'
 
-export function EarningsCard() {
+export function EarningsCard({summary, loading,
+    error,}: {summary: SummaryResponse | null, loading: boolean, error: string | null}) {
     let { isDark } = useThemeCus()
-    const [summary, setSummary] = useState<SummaryResponse | null>(null)
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
-
-    useEffect(() => {
-        const fetchSummary = async () => {
-            try {
-                setLoading(true)
-                setError(null)
-                const data = await apiService.getSummary()
-                setSummary(data)
-            } catch (err) {
-                console.error('Failed to fetch summary:', err)
-            } finally {
-                setLoading(false)
-            }
-        }
-
-        fetchSummary()
-    }, [])
 
     if (loading) {
         return (
@@ -67,7 +47,7 @@ export function EarningsCard() {
                     <div className="text-4xl font-bold text-black" style={{
                         color: isDark ? '#fff' : '#000',
                         fontFamily: 'Aldrich',
-                    }}>$ {summary?.earning_info.total_block_rewards || 0}</div>
+                    }}>$ {(summary?.earning_info.total_block_rewards || 0).toFixed(2)}</div>
                 </div>
                 <div className='flex items-center flex-1' style={{ backgroundColor: isDark ? '#000' : '#fff', padding: 15, borderRadius: 13 }}>
                     <div className="text-base text-black mb-1 mr-6" style={{
@@ -76,7 +56,7 @@ export function EarningsCard() {
                     <div className="text-4xl font-bold text-black" style={{
                         color: isDark ? '#fff' : '#000',
                         fontFamily: 'Aldrich'
-                    }}>$ {summary?.earning_info.total_job_rewards || 0}</div>
+                    }}>$ {(summary?.earning_info.total_job_rewards || 0).toFixed(2)}</div>
                 </div>
             </div>
         </Card>

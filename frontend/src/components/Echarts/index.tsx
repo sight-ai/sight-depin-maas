@@ -1,8 +1,12 @@
 import { useThemeCus } from '@/hooks/useTheme';
 import ReactECharts, { EChartsOption } from 'echarts-for-react';
+import { useDashboard } from '@/hooks/useDashboard';
+import { SummaryResponse } from '@/types/api';
 
-export default function () {
+export default function ({summary, loading,
+  error,}: {summary: SummaryResponse | null, loading: boolean, error: string | null}) {
   let { isDark } = useThemeCus()
+  const statistics = summary?.statistics
 
   const getTopViewOption = (): EChartsOption => ({
     tooltip: {
@@ -21,9 +25,11 @@ export default function () {
     xAxis: [{
       type: 'category',
       boundaryGap: false,
-      data: ['8\nFeb', '9\nFeb', '10\nFeb', '11\nFeb', '12\nFeb', '13\nFeb', '14\nFeb', '15\nFeb', 
-             '16\nFeb', '17\nFeb', '18\nFeb', '19\nFeb', '20\nFeb', '21\nFeb', '22\nFeb', '23\nFeb', 
-             '24\nFeb', '25\nFeb', '26\nFeb', '27\nFeb', '28\nFeb', '1\nMar', '2\nMar', '3\nMar', '4\nMar'],
+      data: Array.from({length: 30}, (_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() - (29 - i));
+        return `${date.getDate()}\n${date.toLocaleString('default', { month: 'short' })}`;
+      }),
       axisLabel: {
         color: isDark ? '#fff' :'#000',
         fontSize: 12,
@@ -38,7 +44,7 @@ export default function () {
     {
         type: 'category',
         boundaryGap: false,
-        data: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        data: statistics?.earning_serials || Array(30).fill(0),
         axisLabel: {
           color:  isDark ? '#fff' :'#000',
           fontSize: 12,
@@ -54,8 +60,8 @@ export default function () {
     yAxis: {
       type: 'value',
       min: 0,
-      max: 0.0,
-      interval: 0.0,
+      max: Math.max(...(statistics?.earning_serials || [0])) * 1.2,
+      interval: Math.max(...(statistics?.earning_serials || [0])) * 0.2,
       axisLabel: {
         color: isDark ? '#fff' :'#000',
         fontSize: 12
@@ -74,7 +80,7 @@ export default function () {
       }
     },
     series: [{
-      data: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      data: statistics?.earning_serials || Array(30).fill(0),
       type: 'line',
       smooth: false,
       symbol: 'circle',

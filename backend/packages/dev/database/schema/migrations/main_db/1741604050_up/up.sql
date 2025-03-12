@@ -35,3 +35,31 @@ create table saito_miner.tasks
     eval_duration        double precision,
     updated_at           timestamp not null default now()
 );
+
+table saito_miner.earnings ( 
+    id text primary key,
+    block_rewards double precision not null default 0,
+    job_rewards double precision not null default 0,
+    created_at timestamp not null default now(),
+    updated_at timestamp not null default now()
+);
+
+create table saito_miner.device_status (
+    id text primary key,
+    name text not null,
+    status text not null,
+    up_time_start timestamp,
+    up_time_end timestamp,
+    created_at timestamp not null default now(),
+    updated_at timestamp not null default now()
+);
+
+create trigger set_timestamp_earnings
+    before update on saito_miner.earnings
+    for each row
+execute procedure public.set_current_timestamp_updated_at();
+
+create trigger set_timestamp_device_status
+    before update on saito_miner.device_status
+    for each row
+execute procedure public.set_current_timestamp_updated_at();

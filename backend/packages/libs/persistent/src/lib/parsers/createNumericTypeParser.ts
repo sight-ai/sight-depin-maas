@@ -1,7 +1,7 @@
 import { TypeParser } from 'slonik';
 
 const numericParser = (value: string) => {
-  return BigInt(value);
+  return Number(value);
 };
 
 export const createNumericTypeParser = (): TypeParser => {

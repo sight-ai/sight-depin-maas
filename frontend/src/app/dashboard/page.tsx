@@ -13,7 +13,7 @@ import { useDashboard } from '@/hooks/useDashboard'
 import { useThemeCus } from '@/hooks/useTheme'
 
 export default function DashboardPage() {
-    const { statistics, refreshStatistics } = useDashboard()
+    const { summary,loading,error, refreshStatistics } = useDashboard()
     let { isDark } = useThemeCus()
 
     return (
@@ -30,11 +30,11 @@ export default function DashboardPage() {
             }}>Dashboard</div>
             <div className="flex justify-between items-start">
                 <div className="flex-1 flex">
-                    <EarningsCard />
-                    <DeviceCard />
+                    <EarningsCard summary={summary} loading={loading} error={error}/>
+                    <DeviceCard  summary={summary}  loading={loading} error={error}/>
                 </div>
             </div>
-            <UptimeCard />
+            <UptimeCard  summary={summary}  loading={loading} error={error}/>
             <Card className=' rounded-lg' style={{
                 backgroundColor: isDark ? '#1a1a1a':'#f6f6f6',
                 // height: '15rem'
@@ -58,7 +58,7 @@ export default function DashboardPage() {
                      height: '10rem',
                      marginTop: '2rem'
                    }}>
-                   <Echarts></Echarts>
+                   <Echarts  summary={summary} loading={loading} error={error}></Echarts>
                    </div>
                 </div>
             </Card>
