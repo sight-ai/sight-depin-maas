@@ -52,18 +52,11 @@ export class MinerRepository {
 
   async getTasks(
     conn: DatabaseTransactionConnection,
-    page: number | string,
-    limit: number | string
+    page: number,
+    limit: number
   ) {
-    // 确保参数为数字类型
-    const parsedPage = Number(page);
-    const parsedLimit = Number(limit);
-    
-    if (isNaN(parsedPage) || isNaN(parsedLimit)) {
-      throw new Error('Invalid page or limit parameter');
-    }
 
-    const offset = (parsedPage - 1) * parsedLimit;
+    const offset = (page - 1) * limit;
 
     const { count } = await conn.one(SQL.type(
       z.object({ count: z.number() })
@@ -75,7 +68,7 @@ export class MinerRepository {
     const tasks = await conn.any(SQL.type(
       m.miner('task')
     )`
-      select 
+      select
         id,
         model,
         to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at,
@@ -89,12 +82,12 @@ export class MinerRepository {
         to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as updated_at
       from saito_miner.tasks
       order by created_at desc
-      limit ${parsedLimit} offset ${offset};
+      limit ${limit} offset ${offset};
     `);
 
     return m.miner('task_history_response').parse({
-      page: parsedPage,
-      limit: parsedLimit,
+      page,
+      limit,
       total: count,
       tasks,
     });
