@@ -38,7 +38,7 @@ export class MinerController {
   }
 
   @Get('/history')
-  async getHistroy(@Query() query: SummaryQueryDto) {
+  async getHistory(@Query() query: SummaryQueryDto) {
     return this.minerService.getTaskHistory(query.page, query.limit);
   }
 
