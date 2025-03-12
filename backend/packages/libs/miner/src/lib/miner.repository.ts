@@ -55,36 +55,38 @@ export class MinerRepository {
     page: number,
     limit: number
   ) {
-
     const offset = (page - 1) * limit;
 
+    // Retrieve total count of tasks
     const { count } = await conn.one(SQL.type(
       z.object({ count: z.number() })
     )`
-      select cast(count(*) as integer) as count
-      from saito_miner.tasks;
-    `);
+    select count(*) as count
+    from saito_miner.tasks;
+  `);
 
+    // Fetch tasks without using to_char for date formatting
     const tasks = await conn.any(SQL.type(
       m.miner('task')
     )`
-      select
-        id,
-        model,
-        to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at,
-        status,
-        cast(total_duration as integer) as total_duration,
-        cast(load_duration as integer) as load_duration,
-        cast(prompt_eval_count as integer) as prompt_eval_count,
-        cast(prompt_eval_duration as integer) as prompt_eval_duration,
-        cast(eval_count as integer) as eval_count,
-        cast(eval_duration as integer) as eval_duration,
-        to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as updated_at
-      from saito_miner.tasks
-      order by created_at desc
-      limit ${limit} offset ${offset};
-    `);
+    select
+      id,
+      model,
+      created_at,
+      status,
+      total_duration,
+      load_duration,
+      prompt_eval_count,
+      prompt_eval_duration,
+      eval_count,
+      eval_duration,
+      updated_at
+    from saito_miner.tasks
+    order by created_at desc
+    limit ${limit} offset ${offset};
+  `);
 
+    // Parse and transform the data with the defined Zod schemas
     return m.miner('task_history_response').parse({
       page,
       limit,
@@ -92,4 +94,5 @@ export class MinerRepository {
       tasks,
     });
   }
+
 }

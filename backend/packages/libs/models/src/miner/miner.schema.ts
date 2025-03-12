@@ -19,14 +19,15 @@ export const Statistics = z.object({
 export const Task = z.object({
   id: z.string(),
   model: z.string(),
-  created_at: z.string(), // ISO 8601 timestamp
+  created_at: z.coerce.date().transform((date) => date.toISOString()),
   status: z.enum(['in-progress', 'failed', 'succeed']),
-  total_duration: z.number().optional(),
-  load_duration: z.number().optional(),
-  prompt_eval_count: z.number().optional(),
-  prompt_eval_duration: z.number().optional(),
-  eval_count: z.number().optional(),
-  eval_duration: z.number().optional(),
+  total_duration: z.coerce.number().optional(),
+  load_duration: z.coerce.number().optional(),
+  prompt_eval_count: z.coerce.number().optional(),
+  prompt_eval_duration: z.coerce.number().optional(),
+  eval_count: z.coerce.number().optional(),
+  eval_duration: z.coerce.number().optional(),
+  updated_at: z.coerce.date().transform((date) => date.toISOString()),
 });
 
 export const CreateTaskRequest = z.object({
