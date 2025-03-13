@@ -26,48 +26,42 @@ export class MinerRepository {
       })
     )`
       select 
-        cast(coalesce(sum(cast(block_rewards as FLOAT)), 0) as FLOAT) as total_block_rewards,
-        cast(coalesce(sum(cast(job_rewards as FLOAT)), 0) as FLOAT) as total_job_rewards
+        coalesce(sum(block_rewards::float), 0) as total_block_rewards,
+        coalesce(sum(job_rewards::float), 0) as total_job_rewards
       from saito_miner.earnings;
     `);
-    console.log(total_block_rewards.toString(), total_job_rewards.toString())
+
     // 获取设备状态
     const device = await conn.maybeOne(SQL.type(
       z.object({
         name: z.string(),
         status: z.string(),
-        up_time_start: z.number().nullable(), // 期望 number 类型
+        up_time_start: z.number().nullable(),
         up_time_end: z.number().nullable()
       })
     )`
       select 
         name, 
         status, 
-        extract(epoch from created_at) as up_time_start,
-        extract(epoch from updated_at) as up_time_end
+        extract(epoch from up_time_start)::bigint as up_time_start,
+        extract(epoch from up_time_end)::bigint as up_time_end
       from saito_miner.device_status
       order by updated_at desc
       limit 1;
     `);
 
-    // 计算运行时间百分比 - 基于每天是否有任务来统计
+    // 计算运行时间百分比
     const { uptime_percentage } = await conn.one(SQL.type(
       z.object({
         uptime_percentage: z.number()
       })
     )`
       select 
-        cast(
-          coalesce(
-            count(distinct date_trunc('day', created_at)) /
-            30.0 * 100,
-            0
-          ) as double precision
-        ) as uptime_percentage
+        count(distinct date_trunc('day', created_at))::float / 30.0 * 100 as uptime_percentage
       from saito_miner.tasks
       where created_at >= now() - interval '30 days';
     `);
-    console.log(uptime_percentage.toString())
+
     // 获取最近30天的收益数据
     const earnings = await conn.any(SQL.type(
       z.object({
@@ -82,7 +76,7 @@ export class MinerRepository {
         ) as day
       )
       select 
-        cast(coalesce(sum(cast(e.block_rewards as double precision) + cast(e.job_rewards as double precision)), 0) as double precision) as daily_earning
+        coalesce(sum(block_rewards::float + job_rewards::float), 0) as daily_earning
       from dates d
       left join saito_miner.earnings e
         on date_trunc('day', e.created_at) = d.day
@@ -94,8 +88,7 @@ export class MinerRepository {
       z.object({
         date: z.string(),
         task_count: z.number()
-      })
-    )`
+      }))`
       with dates as (
         select generate_series(
           date_trunc('day', now()) - interval '29 days',
@@ -105,7 +98,7 @@ export class MinerRepository {
       )
       select 
         to_char(d.day, 'YYYY-MM-DD') as date,
-        cast(count(t.id) as integer) as task_count
+        count(t.id) as task_count
       from dates d
       left join saito_miner.tasks t
         on date_trunc('day', t.created_at) = d.day
@@ -113,7 +106,6 @@ export class MinerRepository {
       order by d.day;
     `);
 
-    console.log(earnings.toString())
     return {
       earning_info: {
         total_block_rewards,

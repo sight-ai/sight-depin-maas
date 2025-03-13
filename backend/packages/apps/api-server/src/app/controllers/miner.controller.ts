@@ -3,23 +3,19 @@ import { MinerService } from "@saito/miner";
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 
-export class SummaryQueryDto extends createZodDto(
+export class HistoryQueryDto extends createZodDto(
   z.object({
-    page: z.preprocess(
-      (val) => (typeof val === 'string' ? parseInt(val, 10) : val),
-      z.number().refine((num) => !isNaN(num), {
-        message: 'page must be a valid number',
-      }),
-    ),
-    limit: z.preprocess(
-      (val) => (typeof val === 'string' ? parseInt(val, 10) : val),
-      z.number().refine((num) => !isNaN(num), {
-        message: 'limit must be a valid number',
-      }),
-    ),
-  }),
+    page: z.coerce.number().min(1).default(1),
+    limit: z.coerce.number().min(1).max(100).default(10)
+  })
 ) {}
 
+export class ChatRequestDto extends createZodDto(
+  z.object({
+    message: z.string().min(1).max(1000),
+    model: z.string().optional()
+  })
+) {}
 
 @Controller('/api/v1/miner')
 export class MinerController {
@@ -29,17 +25,19 @@ export class MinerController {
   ) {}
 
   @Get('/summary')
-  async getSummary(@Body() tx: any) {
+  async getSummary() {
     return this.minerService.getSummary();
   }
 
   @Post('/chat')
-  async generateChatResponse(@Body() args: any) {
+  async generateChatResponse(@Body() args: ChatRequestDto) {
+    this.logger.log(`Received chat request: ${args.message}`);
+    // TODO: Implement chat response generation
+    return { message: "Chat response generation not implemented yet" };
   }
 
   @Get('/history')
-  async getHistory(@Query() query: SummaryQueryDto) {
+  async getHistory(@Query() query: HistoryQueryDto) {
     return this.minerService.getTaskHistory(query.page, query.limit);
   }
-
 }

@@ -18,7 +18,6 @@ export class DefaultOllamaService implements OllamaService {
   ) {}
 
   async complete(args: ModelOfOllama<'generate_request'>): Promise<ModelOfOllama<'generate_response'>> {
-    // 创建任务记录
     const task = await this.minerService.createTask({
       model: args.model,
       status: 'in-progress',
@@ -29,6 +28,7 @@ export class DefaultOllamaService implements OllamaService {
       eval_count: 0,
       eval_duration: 0,
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     });
 
     try {
@@ -38,7 +38,6 @@ export class DefaultOllamaService implements OllamaService {
 
       const data = m.ollama('generate_response').parse(response);
       
-      // 更新任务状态和统计信息
       await this.minerService.updateTask(task.id, {
         status: 'succeed',
         total_duration: data.total_duration,
@@ -51,7 +50,6 @@ export class DefaultOllamaService implements OllamaService {
 
       return data;
     } catch (error) {
-      // 更新任务失败状态
       await this.minerService.updateTask(task.id, {
         status: 'failed'
       });

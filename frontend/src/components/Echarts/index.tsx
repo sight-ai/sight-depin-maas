@@ -17,8 +17,8 @@ export default function ({summary, loading,
     },
     grid: {
     top: 0,
-      left: '1%',
-      right: '1%',
+      left: '2%',
+      right: '2%',
       bottom: '3%',
       containLabel: true
     },
@@ -44,7 +44,7 @@ export default function ({summary, loading,
     {
         type: 'category',
         boundaryGap: false,
-        data: statistics?.earning_serials || Array(30).fill(0),
+        data: statistics?.earning_serials.map(value => Number(value).toFixed(2))  || Array(30).fill(0),
         axisLabel: {
           color:  isDark ? '#fff' :'#000',
           fontSize: 12,
@@ -63,14 +63,10 @@ export default function ({summary, loading,
       max: Math.max(...(statistics?.earning_serials || [0])) * 1.2,
       interval: Math.max(...(statistics?.earning_serials || [0])) * 0.2,
       axisLabel: {
-        color: isDark ? '#fff' :'#000',
-        fontSize: 12
+        show: false
       },
       axisLine: {
-        show: true,
-        lineStyle: {
-          color: '#E5E7EB'
-        }
+        show: false
       },
       splitLine: {
         lineStyle: {
@@ -80,7 +76,7 @@ export default function ({summary, loading,
       }
     },
     series: [{
-      data: statistics?.earning_serials || Array(30).fill(0),
+      data: statistics?.earning_serials ? statistics?.earning_serials.map(value => Number(value).toFixed(2)) :  Array(30).fill(0),
       type: 'line',
       smooth: false,
       symbol: 'circle',

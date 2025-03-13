@@ -33,7 +33,7 @@ export function UptimeCard({summary, loading,
                                 <div key={index} style={{
                                     width: '2rem',
                                     height: '2rem',
-                                    backgroundColor: item === 0 ? '#E5E7EB' : item === 1 ? '#0800ff' : '#807cfc',
+                                    backgroundColor: item === 0 ? '#E5E7EB' : item >= 10 ? '#0800ff' : '#807cfc',
                                     borderRadius: '0.3rem',
                                     marginRight: '0.4rem'
                                 }}></div>
