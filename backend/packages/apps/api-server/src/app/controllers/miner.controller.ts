@@ -10,13 +10,6 @@ export class HistoryQueryDto extends createZodDto(
   })
 ) {}
 
-export class ChatRequestDto extends createZodDto(
-  z.object({
-    message: z.string().min(1).max(1000),
-    model: z.string().optional()
-  })
-) {}
-
 @Controller('/api/v1/miner')
 export class MinerController {
   private readonly logger = new Logger(MinerController.name);
@@ -30,10 +23,7 @@ export class MinerController {
   }
 
   @Post('/chat')
-  async generateChatResponse(@Body() args: ChatRequestDto) {
-    this.logger.log(`Received chat request: ${args.message}`);
-    // TODO: Implement chat response generation
-    return { message: "Chat response generation not implemented yet" };
+  async generateChatResponse(@Body() args: any) {
   }
 
   @Get('/history')
