@@ -136,14 +136,30 @@ export class MinerRepository {
       m.miner('task'),
     )`
     insert into saito_miner.tasks (
+      id,
       model,
       created_at,
-      status
+      updated_at,
+      status,
+      total_duration,
+      load_duration,
+      prompt_eval_count,
+      prompt_eval_duration,
+      eval_count,
+      eval_duration
     )
     values (
+      gen_random_uuid(),
       ${input.model},
       now(),
-      'in-progress'
+      now(),
+      'in-progress',
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
     )
     returning *;
   `);

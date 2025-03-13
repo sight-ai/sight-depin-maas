@@ -20,7 +20,15 @@ export class DefaultOllamaService implements OllamaService {
   async complete(args: ModelOfOllama<'generate_request'>): Promise<ModelOfOllama<'generate_response'>> {
     // 创建任务记录
     const task = await this.minerService.createTask({
-      model: args.model
+      model: args.model,
+      status: 'in-progress',
+      total_duration: 0,
+      load_duration: 0,
+      prompt_eval_count: 0,
+      prompt_eval_duration: 0,
+      eval_count: 0,
+      eval_duration: 0,
+      created_at: new Date().toISOString(),
     });
 
     try {

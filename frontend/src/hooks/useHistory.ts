@@ -20,7 +20,7 @@ export function useHistory() {
             // 转换响应数据格式
             const items: HistoryItem[] = response.tasks.map(task => ({
                 status: task.status === 'in-progress' ? 'In-Progress' :
-                    task.status === 'done' ? 'Done' : 'Failed',
+                    task.status === 'succeed' ? 'Done' : 'Failed',
                 requestId: task.id,
                 tokenUsage: `${task.prompt_eval_count + task.eval_count}`,
                 reward: `$${((task.total_duration || 0) * 0.1).toFixed(2)}`
@@ -42,7 +42,7 @@ export function useHistory() {
             const response = await apiService.refreshHistory({ page: 1, limit });
             setHistoryItems(response.tasks.map(task => ({
                 status: task.status === 'in-progress' ? 'In-Progress' :
-                    task.status === 'done' ? 'Done' : 'Failed',
+                    task.status === 'succeed' ? 'Done' : 'Failed',
                 requestId: task.id,
                 tokenUsage: `${task.prompt_eval_count + task.eval_count}`,
                 reward: `$${((task.total_duration || 0) * 0.1).toFixed(2)}`

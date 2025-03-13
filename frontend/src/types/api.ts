@@ -9,7 +9,7 @@ export interface Task {
     id: string;
     model: string;
     created_at: string;
-    status: 'in-progress' | 'done' | 'failed';
+    status: 'in-progress' | 'succeed' | 'failed';
     total_duration: number;
     load_duration: number;
     prompt_eval_count: number;
