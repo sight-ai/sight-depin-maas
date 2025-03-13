@@ -21,5 +21,13 @@ export const apiService = {
 
     async getSummary(): Promise<SummaryResponse> {
         return request<SummaryResponse>('/miner/summary');
+    },
+    
+    async sendDeviceStatus(data:any) {
+        return request('/miner/deviceStatus', {method: 'POST', body:JSON.stringify(data)});
+    },
+    
+    async getDeviceStatus() {
+        return request('/miner/deviceStatus?deviceId=1', {method: 'GET'});
     }
 };

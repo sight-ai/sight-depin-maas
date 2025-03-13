@@ -2,6 +2,8 @@ import { API_CONFIG } from '@/config/api'
 
 interface RequestOptions extends RequestInit {
     timeout?: number;
+    query?: Record<string, string>;
+    data?: Record<string, any>;
 }
 
 export class RequestError extends Error {

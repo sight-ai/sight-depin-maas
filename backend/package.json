@@ -67,6 +67,7 @@
   },
   "devDependencies": {
     "@milahu/patch-package": "^6.4.14",
+    "@nestjs/schedule": "^5.0.1",
     "@nestjs/schematics": "^10.0.3",
     "@nestjs/testing": "^10.2.10",
     "@nx-tools/container-metadata": "^5.1.0",

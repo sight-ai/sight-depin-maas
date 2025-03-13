@@ -42,9 +42,9 @@ CREATE TABLE saito_miner.earnings (
 );
 
 CREATE TABLE saito_miner.device_status (
-    id text PRIMARY KEY,
     name text NOT NULL,
     status text NOT NULL,
+    device_id text NOT NULL,
     up_time_start timestamp,
     up_time_end timestamp,
     created_at timestamp NOT NULL DEFAULT now(),

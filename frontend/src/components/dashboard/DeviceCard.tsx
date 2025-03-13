@@ -6,12 +6,15 @@ import Image from 'next/image'
 import { useThemeCus } from '@/hooks/useTheme'
 import { useDashboard } from '@/hooks/useDashboard'
 import { SummaryResponse } from '@/types/api'
+import { useDevice } from '@/hooks/useDeviceStatus'
 
 export function DeviceCard({summary, loading,
     error,}: {summary: SummaryResponse | null, loading: boolean, error: string | null}) {
     let { isDark } = useThemeCus()
     const deviceInfo = summary?.device_info
-
+    let {
+        data
+    } = useDevice()
     return (
         <Card className="p-8 bg-white ml-6 flex-1 " style={{
             backgroundColor: isDark ? '#1a1a1a' : '#f6f6f6',
@@ -35,7 +38,7 @@ export function DeviceCard({summary, loading,
                                 }}>Device</div>
                                 <div className="text-base text-black font-ibm-mono" style={{
                                     color: isDark ? '#fff' : '#000',
-                                }}>{deviceInfo?.name || 'Unknown Device'}</div>
+                                }}>{data?.name || 'Unknown Device'}</div>
                             </div>
                             <div className="flex items-center gap-3">
                                 <div className="text-base font-semibold text-black font-ibm-mono" style={{
@@ -43,7 +46,7 @@ export function DeviceCard({summary, loading,
                                 }}>Status</div>
                                 <div className="text-base text-black font-ibm-mono" style={{
                                     color: isDark ? '#fff' : '#000',
-                                }}>{deviceInfo?.status === 'connected' ? 'Online' : 'Offline'}</div>
+                                }}>{data.status}</div>
                             </div>
 
 
@@ -63,7 +66,7 @@ export function DeviceCard({summary, loading,
                                         <span style={{
                                             color: isDark ? '#000' : '#fff',
 
-                                        }}>Connect</span></span>
+                                        }}>{data.status == 'online' ? 'connected' : 'disconnect'}</span></span>
                                 </Button>
                             </div></>)}
             </div>

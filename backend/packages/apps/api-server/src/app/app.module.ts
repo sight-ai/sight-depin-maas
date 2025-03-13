@@ -5,12 +5,13 @@ import { IndexController } from './controllers/index.controller';
 import { KeeperController } from "./controllers/keeper.controller";
 import { KeeperModule } from "@saito/keeper";
 import { OllamaModule } from "@saito/ollama";
+import { DeviceStatusModule } from "@saito/device-status";
 import { ModelController } from "./controllers/model.controller";
 import { MinerController } from "./controllers/miner.controller";
 import { MinerModule } from "@saito/miner";
 
 @Module({
-  imports: [KeeperModule, OllamaModule, MinerModule],
+  imports: [KeeperModule, OllamaModule, MinerModule, DeviceStatusModule],
   controllers: [IndexController, KeeperController, ModelController, MinerController],
   providers: [
     {
