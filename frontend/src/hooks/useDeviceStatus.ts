@@ -24,10 +24,6 @@ export function useDevice() {
   }
   
   const fetchDashboardData = async () => {
-    await apiService.sendDeviceStatus({
-      deviceId: '1',
-      name: getDeviceName()
-    })
     let data:any = await apiService.getDeviceStatus()
     console.log(data)
     setData(data)

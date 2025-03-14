@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-// 定义设备状态数据结构
 export const DeviceStatusSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -12,5 +11,27 @@ export const DeviceStatusSchema = z.object({
   updated_at: z.string(),
 });
 
-// 设备状态类型
 export type DeviceStatus = z.infer<typeof DeviceStatusSchema>;
+
+export const UpdateDeviceStatusSchema = z.object({
+  deviceId: z.string(),
+  name: z.string(),
+  status: z.enum(["online", "offline"]),
+  now: z.string()
+});
+
+export const FindDeviceStatusSchema = z.object({
+  name: z.string(),
+  status: z.enum(["online", "offline"]),
+});
+
+export const MarkDevicesOfflineSchema = z.object({
+  thresholdTimeStr: z.string()
+});
+
+export const DeviceSchema = {
+  DeviceStatusSchema,
+  UpdateDeviceStatusSchema,
+  FindDeviceStatusSchema,
+  MarkDevicesOfflineSchema
+}

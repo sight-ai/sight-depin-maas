@@ -9,8 +9,6 @@ export class DefaultOllamaService implements OllamaService {
 
   private readonly logger = new Logger(OllamaService.name);
 
-  // TODO: make it load from env
-  private readonly apiUrl = 'http://localhost:11434/api/generate';
 
   constructor(
     @Inject(MinerService)
@@ -32,7 +30,7 @@ export class DefaultOllamaService implements OllamaService {
     });
 
     try {
-      const response = await got.post(this.apiUrl, {
+      const response = await got.post(`${process.env['OLLAMA_API_URL']}api/generate`, {
         json: args,
       }).json();
 
@@ -54,6 +52,26 @@ export class DefaultOllamaService implements OllamaService {
         status: 'failed'
       });
       throw error;
+    }
+  }
+
+  
+  async checkStatus(): Promise<boolean> {
+    try {
+      const response = await got.post(`${process.env['OLLAMA_API_URL']}api/generate`, {
+        timeout: {
+          request: 10000,
+          connect: 2000, 
+          response: 8000,
+        },
+        json: {"model": process.env['OLLAMA_MODEL']}
+      }).json();
+      console.log(response)
+      console.log(true)
+      return !!response;
+    } catch {
+      console.log(false)
+      return false;
     }
   }
 }

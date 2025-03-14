@@ -28,6 +28,6 @@ export const apiService = {
     },
     
     async getDeviceStatus() {
-        return request('/miner/deviceStatus?deviceId=1', {method: 'GET'});
+        return request('/miner/deviceStatus?deviceId=ollama-1', {method: 'GET'});
     }
 };

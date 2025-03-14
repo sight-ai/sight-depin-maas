@@ -57,12 +57,69 @@ export const Summary = z.object({
   statistics: Statistics,
 })
 
+
+// 定义收益信息类型
+const MinerEarningSchema = z.object({
+  total_block_rewards: z.number(),
+  total_job_rewards: z.number(),
+});
+
+// 定义设备状态类型
+const MinerDeviceStatusSchema = z.object({
+  name: z.string(),
+  status: z.string(),
+  up_time_start: z.number().nullable(),
+  up_time_end: z.number().nullable(),
+});
+
+// 定义运行时间统计
+const MinerUptimeSchema = z.object({
+  uptime_percentage: z.number(),
+});
+
+// 定义收益记录
+const MinerEarningsHistorySchema = z.object({
+  daily_earning: z.number(),
+});
+
+// 定义任务活动记录
+const MinerTaskActivitySchema = z.object({
+  date: z.string(),
+  task_count: z.number(),
+});
+
+// 定义任务请求
+const MinerTaskSchema = z.object({
+  id: z.string(),
+  model: z.string(),
+  created_at: z.date(),
+  updated_at: z.date(),
+  status: z.string(),
+  total_duration: z.number(),
+  load_duration: z.number(),
+  prompt_eval_count: z.number(),
+  prompt_eval_duration: z.number(),
+  eval_count: z.number(),
+  eval_duration: z.number(),
+});
+
+const TaskCountSchema = z.object({
+  count: z.number(),
+});
+
 export const MinerModel = {
   earning_info: EarningInfo,
   device_info: DeviceInfo,
   statistics: Statistics,
   task: Task,
   summary: Summary,
+  minerEarning: MinerEarningSchema,
+  minerDeviceStatus: MinerDeviceStatusSchema,
+  minerUptime: MinerUptimeSchema,
+  minerEarningsHistory: MinerEarningsHistorySchema,
+  minerTaskActivity: MinerTaskActivitySchema,
+  minerTask: MinerTaskSchema,
+  taskCount: TaskCountSchema,
 
   // API
   create_task_request: CreateTaskRequest,

@@ -6,7 +6,7 @@ import { OpenAIModel } from './openai/openai.schema';
 import { SaitoMemorySchema } from "./db/saito_memory.model";
 import { OllamaModel } from "./ollama/ollama.schema";
 import { MinerModel } from "./miner/miner.schema";
-import { DeviceStatusSchema } from './device-status/device-status.schema';
+import { DeviceSchema } from './device-status/device-status.schema';
 export { ModelOfOpenAI } from './openai/openai.schema';
 
 const Models = {
@@ -47,8 +47,8 @@ export const m = {
   memory<T extends keyof typeof Models.memory>(type: T) {
     return Models.memory[type];
   },
-  deviceStatus<T extends keyof typeof DeviceStatusSchema>(type: T) {
-    return DeviceStatusSchema[type];
+  deviceStatus<T extends keyof typeof DeviceSchema>(type: T) {
+    return DeviceSchema[type];
   }
 };
 

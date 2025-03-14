@@ -9,7 +9,7 @@ export class MinerRepository {
   constructor(
     @Inject(PersistentService)
     private readonly persistentService: PersistentService,
-  ) {}
+  ) { }
 
   async transaction<T>(
     handler: (conn: DatabaseTransactionConnection) => Promise<T>,
@@ -20,10 +20,7 @@ export class MinerRepository {
   async getSummary(conn: DatabaseTransactionConnection): Promise<ModelOfMiner<'summary'>> {
     // 获取收益信息
     const { total_block_rewards, total_job_rewards } = await conn.one(SQL.type(
-      z.object({
-        total_block_rewards: z.number(),
-        total_job_rewards: z.number()
-      })
+      m.miner('minerEarning')
     )`
       select 
         coalesce(sum(block_rewards::float), 0) as total_block_rewards,
@@ -33,12 +30,7 @@ export class MinerRepository {
 
     // 获取设备状态
     const device = await conn.maybeOne(SQL.type(
-      z.object({
-        name: z.string(),
-        status: z.string(),
-        up_time_start: z.number().nullable(),
-        up_time_end: z.number().nullable()
-      })
+      m.miner('minerDeviceStatus')
     )`
       select 
         name, 
@@ -52,9 +44,7 @@ export class MinerRepository {
 
     // 计算运行时间百分比
     const { uptime_percentage } = await conn.one(SQL.type(
-      z.object({
-        uptime_percentage: z.number()
-      })
+      m.miner('minerUptime')
     )`
       select 
         count(distinct date_trunc('day', created_at))::float / 30.0 * 100 as uptime_percentage
@@ -64,9 +54,7 @@ export class MinerRepository {
 
     // 获取最近30天的收益数据
     const earnings = await conn.any(SQL.type(
-      z.object({
-        daily_earning: z.number()
-      })
+      m.miner('minerEarningsHistory')
     )`
       with dates as (
         select generate_series(
@@ -85,10 +73,8 @@ export class MinerRepository {
     `);
 
     const taskActivity = await conn.any(SQL.type(
-      z.object({
-        date: z.string(),
-        task_count: z.number()
-      }))`
+      m.miner('minerTaskActivity')
+    )`
       with dates as (
         select generate_series(
           date_trunc('day', now()) - interval '29 days',
@@ -205,7 +191,7 @@ export class MinerRepository {
 
     // Retrieve total count of tasks
     const { count } = await conn.one(SQL.type(
-      z.object({ count: z.number() })
+      m.miner('taskCount')
     )`
     select count(*) as count
     from saito_miner.tasks;
