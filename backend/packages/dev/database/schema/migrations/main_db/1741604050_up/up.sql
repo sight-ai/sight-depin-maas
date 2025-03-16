@@ -51,6 +51,7 @@ CREATE TABLE saito_miner.device_status (
     updated_at timestamp NOT NULL DEFAULT now()
 );
 
+
 CREATE TRIGGER set_timestamp_earnings
     BEFORE UPDATE ON saito_miner.earnings
     FOR EACH ROW

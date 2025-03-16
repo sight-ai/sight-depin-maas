@@ -6,7 +6,7 @@ import { ThemeSwitch } from './sidebar/ThemeSwitch'
 import { useThemeCus } from '@/hooks/useTheme'
 
 export function Sidebar() {
-    let { isDark } = useThemeCus()
+    const { isDark } = useThemeCus()
     return (
         <aside style={{
             width: '16rem', position: 'fixed', top: 0, left: 0, overflow: 'hidden',

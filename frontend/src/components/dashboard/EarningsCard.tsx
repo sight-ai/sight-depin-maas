@@ -2,12 +2,11 @@
 
 import { useThemeCus } from '@/hooks/useTheme'
 import { Card } from '@nextui-org/react'
-import { useDashboard } from '@/hooks/useDashboard'
 import { SummaryResponse } from '@/types/api'
 
 export function EarningsCard({summary, loading,
     error,}: {summary: SummaryResponse | null, loading: boolean, error: string | null}) {
-    let { isDark } = useThemeCus()
+        const { isDark } = useThemeCus()
 
     if (loading) {
         return (

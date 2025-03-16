@@ -50,7 +50,7 @@ const navigation = [
 
 export function Navigation() {
     const pathname = usePathname()
-    let { isDark } = useThemeCus()
+    const { isDark } = useThemeCus()
 
     return (
         <nav className='flex flex-col items-center w-full'>

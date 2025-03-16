@@ -27,7 +27,7 @@ export function useHistory() {
             }));
             console.log(items)
             setHistoryItems(items);
-        } catch (err) {
+        } catch {
             // setError(err.message);
         } finally {
             setLoading(false);
@@ -47,7 +47,7 @@ export function useHistory() {
                 tokenUsage: `${task.prompt_eval_count + task.eval_count}`,
                 reward: `$${((task.total_duration || 0) * 0.1).toFixed(2)}`
             })));
-        } catch (err) {
+        } catch {
             // setError(err.message)
         } finally {
             setLoading(false);

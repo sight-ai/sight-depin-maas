@@ -4,15 +4,14 @@ import { Card } from '@nextui-org/react'
 import { Button } from '@nextui-org/button'
 import Image from 'next/image'
 import { useThemeCus } from '@/hooks/useTheme'
-import { useDashboard } from '@/hooks/useDashboard'
 import { SummaryResponse } from '@/types/api'
 import { useDevice } from '@/hooks/useDeviceStatus'
 
 export function DeviceCard({summary, loading,
     error,}: {summary: SummaryResponse | null, loading: boolean, error: string | null}) {
-    let { isDark } = useThemeCus()
+    const { isDark } = useThemeCus()
     const deviceInfo = summary?.device_info
-    let {
+    const {
         data
     } = useDevice()
     return (

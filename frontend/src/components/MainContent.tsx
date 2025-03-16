@@ -4,7 +4,7 @@ import { Sidebar } from '@/components/Sidebar'
 import { useThemeCus } from '@/hooks/useTheme'
 
 export function MainContent({children}: { children: React.ReactNode}) {
-  let { isDark } = useThemeCus()
+  const { isDark } = useThemeCus()
 
   return (
     <div className="flex h-full bg-primary-light">

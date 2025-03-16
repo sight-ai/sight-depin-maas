@@ -2,7 +2,7 @@ import { useThemeCus } from '@/hooks/useTheme'
 import Image from 'next/image'
 
 export const Header = () => {
-    let { isDark } = useThemeCus()
+    const { isDark } = useThemeCus()
 
     return <div className="flex justify-end gap-5">
     <div className="flex items-center gap-3 h-20">

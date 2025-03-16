@@ -1,11 +1,9 @@
 import { useThemeCus } from '@/hooks/useTheme';
 import ReactECharts, { EChartsOption } from 'echarts-for-react';
-import { useDashboard } from '@/hooks/useDashboard';
 import { SummaryResponse } from '@/types/api';
 
-export default function ({summary, loading,
-  error,}: {summary: SummaryResponse | null, loading: boolean, error: string | null}) {
-  let { isDark } = useThemeCus()
+export default function ({summary}: {summary: SummaryResponse | null}) {
+  const { isDark } = useThemeCus()
   const statistics = summary?.statistics
 
   const getTopViewOption = (): EChartsOption => ({

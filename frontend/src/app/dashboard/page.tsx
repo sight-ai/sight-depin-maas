@@ -14,7 +14,7 @@ import { useThemeCus } from '@/hooks/useTheme'
 
 export default function DashboardPage() {
     const { summary,loading,error, refreshStatistics } = useDashboard()
-    let { isDark } = useThemeCus()
+    const { isDark } = useThemeCus()
 
     return (
       <MainContent>
@@ -58,7 +58,7 @@ export default function DashboardPage() {
                      height: '10rem',
                      marginTop: '2rem'
                    }}>
-                   <Echarts  summary={summary} loading={loading} error={error}></Echarts>
+                   <Echarts  summary={summary} ></Echarts>
                    </div>
                 </div>
             </Card>

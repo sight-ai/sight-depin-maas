@@ -1,7 +1,6 @@
 'use client'
 
 import { useThemeCus } from '@/hooks/useTheme'
-import { Switch } from '@nextui-org/switch'
 
 export function ThemeSwitch() {
     const { theme, setTheme } = useThemeCus()

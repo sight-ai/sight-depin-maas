@@ -60,9 +60,9 @@ export class DefaultOllamaService implements OllamaService {
     try {
       const response = await got.post(`${process.env['OLLAMA_API_URL']}api/generate`, {
         timeout: {
-          request: 10000,
+          request: 20000,
           connect: 2000, 
-          response: 8000,
+          response: 18000,
         },
         json: {"model": process.env['OLLAMA_MODEL']}
       }).json();

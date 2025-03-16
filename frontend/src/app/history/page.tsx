@@ -7,8 +7,8 @@ import { useHistory } from '@/hooks/useHistory'
 import { useThemeCus } from '@/hooks/useTheme'
 
 export default function HistoryPage() {
-    const { historyItems, loading, error, refreshHistory } = useHistory()
-    let { isDark } = useThemeCus()
+    const { historyItems, loading, error } = useHistory()
+    const { isDark } = useThemeCus()
 
     return (
         <MainContent>
