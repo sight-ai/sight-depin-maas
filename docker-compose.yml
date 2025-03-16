@@ -1,36 +1,27 @@
+version: '3'
+
 services:
-  sight-miner-frontend:
-    image: gcr.io/celtic-descent-398803/sight-miner-frontend:0.0.1-SNAPSHOT
-    ports:
-      - "3000:3000"
-    networks:
-      - app-network
-    environment:
-      - NODE_ENV=development
-    env_file:
-      - ${FRONTEND_PATH}/.env
   sight-miner-backend:
-    image: gcr.io/celtic-descent-398803/sight-miner-backend:0.0.1-SNAPSHOT
+    image: gcr.io/celtic-descent-398803/sight-miner-backend:0.0.2-SNAPSHOT
     ports:
       - "8716:8716"
     networks:
       - app-network
-    environment:
-      - NODE_ENV=development
-    env_file:
-      - ${BACKEND_PATH}/.env
-  postgres:
-    image: postgres:15.5-alpine
+
+  sight-miner-frontend:
+    image: gcr.io/celtic-descent-398803/sight-miner-frontend:0.0.2-SNAPSHOT
+    ports:
+      - "3000:3000"
+    networks:
+      - app-network
+
+  sight-miner-postgres:
+    image: gcr.io/celtic-descent-398803/sight-miner-postgres:0.0.1-SNAPSHOT
     container_name: postgres-db
     ports:
       - "7543:5432"
-    environment:
-      - POSTGRES_DB=saito_db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ${SQL_SCRIPT_PATH}:/docker-entrypoint-initdb.d/1741604050_up.sql
     networks:
       - app-network
 
@@ -40,6 +31,4 @@ networks:
 
 volumes:
   postgres-data:
-    driver: local
-  ollama_data:
     driver: local

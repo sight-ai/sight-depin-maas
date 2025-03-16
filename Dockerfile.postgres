@@ -1,0 +1,12 @@
+FROM postgres:15.5-alpine
+
+# 设置工作目录
+WORKDIR /
+ENV POSTGRES_DB=saito_db
+ENV POSTGRES_USER=postgres
+ENV POSTGRES_PASSWORD=postgres
+# 复制 SQL 脚本
+COPY /backend/packages/dev/database/schema/migrations/main_db/1741604050_up/up.sql /docker-entrypoint-initdb.d/up.sql
+
+# 确保 PostgreSQL 用户有权限执行
+RUN chmod 644 /docker-entrypoint-initdb.d/up.sql
