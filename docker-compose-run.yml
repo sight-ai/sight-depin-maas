@@ -1,31 +1,22 @@
+version: '3'
+
 services:
   sight-miner-backend:
-    build:
-      context: ${BACKEND_PATH} 
-      dockerfile: Dockerfile 
+    image: gcr.io/celtic-descent-398803/sight-miner-backend:0.0.2-SNAPSHOT
     ports:
       - "8716:8716"
-    volumes:
-      - .:/app
     networks:
       - app-network
 
-
   sight-miner-frontend:
-    build:
-      context: ${FRONTEND_PATH}
-      dockerfile: Dockerfile 
+    image: gcr.io/celtic-descent-398803/sight-miner-frontend:0.0.2-SNAPSHOT
     ports:
-      - "3000:3000" 
-    volumes:
-      - .:/app
+      - "3000:3000"
     networks:
       - app-network
 
   sight-miner-postgres:
-    build:
-      context: .
-      dockerfile: Dockerfile.postgres
+    image: gcr.io/celtic-descent-398803/sight-miner-postgres:0.0.1-SNAPSHOT
     container_name: postgres-db
     ports:
       - "7543:5432"
@@ -40,6 +31,4 @@ networks:
 
 volumes:
   postgres-data:
-    driver: local
-  ollama_data:
     driver: local
