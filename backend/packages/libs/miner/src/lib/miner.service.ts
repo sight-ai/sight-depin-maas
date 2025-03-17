@@ -1,8 +1,7 @@
-import { DeviceInfo, EarningInfo, JSONType, ModelOfMiner, Statistics } from "@saito/models";
+import { DeviceInfo, EarningInfo, JSONType, ModelOfMiner, Statistics, Task } from "@saito/models";
 import { MinerService } from "./miner.interface";
 import { MinerRepository } from "./miner.repository";
 import { Inject } from "@nestjs/common";
-
 export class DefaultMinerService implements MinerService {
 
   constructor(@Inject(MinerRepository) private readonly repository: MinerRepository) {}
@@ -20,17 +19,8 @@ export class DefaultMinerService implements MinerService {
   }
 
   async getSummary(): Promise<ModelOfMiner<'summary'>> {
-    return Promise.resolve({
-      earning_info: {total_block_rewards: 0,
-        total_job_rewards: 0},
-      device_info: {
-        name: 'Macbook 9999',
-        status: 'connected'
-      },
-      statistics: {
-        up_time_percentage: 0,
-        earning_serials: new Array(30).fill(0)
-      },
+    return this.repository.transaction(async conn => {
+      return this.repository.getSummary(conn);
     })
   }
 
@@ -40,6 +30,11 @@ export class DefaultMinerService implements MinerService {
     })
   }
 
+  updateTask(id: string, updates: Partial<ModelOfMiner<'task'>>) {
+    return this.repository.transaction(async conn => {
+      return this.repository.updateTask(conn, id, updates);
+    })
+  }
 }
 
 export const MinerServiceProvider = {

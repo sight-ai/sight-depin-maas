@@ -1,0 +1,6 @@
+{
+  "model": "llama2",
+  "prompt": "你好，请介绍一下你自己。",
+  "stream": false,
+  "raw": false
+}

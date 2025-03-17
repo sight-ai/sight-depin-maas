@@ -1,0 +1,36 @@
+{
+  "name": "device-status",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/libs/device-status/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/libs/device-status",
+        "main": "packages/libs/device-status/src/index.ts",
+        "tsConfig": "packages/libs/device-status/tsconfig.lib.json",
+        "assets": ["packages/libs/device-status/*.md"]
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "packages/libs/device-status/**/*.ts",
+          "packages/libs/device-status/package.json"
+        ]
+      }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "packages/libs/device-status/jest.config.ts"
+      }
+    }
+  },
+  "tags": []
+}

@@ -1,7 +1,7 @@
 import { TypeParser } from 'slonik';
 
 const bigintParser = (value: string) => {
-  return BigInt(value);
+  return Number(value);
 };
 
 // SELECT oid, typarray, typname FROM pg_type

@@ -5,4 +5,6 @@ export * from './openai/openai.schema';
 export * from './ollama/ollama.schema';
 export * from './miner/miner.schema';
 export * from './utils';
-export * from './db'
+export * from './db';
+export * from './device-status/device-status.schema'
+

@@ -1,8 +1,10 @@
 import { useThemeCus } from '@/hooks/useTheme';
 import ReactECharts, { EChartsOption } from 'echarts-for-react';
+import { SummaryResponse } from '@/types/api';
 
-export default function () {
-  let { isDark } = useThemeCus()
+export default function ({summary}: {summary: SummaryResponse | null}) {
+  const { isDark } = useThemeCus()
+  const statistics = summary?.statistics
 
   const getTopViewOption = (): EChartsOption => ({
     tooltip: {
@@ -13,17 +15,19 @@ export default function () {
     },
     grid: {
     top: 0,
-      left: '1%',
-      right: '1%',
+      left: '2%',
+      right: '2%',
       bottom: '3%',
       containLabel: true
     },
     xAxis: [{
       type: 'category',
       boundaryGap: false,
-      data: ['8\nFeb', '9\nFeb', '10\nFeb', '11\nFeb', '12\nFeb', '13\nFeb', '14\nFeb', '15\nFeb', 
-             '16\nFeb', '17\nFeb', '18\nFeb', '19\nFeb', '20\nFeb', '21\nFeb', '22\nFeb', '23\nFeb', 
-             '24\nFeb', '25\nFeb', '26\nFeb', '27\nFeb', '28\nFeb', '1\nMar', '2\nMar', '3\nMar', '4\nMar'],
+      data: Array.from({length: 30}, (_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() - (29 - i));
+        return `${date.getDate()}\n${date.toLocaleString('default', { month: 'short' })}`;
+      }),
       axisLabel: {
         color: isDark ? '#fff' :'#000',
         fontSize: 12,
@@ -38,7 +42,7 @@ export default function () {
     {
         type: 'category',
         boundaryGap: false,
-        data: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        data: statistics?.earning_serials.map(value => Number(value).toFixed(2))  || Array(30).fill(0),
         axisLabel: {
           color:  isDark ? '#fff' :'#000',
           fontSize: 12,
@@ -54,17 +58,13 @@ export default function () {
     yAxis: {
       type: 'value',
       min: 0,
-      max: 0.0,
-      interval: 0.0,
+      max: Math.max(...(statistics?.earning_serials || [0])) * 1.2,
+      interval: Math.max(...(statistics?.earning_serials || [0])) * 0.2,
       axisLabel: {
-        color: isDark ? '#fff' :'#000',
-        fontSize: 12
+        show: false
       },
       axisLine: {
-        show: true,
-        lineStyle: {
-          color: '#E5E7EB'
-        }
+        show: false
       },
       splitLine: {
         lineStyle: {
@@ -74,7 +74,7 @@ export default function () {
       }
     },
     series: [{
-      data: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      data: statistics?.earning_serials ? statistics?.earning_serials.map(value => Number(value).toFixed(2)) :  Array(30).fill(0),
       type: 'line',
       smooth: false,
       symbol: 'circle',

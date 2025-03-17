@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Alata&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,7 +9,62 @@ body {
   font-family: 'Alata', sans-serif;
 }
 
-/* 全局应用 Alata 字体 */
 * {
   font-family: 'Alata', sans-serif;
+  /* transition: background-color 0.1s ease-in-out, color 0.1s ease-in-out; */
+
+}
+/* Switch wrapper container */
+.switch-wrapper {
+  position: relative;
+  width: 50px; /* Width of the switch */
+  height: 25px; /* Height of the switch */
+  cursor: pointer;
+  border-radius: 50px; /* Rounded corners for the switch */
+  transition: background-color 0.3s ease-in-out; /* Smooth background color transition */
+}
+
+/* Light theme styles */
+.switch-wrapper.light .switch-bg {
+  background-color: white; /* Dark background in light theme */
+  border: 1px solid black; /* Border in light theme */
+}
+
+.switch-wrapper.light .switch-thumb {
+  background-color:black ; /* White thumb in light theme */
+  transform: translateX(0); /* Keep the thumb on the left */
+}
+
+/* Dark theme styles */
+.switch-wrapper.dark .switch-bg {
+  background-color: black; /* Light background in dark theme */
+  border: 1px solid white; /* Border in dark theme */
+}
+
+.switch-wrapper.dark .switch-thumb {
+  background-color: white; /* Black thumb in dark theme */
+  transform: translateX(25px); /* Move the thumb to the right */
+}
+
+/* Common styles for the thumb */
+.switch-thumb {
+  position: absolute;
+  top: 11%;
+  left: 2px;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  transform: translateY(-50%); /* Vertically center the thumb */
+  transition: transform 0.3s ease-in-out; /* Smooth thumb movement */
+}
+
+/* Background for the switch */
+.switch-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50px;
+  transition: background-color 0.3s ease-in-out; /* Smooth background transition */
 }

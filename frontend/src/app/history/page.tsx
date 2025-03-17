@@ -7,8 +7,8 @@ import { useHistory } from '@/hooks/useHistory'
 import { useThemeCus } from '@/hooks/useTheme'
 
 export default function HistoryPage() {
-    const { historyItems, loading, error, refreshHistory } = useHistory()
-    let { isDark } = useThemeCus()
+    const { historyItems, loading, error } = useHistory()
+    const { isDark } = useThemeCus()
 
     return (
         <MainContent>
@@ -26,7 +26,7 @@ export default function HistoryPage() {
                     backgroundColor: isDark ? '#1a1a1a' : '#f6f6f6'
                 }}>
                     <div className="overflow-x-auto pt-3">
-                        {loading && <div className="p-4 text-center">加载中...</div>}
+                        {loading && <div className="p-4 text-center">loading...</div>}
                         {error && <div className="p-4 text-center text-red-500">{error}</div>}
                         <table className="min-w-full">
                             <thead>

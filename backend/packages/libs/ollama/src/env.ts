@@ -7,7 +7,8 @@ export const env = memoizee(() =>
     server: {
       OPENAI_API_KEY: z.string(),
       OPENAI_ORGANIZATION: z.string().optional(),
-      OPENPIPE_API_KEY: z.string()
+      OPENPIPE_API_KEY: z.string(),
+      OLLAMA_API_URL: z.string()
     },
     runtimeEnv: process.env,
   }),
