@@ -1,7 +1,8 @@
 import { ModelOfOllama } from "@saito/models";
-import { z } from "zod";
+import { Response } from 'express';
+
 
 export abstract class OllamaService {
-  abstract complete(args: ModelOfOllama<'generate_request'>): Promise<ModelOfOllama<'generate_response'>>;
+  abstract complete(args: ModelOfOllama<'generate_request'>, res: Response): Promise<void>;
   abstract checkStatus(): Promise<boolean>;
 }
