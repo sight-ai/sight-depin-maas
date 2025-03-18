@@ -204,6 +204,23 @@ export const UpdateChatRecordSchema = z.object({
   status: z.enum(["active", "archived"]),
   task_id: z.string().optional()
 });
+export const OllamaChatRequest = z.object({
+  model: z.string(),
+  messages: z.array(z.object({
+    role: z.string(),
+    content: z.string()
+  })),
+  suffix: z.string().optional(),
+  images: z.array(z.string()).optional(),
+  format: z.union([z.literal('json'), JSONSchema]).optional(),
+  options: z.record(z.any()).optional(),
+  system: z.string().optional(),
+  template: z.string().optional(),
+  stream: z.boolean().optional(),
+  raw: z.boolean().optional(),
+  keep_alive: z.string().optional(),
+  context: z.array(z.number()).optional(),
+});
 
 /**
  * The final Ollama model definitions.
@@ -232,7 +249,8 @@ export const OllamaModel = {
   JSONStringSchema,
   ChatRecordSchema,
   FindChatRecordSchema,
-  UpdateChatRecordSchema
+  UpdateChatRecordSchema,
+  chat_request: OllamaChatRequest
 };
 
 /**
