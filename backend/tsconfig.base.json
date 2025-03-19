@@ -26,7 +26,8 @@
       "@saito/keeper": ["packages/libs/keeper/src/index.ts"],
       "@saito/miner": ["packages/libs/miner/src/index.ts"],
       "@saito/ethstorage": ["packages/libs/ethstorage/src/index.ts"],
-      "@saito/device-status": ["packages/libs/device-status/src/index.ts"]
+      "@saito/device-status": ["packages/libs/device-status/src/index.ts"],
+      "@saito/node": ["packages/libs/node/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"],

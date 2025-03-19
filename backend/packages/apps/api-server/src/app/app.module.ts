@@ -9,9 +9,10 @@ import { DeviceStatusModule } from "@saito/device-status";
 import { ModelController } from "./controllers/model.controller";
 import { MinerController } from "./controllers/miner.controller";
 import { MinerModule } from "@saito/miner";
+import { NodeModule } from "@saito/node";
 
 @Module({
-  imports: [KeeperModule, OllamaModule, MinerModule, DeviceStatusModule],
+  imports: [KeeperModule, OllamaModule, MinerModule, DeviceStatusModule, NodeModule],
   controllers: [IndexController, KeeperController, ModelController, MinerController],
   providers: [
     {
