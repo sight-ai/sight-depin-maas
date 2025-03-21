@@ -172,6 +172,56 @@ export const OllamaAPISchema = {
   },
 };
 
+
+
+export const ChatRecordSchema = z.object({
+  chatId: z.string().min(1),
+  userId: z.string().min(1),
+  userInput: z.string(),
+  aiResponse: z.string(),
+  status: z.enum(["active", "archived"]),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+  task_id: z.string().optional()
+});
+
+export const FindChatRecordSchema = z.object({
+  chatId: z.string().min(1),
+  userId: z.string().min(1),
+  userInput: z.string(),
+  aiResponse: z.string(),
+  status: z.enum(["active", "archived"]),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+  task_id: z.string().optional()
+});
+
+export const UpdateChatRecordSchema = z.object({
+  chatId: z.string().min(1),
+  userId: z.string().min(1),
+  userInput: z.string(),
+  aiResponse: z.string(),
+  status: z.enum(["active", "archived"]),
+  task_id: z.string().optional()
+});
+export const OllamaChatRequest = z.object({
+  model: z.string(),
+  messages: z.array(z.object({
+    role: z.string(),
+    content: z.string()
+  })),
+  suffix: z.string().optional(),
+  images: z.array(z.string()).optional(),
+  format: z.union([z.literal('json'), JSONSchema]).optional(),
+  options: z.record(z.any()).optional(),
+  system: z.string().optional(),
+  template: z.string().optional(),
+  stream: z.boolean().optional(),
+  raw: z.boolean().optional(),
+  keep_alive: z.string().optional(),
+  context: z.array(z.number()).optional(),
+});
+
 /**
  * The final Ollama model definitions.
  * This object mimics the structure of your OpenAIModel, exposing:
@@ -197,6 +247,10 @@ export const OllamaModel = {
   generate_request: OllamaGenerateRequest,
   generate_response: OllamaGenerateResponse,
   JSONStringSchema,
+  ChatRecordSchema,
+  FindChatRecordSchema,
+  UpdateChatRecordSchema,
+  chat_request: OllamaChatRequest
 };
 
 /**

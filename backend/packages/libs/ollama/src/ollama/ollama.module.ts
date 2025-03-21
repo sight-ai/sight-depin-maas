@@ -8,6 +8,6 @@ import { MinerModule } from '@saito/miner';
 @Module({
   imports: [HttpModule, PersistentModule, MinerModule],
   providers: [OllamaServiceProvider, OllamaRepository],
-  exports: [OllamaServiceProvider],
+  exports: [OllamaServiceProvider, OllamaRepository],
 })
 export class OllamaModule {}
