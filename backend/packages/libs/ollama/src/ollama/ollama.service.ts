@@ -5,18 +5,26 @@ import { Inject, Logger } from "@nestjs/common";
 import got from 'got-cjs';
 import { MinerService } from '@saito/miner';
 import { Response } from 'express';
-import { OllamaRepository } from './ollama.repository'; // 引入刚刚创建的 Repository
+import { OllamaRepository } from './ollama.repository';
 import { DatabaseTransactionConnection } from "slonik";
 import { z } from 'zod';
 import crypto from 'crypto'
+import path from 'path';
+
 export class DefaultOllamaService implements OllamaService {
+
+  private readonly baseUrl = env().OLLAMA_API_URL;
+  private readonly logger = new Logger(DefaultOllamaService.name);
 
   constructor(
     @Inject(OllamaRepository)
     private readonly OllamaRepository: OllamaRepository,
     @Inject(MinerService)
     private readonly minerService: MinerService,
-  ) { }
+  ) {
+
+
+  }
 
   async complete(args: ModelOfOllama<'generate_request'>, res: Response) {
     const task = await this.minerService.createTask({
@@ -194,6 +202,7 @@ export class DefaultOllamaService implements OllamaService {
       res.status(500).json({ error: error });
     }
   }
+
   async createChatRecord(
     {
       chatId,
@@ -215,6 +224,7 @@ export class DefaultOllamaService implements OllamaService {
       return this.OllamaRepository.updateChatRecord(conn, chatId, userId, userInput, aiResponse, status, task_id);
     });
   }
+
   async findChatRecord(chatId: string): Promise<{
     userId: string,
     userInput: string,
@@ -244,11 +254,23 @@ export class DefaultOllamaService implements OllamaService {
       return false;
     }
   }
+
+  async listModel(): Promise<ModelOfOllama<'list_model_response'>> {
+    const response = await got.get(
+      path.join(this.baseUrl, 'api/tags')).json();
+    const parseResult =  m.ollama('list_model_response').safeParse(response);
+    if (parseResult.success) {
+      return parseResult.data;
+    } else {
+      this.logger.error(`failed to parse list model response: ${parseResult.error}`);
+      return {models: []}
+    }
+  }
 }
 
-const OpenaiServiceProvider = {
+const OllamaServiceProvider = {
   provide: OllamaService,
   useClass: DefaultOllamaService,
 };
 
-export default OpenaiServiceProvider;
+export default OllamaServiceProvider;
