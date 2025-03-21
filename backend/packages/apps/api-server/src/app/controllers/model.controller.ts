@@ -1,4 +1,4 @@
-import { Body, Controller, Inject, Logger, Post, Res } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Logger, Post, Res } from "@nestjs/common";
 import {
   MemoryKeeperPipeline,
 } from "@saito/keeper";
@@ -45,5 +45,10 @@ export class ModelController {
       console.error('Error during chat response:', error);
       res.status(500).send('Error during chat response');
     }
+  }
+
+  @Get('/tags')
+  async listModels() {
+    return this.ollamaService.listModel();
   }
 }

@@ -173,7 +173,6 @@ export const OllamaAPISchema = {
 };
 
 
-
 export const ChatRecordSchema = z.object({
   chatId: z.string().min(1),
   userId: z.string().min(1),
@@ -222,6 +221,24 @@ export const OllamaChatRequest = z.object({
   context: z.array(z.number()).optional(),
 });
 
+export const ollamaModelTag = z.object({
+  name: z.string(),
+  modified_at: z.coerce.date(),
+  size: z.number(),
+  digest: z.string(),
+  details: z.object({
+    format: z.string(),
+    family: z.string(),
+    families: z.array(z.string()).nullable(), // null or array of strings
+    parameter_size: z.string(),
+    quantization_level: z.string(),
+  })
+})
+
+export const ollamaListModelsResponse = z.object({
+  models: z.array(ollamaModelTag)
+})
+
 /**
  * The final Ollama model definitions.
  * This object mimics the structure of your OpenAIModel, exposing:
@@ -250,7 +267,9 @@ export const OllamaModel = {
   ChatRecordSchema,
   FindChatRecordSchema,
   UpdateChatRecordSchema,
-  chat_request: OllamaChatRequest
+  chat_request: OllamaChatRequest,
+  model_tag: ollamaModelTag,
+  list_model_response: ollamaListModelsResponse
 };
 
 /**
