@@ -9,6 +9,7 @@ import { address } from 'ip';
 @Injectable()
 export class DeviceStatusService {
   private readonly logger = new Logger(DeviceStatusService.name);
+  private isRegistered = false; // 新增注册状态标志
 
   constructor(
     private readonly deviceStatusRepository: DeviceStatusRepository,
@@ -18,16 +19,12 @@ export class DeviceStatusService {
     this.register()
   }
   async register() {
-    const [cpuLoad, memoryInfo, gpuInfo, ipAddress, deviceType, deviceModel, deviceInfo] = await Promise.all([
-      si.currentLoad().catch(() => ({ currentLoad: 0 })),
-      si.mem().catch(() => ({ used: 0, total: 1 })), // 避免除零错误
-      si.graphics().catch(() => ({ controllers: [{ utilizationGpu: 0 }] })),
+    const [ipAddress, deviceType, deviceModel] = await Promise.all([
       address(),
       this.getDeviceType(),
       this.getDeviceModel(),
-      this.getDeviceInfo()
     ]);
-    const response = await got.post(`${process.env['GATEWAY_API_URL']}/node/register`, {
+    const response: any = await got.post(`${process.env['GATEWAY_API_URL']}/node/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -39,65 +36,67 @@ export class DeviceStatusService {
         service_url: process.env['GATEWAY_API_URL'],
         type: deviceType,
         model: deviceModel,
-        device_info: deviceInfo,
         ip: ipAddress,
       },
     });
-    this.heartbeat()
-    console.log(response.body);
+    if (response.ok) {
+      this.isRegistered = true;
+      this.logger.log('Registration successful, starting heartbeat');
+    }
   }
-  
-private async getDeviceType(): Promise<string> {
-  try {
-    const osInfo = await si.osInfo();
-    const graphics = await si.graphics();
-    
-    // 判断是否为英伟达设备
-    const isNvidia = graphics.controllers.some(c => 
-      c.model?.toLowerCase().includes('nvidia')
-    );
-    
-    if (isNvidia) return 'nvidia';
-    return osInfo.platform === 'linux' ? 'linux' : 
-           osInfo.platform === 'darwin' ? 'mac' : 
-           osInfo.platform === 'windows' ? 'windows' : 'other';
-  } catch {
-    return 'unknown';
-  }
-}
 
-private async getDeviceModel(): Promise<string> {
-  try {
-    const graphics = await si.graphics();
-    return graphics.controllers[0]?.model || 'Unknown';
-  } catch {
-    return 'Unknown';
-  }
-}
+  private async getDeviceType(): Promise<string> {
+    try {
+      const osInfo = await si.osInfo();
+      const graphics = await si.graphics();
 
-private async getDeviceInfo(): Promise<string> {
-  try {
-    const [os, cpu, mem, graphics] = await Promise.all([
-      si.osInfo(),
-      si.cpu(),
-      si.mem(),
-      si.graphics()
-    ]);
-    
-    return JSON.stringify({
-      os: `${os.distro} ${os.release} (${os.arch})`,
-      cpu: `${cpu.manufacturer} ${cpu.brand} ${cpu.speed}GHz`,
-      memory: `${(mem.total / 1024 / 1024 / 1024).toFixed(1)}GB`,
-      graphics: graphics.controllers.map(c => ({
-        model: c.model,
-        vram: c.vram ? `${Math.round(c.vram / 1024)}GB` : 'Unknown'
-      }))
-    });
-  } catch {
-    return '{}';
+      // 判断是否为英伟达设备
+      const isNvidia = graphics.controllers.some(c =>
+        c.model?.toLowerCase().includes('nvidia')
+      );
+
+      if (isNvidia) return 'nvidia';
+      return osInfo.platform === 'linux' ? 'linux' :
+        osInfo.platform === 'darwin' ? 'mac' :
+          osInfo.platform === 'windows' ? 'windows' : 'other';
+    } catch {
+      return 'unknown';
+    }
   }
-}
+
+  private async getDeviceModel(): Promise<string> {
+    try {
+      const graphics = await si.graphics();
+      return graphics.controllers[0]?.model || 'Unknown';
+    } catch {
+      return 'Unknown';
+    }
+  }
+
+  private async getDeviceInfo(): Promise<string> {
+    try {
+      const [os, cpu, mem, graphics] = await Promise.all([
+        si.osInfo(),
+        si.cpu(),
+        si.mem(),
+        si.graphics()
+      ]);
+
+      return JSON.stringify({
+        os: `${os.distro} ${os.release} (${os.arch})`,
+        cpu: `${cpu.manufacturer} ${cpu.brand} ${cpu.speed}GHz`,
+        memory: `${(mem.total / 1024 / 1024 / 1024).toFixed(1)}GB`,
+        graphics: graphics.controllers.map(c => ({
+          model: c.model,
+          vram: c.vram ? `${Math.round(c.vram / 1024)}GB` : 'Unknown'
+        }))
+      });
+    } catch {
+      return '{}';
+    }
+  }
   async heartbeat() {
+    if (!this.isRegistered) return; // 确保只在注册后上报
     // 获取系统指标
     const [cpuLoad, memoryInfo, gpuInfo, ipAddress, deviceType, deviceModel, deviceInfo] = await Promise.all([
       si.currentLoad().catch(() => ({ currentLoad: 0 })),
@@ -130,21 +129,6 @@ private async getDeviceInfo(): Promise<string> {
         device_info: deviceInfo,
         gateway_url: process.env['GATEWAY_API_URL']
       },
-    });
-    console.log(response.body,  {
-      node_id: process.env['NODE_ID'],
-      cpu_usage: Number(cpuLoad.currentLoad.toFixed(2)),  // 保留两位小数
-      memory_usage: Number(
-        ((memoryInfo.used / memoryInfo.total) * 100).toFixed(2)
-      ),
-      gpu_usage: Number(
-        (gpuInfo.controllers[0]?.utilizationGpu || 0).toFixed(2)
-      ),
-      ip: ipAddress,
-      timestamp: new Date().toISOString(),
-      type: deviceType,
-      model: deviceModel,
-      device_info: deviceInfo
     });
   }
   async updateDeviceStatus(deviceId: string, name: string, status: "online" | "offline") {
