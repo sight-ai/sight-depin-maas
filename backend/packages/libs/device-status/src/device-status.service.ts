@@ -7,9 +7,10 @@ import got from "got-cjs";
 import si from 'systeminformation';
 import { address } from 'ip';
 import {env} from '../env'
+import { DeviceStatusService } from "./device-status.interface";
 @Injectable()
-export class DeviceStatusService {
-  private readonly logger = new Logger(DeviceStatusService.name);
+export class DefaultDeviceStatusService implements DeviceStatusService{
+  private readonly logger = new Logger(DefaultDeviceStatusService.name);
   private isRegistered = false; // 新增注册状态标志
 
   constructor(
@@ -46,7 +47,7 @@ export class DeviceStatusService {
     }
   }
 
-  private async getDeviceType(): Promise<string> {
+  async getDeviceType(): Promise<string> {
     try {
       const osInfo = await si.osInfo();
       const graphics = await si.graphics();
@@ -65,7 +66,7 @@ export class DeviceStatusService {
     }
   }
 
-  private async getDeviceModel(): Promise<string> {
+  async getDeviceModel(): Promise<string> {
     try {
       const graphics = await si.graphics();
       return graphics.controllers[0]?.model || 'Unknown';
@@ -74,7 +75,7 @@ export class DeviceStatusService {
     }
   }
 
-  private async getDeviceInfo(): Promise<string> {
+  async getDeviceInfo(): Promise<string> {
     try {
       const [os, cpu, mem, graphics] = await Promise.all([
         si.osInfo(),
@@ -176,7 +177,7 @@ export class DeviceStatusService {
     }
   }
 
-  private async isOllamaOnline(): Promise<boolean> {
+  async isOllamaOnline(): Promise<boolean> {
     try {
       return await this.ollamaService.checkStatus();
     } catch (error) {
@@ -184,3 +185,12 @@ export class DeviceStatusService {
     }
   }
 }
+
+
+
+const DeviceStatusServiceProvider = {
+  provide: DeviceStatusService,
+  useClass: DefaultDeviceStatusService,
+};
+
+export default DeviceStatusServiceProvider;
