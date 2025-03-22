@@ -6,6 +6,7 @@ import { OllamaService } from "@saito/ollama";
 import got from "got-cjs";
 import si from 'systeminformation';
 import { address } from 'ip';
+import {env} from '../env'
 @Injectable()
 export class DeviceStatusService {
   private readonly logger = new Logger(DeviceStatusService.name);
@@ -24,16 +25,16 @@ export class DeviceStatusService {
       this.getDeviceType(),
       this.getDeviceModel(),
     ]);
-    const response: any = await got.post(`${process.env['GATEWAY_API_URL']}/node/register`, {
+    const response: any = await got.post(`${env().GATEWAY_API_URL}/node/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env['GATEWAY_API_KEY']}`
+        'Authorization': `Bearer ${env().GATEWAY_API_KEY}`
       },
       json: {
-        node_id: process.env['NODE_ID'],
-        code: process.env['NODE_CODE'],
-        service_url: process.env['GATEWAY_API_URL'],
+        node_id: env().NODE_ID,
+        code: env().NODE_CODE,
+        service_url: env().GATEWAY_API_URL,
         type: deviceType,
         model: deviceModel,
         ip: ipAddress,
@@ -107,14 +108,14 @@ export class DeviceStatusService {
       this.getDeviceModel(),
       this.getDeviceInfo()
     ]);
-    const response = await got.post(`${process.env['GATEWAY_API_URL']}/node/heartbeat`, {
+    const response = await got.post(`${env().GATEWAY_API_URL}/node/heartbeat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env['GATEWAY_API_KEY']}`
+        'Authorization': `Bearer ${env().GATEWAY_API_KEY}`
       },
       json: {
-        node_id: process.env['NODE_ID'],
+        node_id: env().NODE_ID,
         cpu_usage: Number(cpuLoad.currentLoad.toFixed(2)),  // 保留两位小数
         memory_usage: Number(
           ((memoryInfo.used / memoryInfo.total) * 100).toFixed(2)
@@ -127,7 +128,7 @@ export class DeviceStatusService {
         type: deviceType,
         model: deviceModel,
         device_info: deviceInfo,
-        gateway_url: process.env['GATEWAY_API_URL']
+        gateway_url: env().GATEWAY_API_URL
       },
     });
   }
@@ -153,8 +154,8 @@ export class DeviceStatusService {
   @Cron(CronExpression.EVERY_30_SECONDS)
   async checkOllamaStatus() {
     this.heartbeat()
-    const deviceId = process.env['OLLAMA_DEVICE_ID'];
-    const deviceName = process.env['OLLAMA_DEVICE_NAME']
+    const deviceId = env().OLLAMA_DEVICE_ID;
+    const deviceName = env().OLLAMA_DEVICE_NAME
 
     if (!deviceId || !deviceName) {
       return;
