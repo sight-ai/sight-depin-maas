@@ -18,7 +18,6 @@ export class DefaultDeviceStatusService implements DeviceStatusService{
     @Inject(OllamaService)
     private readonly ollamaService: OllamaService
   ) {
-    this.register()
   }
   async register() {
     const [ipAddress, deviceType, deviceModel] = await Promise.all([
