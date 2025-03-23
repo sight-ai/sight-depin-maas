@@ -1,4 +1,7 @@
 import { Inject } from "@nestjs/common";
+import * as R from 'ramda';
+
+const toISOString = R.curry((date: Date) => date.toISOString());
 import { PersistentService } from "@saito/persistent";
 import { DatabaseTransactionConnection } from "slonik";
 import { SQL } from "@saito/common";
@@ -21,7 +24,7 @@ export class DeviceStatusRepository {
     name: string,
     status: "online" | "offline"
   ) {
-    const now = new Date().toISOString(); // Convert date to ISO string for SQL compatibility
+    const now = toISOString(new Date()); // Convert date to ISO string for SQL compatibility
     return conn.query(SQL.type(m.deviceStatus('UpdateDeviceStatusSchema'))`
  WITH latest AS (
     SELECT * 
@@ -58,7 +61,7 @@ WHERE NOT EXISTS (SELECT 1 FROM updated);
   }
 
   async markDevicesOffline(conn: DatabaseTransactionConnection, thresholdTime: Date) {
-    const thresholdTimeStr = thresholdTime.toISOString(); // Convert to string for SQL compatibility
+    const thresholdTimeStr = toISOString(thresholdTime); // Convert to string for SQL compatibility
     return conn.query(SQL.type((m.deviceStatus('MarkDevicesOfflineSchema')))`
       UPDATE saito_miner.device_status 
       SET status = 'offline', up_time_end = NOW()

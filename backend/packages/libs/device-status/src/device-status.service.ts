@@ -1,4 +1,5 @@
 import { Injectable, Inject, Logger } from "@nestjs/common";
+import * as R from 'ramda';
 import { DeviceStatusRepository } from "./device-status.repository";
 import { DatabaseTransactionConnection } from "slonik";
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -42,6 +43,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService{
     });
     if (response.ok) {
       this.isRegistered = true;
+      this.heartbeat()
       this.logger.log('Registration successful, starting heartbeat');
     }
   }
@@ -87,10 +89,10 @@ export class DefaultDeviceStatusService implements DeviceStatusService{
         os: `${os.distro} ${os.release} (${os.arch})`,
         cpu: `${cpu.manufacturer} ${cpu.brand} ${cpu.speed}GHz`,
         memory: `${(mem.total / 1024 / 1024 / 1024).toFixed(1)}GB`,
-        graphics: graphics.controllers.map(c => ({
-          model: c.model,
-          vram: c.vram ? `${Math.round(c.vram / 1024)}GB` : 'Unknown'
-        }))
+       graphics: R.map(R.applySpec({
+          model: R.prop('model'),
+          vram: R.ifElse(R.both(R.has('vram'), R.pipe(R.prop('vram'), R.is(Number))), R.pipe(R.prop('vram'), R.divide(R.__, 1024), Math.round, R.toString, R.concat(R.__, 'GB')), R.always('Unknown'))
+        }), graphics.controllers)
       });
     } catch {
       return '{}';
@@ -164,15 +166,15 @@ export class DefaultDeviceStatusService implements DeviceStatusService{
     try {
       const isOnline = await this.isOllamaOnline();
       const status: "online" | "offline" = isOnline ? "online" : "offline";
-      if (isOnline) {
+      R.ifElse(R.equals(true), async () => {
         await this.updateDeviceStatus(deviceId, deviceName, status);
-      } else {
+      }, async () => {
         const inactiveDuration = 1000 * 60;
-        this.markInactiveDevicesOffline(inactiveDuration)
-      }
+        await this.markInactiveDevicesOffline(inactiveDuration);
+      })(isOnline);
     } catch (error) {
       const inactiveDuration = 1000 * 60;
-      this.markInactiveDevicesOffline(inactiveDuration)
+      await this.markInactiveDevicesOffline(inactiveDuration);
     }
   }
 

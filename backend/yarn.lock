@@ -13460,7 +13460,7 @@ quick-lru@^5.1.1:
 
 ramda@^0.29.1:
   version "0.29.1"
-  resolved "https://registry.npmmirror.com/ramda/-/ramda-0.29.1.tgz"
+  resolved "https://mirrors.cloud.tencent.com/npm/ramda/-/ramda-0.29.1.tgz"
   integrity sha512-OfxIeWzd4xdUNxlWhgFazxsA/nl3mS4/jGZI5n00uWOoSSFRhC1b6gl6xvmzUamgmqELraWp0J/qqVlXYPDPyA==
 
 randombytes@^2.1.0:

@@ -9,6 +9,8 @@ import { OllamaRepository } from './ollama.repository';
 import { DatabaseTransactionConnection } from "slonik";
 import crypto from 'crypto'
 import path from 'path';
+import * as R from 'ramda';
+
 export class DefaultOllamaService implements OllamaService {
 
   private readonly baseUrl = env().OLLAMA_API_URL;
@@ -37,17 +39,17 @@ export class DefaultOllamaService implements OllamaService {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     });
-    
-    let chatId = crypto.randomUUID()
+
+    const chatId = crypto.randomUUID();
     await this.createChatRecord({
-      chatId: chatId,
+      chatId,
       userId: '2',
       userInput: args.prompt,
       aiResponse: '',
       status: 'active',
-      task_id: task.id
-    })
-    
+      task_id: task.id,
+    });
+
     try {
       if (args.stream) {
         let msg = '';
@@ -63,26 +65,39 @@ export class DefaultOllamaService implements OllamaService {
             msg += part.response;
           }
 
-          res.write(`${JSON.stringify({ ...part, response: part.done ? msg + part.response : msg })}\n\n`);
+          res.write(
+            `${JSON.stringify({
+              ...part,
+              response: part.done ? msg + part.response : msg,
+            })}\n\n`
+          );
 
           if (part.done) {
-            await this.minerService.updateTask(task.id, {
-              status: 'succeed',
-              total_duration: part.total_duration,
-              load_duration: part.load_duration,
-              prompt_eval_count: part.prompt_eval_count,
-              prompt_eval_duration: part.prompt_eval_duration,
-              eval_count: part.eval_count,
-              eval_duration: part.eval_duration
-            });
-            await this.createChatRecord({
-              chatId: chatId,
-              userId: '2',
-              userInput: args.prompt,
-              aiResponse: msg + part.response,
-              status: 'active',
-              task_id: task.id.toString()
-            });
+            const updateTask = async (part: any) => {
+              await this.minerService.updateTask(task.id, {
+                status: 'succeed',
+                total_duration: part.total_duration,
+                load_duration: part.load_duration,
+                prompt_eval_count: part.prompt_eval_count,
+                prompt_eval_duration: part.prompt_eval_duration,
+                eval_count: part.eval_count,
+                eval_duration: part.eval_duration,
+              });
+            };
+
+            const createChat = async (msg: string, part: any) => {
+              await this.createChatRecord({
+                chatId,
+                userId: '2',
+                userInput: args.prompt,
+                aiResponse: msg + part.response,
+                status: 'active',
+                task_id: task.id.toString(),
+              });
+            };
+
+            await updateTask(part);
+            await createChat(msg, part);
           }
         });
 
@@ -93,47 +108,62 @@ export class DefaultOllamaService implements OllamaService {
 
         stream.on('error', async (error) => {
           await this.minerService.updateTask(task.id, { status: 'failed' });
-          res.status(500).send('Error while processing stream');
+          if (!res.headersSent) {
+            res.status(500).send('Error while processing stream');
+          }
           res.end();
         });
       } else {
         // Handle non-streaming response
         const response: {
-          total_duration: number,
-          load_duration: number,
-          prompt_eval_count: number,
-          prompt_eval_duration: number,
-          eval_count: number,
-          eval_duration: number,
-          response: string
-        } = await got.post(`${env().OLLAMA_API_URL}api/generate`, {
-          json: { ...args, stream: false },
-        }).json();
-        
-        await this.minerService.updateTask(task.id, {
-          status: 'succeed',
-          total_duration: response.total_duration || 0,
-          load_duration: response.load_duration || 0,
-          prompt_eval_count: response.prompt_eval_count || 0,
-          prompt_eval_duration: response.prompt_eval_duration || 0,
-          eval_count: response.eval_count || 0,
-          eval_duration: response.eval_duration || 0
-        });
-        
-        await this.createChatRecord({
-          chatId: chatId,
-          userId: '2',
-          userInput: args.prompt,
-          aiResponse: response.response,
-          status: 'active',
-          task_id: task.id.toString()
-        });
-        
+          total_duration: number;
+          load_duration: number;
+          prompt_eval_count: number;
+          prompt_eval_duration: number;
+          eval_count: number;
+          eval_duration: number;
+          response: string;
+        } = await got
+          .post(`${env().OLLAMA_API_URL}api/generate`, {
+            json: { ...args, stream: false },
+          })
+          .json();
+
+        const updateTask = async (response: any) => {
+          const taskData = R.pick([
+            'total_duration',
+            'load_duration',
+            'prompt_eval_count',
+            'prompt_eval_duration',
+            'eval_count',
+            'eval_duration',
+          ], response);
+
+          await this.minerService.updateTask(
+            task.id,
+            R.mergeRight({ status: 'succeed' as 'succeed' }, R.map(x => x || 0, taskData))
+          );
+        };
+
+        const createChat = async (response: any) => {
+          await this.createChatRecord({
+            chatId,
+            userId: '2',
+            userInput: args.prompt,
+            aiResponse: response.response,
+            status: 'active',
+            task_id: task.id.toString(),
+          });
+        };
+
+        await updateTask(response);
+        await createChat(response);
+
         res.json(response);
       }
     } catch (error) {
       await this.minerService.updateTask(task.id, {
-        status: 'failed'
+        status: 'failed',
       });
       throw error;
     }
@@ -193,7 +223,6 @@ export class DefaultOllamaService implements OllamaService {
         stream.on('data', async (chunk) => {
           try {
             const part = JSON.parse(chunk.toString());
-            console.log(part);
             msg.role = part.message.role;
             if (part.message) msg.content += part.message.content;
 
@@ -232,44 +261,50 @@ export class DefaultOllamaService implements OllamaService {
         });
 
         stream.on('error', async (error) => {
-          console.error('Stream error:', error);
           await this.minerService.updateTask(task.id, { status: 'failed' });
-          res.status(500).json({ error: 'Error while processing stream' });
+          if (!res.headersSent) {
+            res.status(500).json({ error: error });
+          }
         });
       } else {
         const response: {
-          total_duration: number,
-          load_duration: number,
-          prompt_eval_count: number,
-          prompt_eval_duration: number,
-          eval_count: number,
-          eval_duration: number,
+          total_duration: number;
+          load_duration: number;
+          prompt_eval_count: number;
+          prompt_eval_duration: number;
+          eval_count: number;
+          eval_duration: number;
           message: {
-            role: string,
-            content: string
-          }
-        }= await got.post(`${env().OLLAMA_API_URL}api/chat`, {
-          json: {
-            model: args.model,
-            messages: args.messages,
-            stream: false,
-          },
-        }).json();
-        
-        await this.minerService.updateTask(task.id, {
-          status: 'succeed',
-          total_duration: response.total_duration || 0,
-          load_duration: response.load_duration || 0,
-          prompt_eval_count: response.prompt_eval_count || 0,
-          prompt_eval_duration: response.prompt_eval_duration || 0,
-          eval_count: response.eval_count || 0,
-          eval_duration: response.eval_duration || 0
-        });
-        
+            role: string;
+            content: string;
+          };
+        } = await got
+          .post(`${env().OLLAMA_API_URL}api/chat`, {
+            json: {
+              model: args.model,
+              messages: args.messages,
+              stream: false,
+            },
+          })
+          .json();
+        const taskData = R.pick([
+          'total_duration',
+          'load_duration',
+          'prompt_eval_count',
+          'prompt_eval_duration',
+          'eval_count',
+          'eval_duration',
+        ], response);
+
+        await this.minerService.updateTask(
+          task.id,
+          R.mergeRight({ status: 'succeed' as 'succeed' }, R.map(x => x || 0, taskData))
+        );
+
         if (args.messages instanceof Array) {
           args.messages.push(response.message);
         }
-        
+
         await this.createChatRecord({
           chatId,
           userId: '2',
@@ -278,11 +313,10 @@ export class DefaultOllamaService implements OllamaService {
           status: 'archived',
           task_id: task.id.toString(),
         });
-        
+
         res.json(response);
       }
     } catch (error) {
-      console.error('Request error:', error);
       await this.minerService.updateTask(task.id, { status: 'failed' });
       res.status(500).json({ error: error });
     }
@@ -305,9 +339,11 @@ export class DefaultOllamaService implements OllamaService {
       task_id: string
     }
   ) {
-    return this.OllamaRepository.transaction(async (conn: DatabaseTransactionConnection) => {
+    const updateChatRecord = async (conn: DatabaseTransactionConnection) => {
       return this.OllamaRepository.updateChatRecord(conn, chatId, userId, userInput, aiResponse, status, task_id);
-    });
+    };
+
+    return this.OllamaRepository.transaction(updateChatRecord);
   }
 
   async findChatRecord(chatId: string): Promise<{
@@ -316,39 +352,46 @@ export class DefaultOllamaService implements OllamaService {
     aiResponse: string,
     status: "active" | "archived",
   } | null> {
-    return this.OllamaRepository.transaction(async (conn: DatabaseTransactionConnection) => {
+    const findChatRecord = async (conn: DatabaseTransactionConnection) => {
       return this.OllamaRepository.findChatRecord(conn, chatId);
-    });
+    };
+
+    return this.OllamaRepository.transaction(findChatRecord);
   }
 
   async checkStatus(): Promise<boolean> {
     try {
-      const response = await got.post(`${env().OLLAMA_API_URL}api/generate`, {
-        timeout: {
-          request: 20000,
-          connect: 2000,
-          response: 18000,
-        },
-        json: { "model": env().OLLAMA_MODEL }
-      }).json();
-      console.log(response)
-      console.log(true)
+      const response = await got
+        .post(`${env().OLLAMA_API_URL}api/generate`, {
+          timeout: {
+            request: 20000,
+            connect: 2000,
+            response: 18000,
+          },
+          json: { model: env().OLLAMA_MODEL },
+        })
+        .json();
+      console.log(response);
+      console.log(true);
       return !!response;
     } catch {
-      console.log(false)
+      console.log(false);
       return false;
     }
   }
 
   async listModel(): Promise<ModelOfOllama<'list_model_response'>> {
-    const response = await got.get(
-      path.join(this.baseUrl, 'api/tags')).json();
-    const parseResult =  m.ollama('list_model_response').safeParse(response);
+    const response = await got
+      .get(path.join(this.baseUrl, 'api/tags'))
+      .json();
+    const parseResult = m.ollama('list_model_response').safeParse(response);
     if (parseResult.success) {
       return parseResult.data;
     } else {
-      this.logger.error(`failed to parse list model response: ${parseResult.error}`);
-      return {models: []}
+      this.logger.error(
+        `failed to parse list model response: ${parseResult.error}`
+      );
+      return { models: [] };
     }
   }
 }
