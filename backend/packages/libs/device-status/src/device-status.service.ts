@@ -33,7 +33,6 @@ export class DefaultDeviceStatusService implements DeviceStatusService{
         'Authorization': `Bearer ${env().GATEWAY_API_KEY}`
       },
       json: {
-        node_id: env().NODE_ID,
         code: env().NODE_CODE,
         service_url: env().GATEWAY_API_URL,
         type: deviceType,
@@ -117,7 +116,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService{
         'Authorization': `Bearer ${env().GATEWAY_API_KEY}`
       },
       json: {
-        node_id: env().NODE_ID,
+        code: env().NODE_CODE,
         cpu_usage: Number(cpuLoad.currentLoad.toFixed(2)),  // 保留两位小数
         memory_usage: Number(
           ((memoryInfo.used / memoryInfo.total) * 100).toFixed(2)

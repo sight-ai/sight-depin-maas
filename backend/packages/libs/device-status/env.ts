@@ -7,7 +7,6 @@ export const env = memoizee(() =>
     server: {
       GATEWAY_API_URL: z.string(),
       GATEWAY_API_KEY: z.string().optional(),
-      NODE_ID: z.string(),
       NODE_CODE: z.string(),
       OLLAMA_DEVICE_ID:  z.string(),
       OLLAMA_DEVICE_NAME:  z.string()
