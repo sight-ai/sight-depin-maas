@@ -10,7 +10,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [HttpModule, PersistentModule, MinerModule,  ScheduleModule.forRoot(), OllamaModule],
-  providers: [DeviceStatusServiceProvider, DeviceStatusRepository, DefaultOllamaService],
-  exports: [DeviceStatusServiceProvider],
+  providers: [DeviceStatusServiceProvider, DeviceStatusRepository],
+  exports: [DeviceStatusServiceProvider, DeviceStatusRepository],
 })
 export class DeviceStatusModule { }
