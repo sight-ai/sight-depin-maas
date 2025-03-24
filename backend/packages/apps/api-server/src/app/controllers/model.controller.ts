@@ -19,14 +19,6 @@ export class ModelController {
 
   @Post('/generate')
   async generateResponse(@Body() req: OllamaGenerateRequestMessage, @Res() res: Response) {
-    if (req.stream) {
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-      res.flushHeaders();
-    }
-
-
     try {
       await this.ollamaService.complete(req, res);
     } catch (error) {
@@ -37,13 +29,6 @@ export class ModelController {
 
   @Post('/chat')
   async generateChatResponse(@Body() args: OllamaChatRequestMessage, @Res() res: Response) {
-    if (args.stream) {
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-      res.flushHeaders();
-    }
-
     try {
       await this.ollamaService.chat(args, res);
     } catch (error) {
