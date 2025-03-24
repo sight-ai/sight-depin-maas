@@ -26,7 +26,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService{
       this.getDeviceType(),
       this.getDeviceModel(),
     ]);
-    const response: any = await got.post(`${env().GATEWAY_API_URL}/node/register`, {
+    const {data} = await got.post(`${env().GATEWAY_API_URL}/node/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -39,40 +39,25 @@ export class DefaultDeviceStatusService implements DeviceStatusService{
         model: deviceModel,
         ip: ipAddress,
       },
-    });
-    if (response.ok) {
+    }).json() as {data : {
+      success: boolean,
+      error: string
+    }}
+    if (data.success) {
       this.isRegistered = true;
       this.heartbeat()
       this.logger.log('Registration successful, starting heartbeat');
+    } else {
+      this.logger.error('Registration ERROR', data.error);
     }
   }
 
   async getDeviceType(): Promise<string> {
-    try {
-      const osInfo = await si.osInfo();
-      const graphics = await si.graphics();
-
-      // 判断是否为英伟达设备
-      const isNvidia = graphics.controllers.some(c =>
-        c.model?.toLowerCase().includes('nvidia')
-      );
-
-      if (isNvidia) return 'nvidia';
-      return osInfo.platform === 'linux' ? 'linux' :
-        osInfo.platform === 'darwin' ? 'mac' :
-          osInfo.platform === 'windows' ? 'windows' : 'other';
-    } catch {
-      return 'unknown';
-    }
+    return env().DEVICE_TYPE
   }
 
   async getDeviceModel(): Promise<string> {
-    try {
-      const graphics = await si.graphics();
-      return graphics.controllers[0]?.model || 'Unknown';
-    } catch {
-      return 'Unknown';
-    }
+    return env().GPU_MODEL
   }
 
   async getDeviceInfo(): Promise<string> {
