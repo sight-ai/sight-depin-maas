@@ -18,15 +18,15 @@ COPY ./dist/packages/ .
 
 WORKDIR /dist/packages/apps/api-server
 
-ENV OPENAI_API_KEY=''
-ENV OPENPIPE_API_KEY=''
 ENV ETH_RPC_URL='https://rpc.beta.testnet.l2.quarkchain.io:8545'
-ENV PRIVATE_KEY=''
 ENV CHAIN_ID='3335'
 ENV VERIFICATION_CONTRACT_ADDRESS='0xCaB58F49f33571bE60542f516985aEC792204aAA'
 ENV WALLET_ADDRESS='0x5b341022794C71279fBC454985b5b9F7371e0821'
 ENV REQUESTER_ADDRESS='0xFe7b0f208593375A11754179cEe43C9e6f9b1567'
 ENV NODE_DATABASE_URL="postgres://postgres:postgres@sight-miner-postgres:5432/saito_db"
+ENV OLLAMA_DEVICE_ID="Ollama AI Server"
+ENV OLLAMA_MODEL="deepseek-r1:7b"
+ENV OLLAMA_DEVICE_NAME="Ollama AI Server"
 
 RUN npm cache clean --force
 RUN npm i
