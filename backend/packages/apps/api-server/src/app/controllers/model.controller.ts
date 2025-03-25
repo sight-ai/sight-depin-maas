@@ -5,12 +5,13 @@ import {
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import { OllamaService } from "@saito/ollama";
-import { m } from "@saito/models";
+import { m, ModelOfOllama } from "@saito/models";
 import { Response } from 'express';
 
 export class OllamaGenerateRequestMessage extends createZodDto(m.ollama('generate_request')) { }
 export class OllamaChatRequestMessage extends createZodDto(m.ollama('chat_request')) { }
-@Controller('/api/v1/model')
+
+@Controller('/api/')
 export class ModelController {
   private readonly logger = new Logger(ModelController.name);
   constructor(
@@ -22,17 +23,25 @@ export class ModelController {
     try {
       await this.ollamaService.complete(req, res);
     } catch (error) {
-      console.error('Error during chat response:', error);
-      res.status(500).send('Error during chat response');
+      this.logger.error('Error during chat response:', error);
+      res.status(500).send('Error during generate response');
     }
   }
 
+  /**
+   * This method skips ollama DTO check to adapt with "real" ollama behavior
+   *
+   * @param args
+   * @param res
+   */
   @Post('/chat')
-  async generateChatResponse(@Body() args: OllamaChatRequestMessage, @Res() res: Response) {
+  async generateChatResponse(@Body() args: ModelOfOllama<'chat_request'>, @Res() res: Response) {
     try {
+      this.logger.log(args);
+      this.logger.log("Model:" + args.model);
       await this.ollamaService.chat(args, res);
     } catch (error) {
-      console.error('Error during chat response:', error);
+      this.logger.error('Error during chat response:', error);
       res.status(500).send('Error during chat response');
     }
   }

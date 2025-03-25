@@ -7,6 +7,7 @@ import { AppModule } from './app/app.module';
 import { AllExceptionsFilter } from './app/interceptors/all-exceptions.filter';
 import { env } from './env';
 import { Logger } from '@nestjs/common';
+import { PlainTextToJsonMiddleware } from "./app/plaintext-to-json-middleware";
 
 const clientJsonPayloadLimit = '10mb';
 
@@ -31,6 +32,7 @@ async function bootstrap() {
   const logger = new Logger('bootstrap');
 
   app.enableCors();
+  app.use(new PlainTextToJsonMiddleware().use);
   app.use(json({ limit: clientJsonPayloadLimit }));
   app.use(urlencoded({ limit: clientJsonPayloadLimit, extended: true }));
   app.useGlobalFilters(new AllExceptionsFilter());
