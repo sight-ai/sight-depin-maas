@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, OpenAPIObject, SwaggerModule } from '@nestjs/swagger';
 import assert from 'assert';
-import { Response, json, urlencoded } from 'express';
+import express, { Response, json, urlencoded } from 'express';
 import { patchNestJsSwagger } from 'nestjs-zod';
 import { AppModule } from './app/app.module';
 import { AllExceptionsFilter } from './app/interceptors/all-exceptions.filter';
@@ -32,6 +32,7 @@ async function bootstrap() {
   const logger = new Logger('bootstrap');
 
   app.enableCors();
+  app.use(express.text());
   app.use(new PlainTextToJsonMiddleware().use);
   app.use(json({ limit: clientJsonPayloadLimit }));
   app.use(urlencoded({ limit: clientJsonPayloadLimit, extended: true }));
