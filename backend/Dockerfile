@@ -27,6 +27,7 @@ ENV NODE_DATABASE_URL="postgres://postgres:postgres@sight-miner-postgres:5432/sa
 ENV OLLAMA_DEVICE_ID="Ollama AI Server"
 ENV OLLAMA_MODEL="deepseek-r1:7b"
 ENV OLLAMA_DEVICE_NAME="Ollama AI Server"
+ENV OLLAMA_API_URL="http://127.0.0.1:11434/"
 
 RUN npm cache clean --force
 RUN npm i
