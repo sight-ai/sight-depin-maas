@@ -154,9 +154,10 @@ run() {
   echo "OPENAI_API_KEY: $OPENAI_API_KEY"
   echo "OPENPIPE_API_KEY: $OPENPIPE_API_KEY"
   echo "PRIVATE_KEY: $PRIVATE_KEY"
+  echo "REWARD_ADDRESS: $REWARD_ADDRESS"
 
   # Check if necessary parameters are provided
-  if [ -z "$GATEWAY_API_URL" ] || [ -z "$NODE_CODE" ] || [ -z "$GATEWAY_API_KEY" ] || [ -z "$OPENAI_API_KEY" ] || [ -z "$OPENPIPE_API_KEY" ] || [ -z "$PRIVATE_KEY" ]; then
+  if [ -z "$GATEWAY_API_URL" ] || [ -z "$NODE_CODE" ] || [ -z "$GATEWAY_API_KEY" ] || [ -z "$OPENAI_API_KEY" ] || [ -z "$OPENPIPE_API_KEY" ] || [ -z "$PRIVATE_KEY" ]  || [ -z "$REWARD_ADDRESS" ]; then
     echo "Error: Missing required parameters. Use --help to view usage."
     exit 1
   fi
@@ -205,6 +206,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENPIPE_API_KEY=${OPENPIPE_API_KEY}
       - PRIVATE_KEY=${PRIVATE_KEY}
+      - REWARD_ADDRESS=${REWARD_ADDRESS}
 EOL
 
   echo "-------------------- Generated $OVERRIDE_FILE --------------------"
@@ -253,6 +255,7 @@ if [ "$1" == "run" ]; then
       --openpipe-api-key=*)   OPENPIPE_API_KEY="${1#*=}" ;;
       --private-key=*)        PRIVATE_KEY="${1#*=}" ;;
       --register-url=*)       REGISTER_URL="${1#*=}" ;;
+      --reward-address=*)     REWARD_ADDRESS="${1#*=}" ;;
       --help)                 show_help; exit 0 ;;
       --version)              show_version; exit 0 ;;
       *)                      echo "Unknown parameter: $1"; show_help; exit 1 ;;

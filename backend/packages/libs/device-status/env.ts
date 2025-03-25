@@ -12,7 +12,8 @@ export const env = memoizee(() =>
       OLLAMA_DEVICE_NAME: z.string(),
       GPU_BRAND: z.string(),
       DEVICE_TYPE: z.string(),
-      GPU_MODEL: z.string()
+      GPU_MODEL: z.string(),
+      REWARD_ADDRESS: z.string()
     },
     runtimeEnv: process.env,
   }),
