@@ -1,5 +1,8 @@
 export abstract class DeviceStatusService {
-  abstract register(): void;
+  abstract register(): Promise<{
+    success: boolean,
+    error: string
+  }>;
 
   abstract getDeviceType(): Promise<string>;
   abstract getDeviceModel(): Promise<string>;

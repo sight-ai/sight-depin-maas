@@ -7,10 +7,10 @@ import { OllamaService } from "@saito/ollama";
 import got from "got-cjs";
 import si from 'systeminformation';
 import { address } from 'ip';
-import {env} from '../env'
+import { env } from '../env'
 import { DeviceStatusService } from "./device-status.interface";
 @Injectable()
-export class DefaultDeviceStatusService implements DeviceStatusService{
+export class DefaultDeviceStatusService implements DeviceStatusService {
   private readonly logger = new Logger(DefaultDeviceStatusService.name);
   private isRegistered = false; // 新增注册状态标志
 
@@ -20,13 +20,16 @@ export class DefaultDeviceStatusService implements DeviceStatusService{
     private readonly ollamaService: OllamaService
   ) {
   }
-  async register() {
+  async register(): Promise<{
+    success: boolean,
+    error: string
+  }> {
     const [ipAddress, deviceType, deviceModel] = await Promise.all([
       address(),
       this.getDeviceType(),
       this.getDeviceModel(),
     ]);
-    const {data} = await got.post(`${env().GATEWAY_API_URL}/node/register`, {
+    const { data } = await got.post(`${env().GATEWAY_API_URL}/node/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -40,10 +43,13 @@ export class DefaultDeviceStatusService implements DeviceStatusService{
         model: deviceModel,
         ip: ipAddress,
       },
-    }).json() as {data : {
-      success: boolean,
-      error: string
-    }}
+    }).json() as {
+      data: {
+        success: boolean,
+        error: string
+      }
+    }
+    console.log(data)
     if (data.success) {
       this.isRegistered = true;
       this.heartbeat()
@@ -51,6 +57,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService{
     } else {
       this.logger.error('Registration ERROR', data.error);
     }
+    return data
   }
 
   async getDeviceType(): Promise<string> {
@@ -74,7 +81,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService{
         os: `${os.distro} ${os.release} (${os.arch})`,
         cpu: `${cpu.manufacturer} ${cpu.brand} ${cpu.speed}GHz`,
         memory: `${(mem.total / 1024 / 1024 / 1024).toFixed(1)}GB`,
-       graphics: R.map(R.applySpec({
+        graphics: R.map(R.applySpec({
           model: R.prop('model'),
           vram: R.ifElse(R.both(R.has('vram'), R.pipe(R.prop('vram'), R.is(Number))), R.pipe(R.prop('vram'), R.divide(R.__, 1024), Math.round, R.toString, R.concat(R.__, 'GB')), R.always('Unknown'))
         }), graphics.controllers)
