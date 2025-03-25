@@ -7,7 +7,6 @@ export class PlainTextToJsonMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
     // Check if the Content-Type is 'text/plain', if so, change it into application/json
     if (req.is('text/plain')) {
-      console.log("Middleware modify content-type from text/plain to application/json");
       try {
         // Attempt to parse the plain text body as JSON
         // Replace the request body with the parsed JSON object
