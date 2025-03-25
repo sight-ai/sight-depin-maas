@@ -34,7 +34,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService{
       },
       json: {
         code: env().NODE_CODE,
-        service_url: env().GATEWAY_API_URL,
+        gateway_address: env().GATEWAY_API_URL,
         reward_address: env().REWARD_ADDRESS,
         type: deviceType,
         model: deviceModel,

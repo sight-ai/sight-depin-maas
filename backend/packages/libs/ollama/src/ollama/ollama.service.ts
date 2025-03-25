@@ -62,18 +62,16 @@ export class DefaultOllamaService implements OllamaService {
       try {
         const part = JSON.parse(chunk.toString());
         if (isChat) {
-          msg.role = part.message.role;
-          if (part.message) msg.content += part.message.content;
-          res.write(`${JSON.stringify({ ...part })}\n\n`);
+          if(part instanceof Object) {
+            res.write(`${JSON.stringify({ ...part })}\n\n`);
+          }
         } else {
           if (!part.done) {
             msg += part.response;
           }
-          res.write(
-            `${JSON.stringify({
-              ...part,
-            })}\n\n`
-          );
+          if(part instanceof Object) {
+            res.write(`${JSON.stringify({ ...part })}\n\n`);
+          }
         }
 
         if (part.done) {
