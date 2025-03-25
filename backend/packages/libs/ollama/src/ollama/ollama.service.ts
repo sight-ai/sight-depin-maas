@@ -64,7 +64,7 @@ export class DefaultOllamaService implements OllamaService {
         if (isChat) {
           msg.role = part.message.role;
           if (part.message) msg.content += part.message.content;
-          res.write(`${JSON.stringify({ ...part, message: msg })}\n\n`);
+          res.write(`${JSON.stringify({ ...part })}\n\n`);
         } else {
           if (!part.done) {
             msg += part.response;
@@ -72,7 +72,6 @@ export class DefaultOllamaService implements OllamaService {
           res.write(
             `${JSON.stringify({
               ...part,
-              response: part.done ? msg + part.response : msg,
             })}\n\n`
           );
         }
