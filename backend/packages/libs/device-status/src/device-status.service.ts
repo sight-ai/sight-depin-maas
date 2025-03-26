@@ -39,8 +39,8 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         code: env().NODE_CODE,
         gateway_address: env().GATEWAY_API_URL,
         reward_address: env().REWARD_ADDRESS,
-        type: deviceType,
-        model: deviceModel,
+        device_type: deviceType,
+        gpu_type: deviceModel,
         ip: ipAddress,
       },
     }).json() as {

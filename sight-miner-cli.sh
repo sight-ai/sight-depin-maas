@@ -174,17 +174,17 @@ run() {
   # Replace newline characters in GPU_MODEL
   GPU_MODEL=$(echo "$GPU_MODEL" | sed ':a;N;$!ba;s/\n/ /g')
 
-  # # Download docker-compose.yml file
-  # DOCKER_COMPOSE_URL="https://raw.githubusercontent.com/sight-ai/saito-miner/refs/heads/main/docker-compose.yml?token=GHSAT0AAAAAADAJYQIOVCGT4EHG3IXMVGFMZ7BN2WA"
-  # DOCKER_COMPOSE_FILE="docker-compose.yml"
+   # Download docker-compose.yml file
+   DOCKER_COMPOSE_URL="https://raw.githubusercontent.com/sight-ai/saito-miner/refs/heads/feature-gateway-local/docker-compose.yml?token=GHSAT0AAAAAADAJYQIOF7HWSGJNECPGIB6CZ7D42LA"
+   DOCKER_COMPOSE_FILE="docker-compose.yml"
 
-  # echo "Downloading $DOCKER_COMPOSE_FILE..."
-  # if curl -fsSL -o "$DOCKER_COMPOSE_FILE" "$DOCKER_COMPOSE_URL"; then
+   echo "Downloading $DOCKER_COMPOSE_FILE..."
+   if curl -fsSL -o "$DOCKER_COMPOSE_FILE" "$DOCKER_COMPOSE_URL"; then
     echo "$DOCKER_COMPOSE_FILE downloaded successfully."
-  # else
-  #   echo "Failed to download $DOCKER_COMPOSE_FILE, please check network connection."
-  #   exit 1
-  # fi
+   else
+     echo "Failed to download $DOCKER_COMPOSE_FILE, please check network connection."
+     exit 1
+   fi
 
   sleep 2
 
