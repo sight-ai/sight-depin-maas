@@ -60,31 +60,36 @@ export class DefaultOllamaService implements OllamaService {
 
     stream.on('data', async (chunk: any) => {
       try {
-        const part = JSON.parse(chunk.toString());
-        if (isChat) {
-          if(part instanceof Object) {
-            res.write(`${JSON.stringify({ ...part })}\n\n`);
+        try {
+          console.log(chunk.toString())
+          const part = JSON.parse(chunk.toString());
+          if (isChat) {
+            if (part instanceof Object) {
+              res.write(`${JSON.stringify({ ...part })}\n\n`);
+            }
+          } else {
+            if (!part.done) {
+              msg += part.response;
+            }
+            if (part instanceof Object) {
+              res.write(`${JSON.stringify({ ...part })}\n\n`);
+            }
           }
-        } else {
-          if (!part.done) {
-            msg += part.response;
-          }
-          if(part instanceof Object) {
-            res.write(`${JSON.stringify({ ...part })}\n\n`);
-          }
-        }
 
-        if (part.done) {
-          const taskData = R.pick([
-            'total_duration',
-            'load_duration',
-            'prompt_eval_count',
-            'prompt_eval_duration',
-            'eval_count',
-            'eval_duration',
-          ], part);
-          await this.updateTask(taskId, { ...taskData, status: 'succeed' as 'succeed' });
-          res.end();
+          if (part.done) {
+            const taskData = R.pick([
+              'total_duration',
+              'load_duration',
+              'prompt_eval_count',
+              'prompt_eval_duration',
+              'eval_count',
+              'eval_duration',
+            ], part);
+            await this.updateTask(taskId, { ...taskData, status: 'succeed' as 'succeed' });
+            res.end();
+          }
+        } catch (error) {
+          console.error(error)
         }
       } catch (err) {
         console.error('JSON parsing error:', err);
