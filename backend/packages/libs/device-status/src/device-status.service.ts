@@ -7,10 +7,10 @@ import { OllamaService } from "@saito/ollama";
 import got from "got-cjs";
 import si from 'systeminformation';
 import { address } from 'ip';
-import {env} from '../env'
+import { env } from '../env'
 import { DeviceStatusService } from "./device-status.interface";
 @Injectable()
-export class DefaultDeviceStatusService implements DeviceStatusService{
+export class DefaultDeviceStatusService implements DeviceStatusService {
   private readonly logger = new Logger(DefaultDeviceStatusService.name);
   private isRegistered = false; // 新增注册状态标志
 
@@ -20,60 +20,52 @@ export class DefaultDeviceStatusService implements DeviceStatusService{
     private readonly ollamaService: OllamaService
   ) {
   }
-  async register() {
+  async register(): Promise<{
+    success: boolean,
+    error: string
+  }> {
     const [ipAddress, deviceType, deviceModel] = await Promise.all([
       address(),
       this.getDeviceType(),
       this.getDeviceModel(),
     ]);
-    const response: any = await got.post(`${env().GATEWAY_API_URL}/node/register`, {
+    const { data } = await got.post(`${env().GATEWAY_API_URL}/node/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${env().GATEWAY_API_KEY}`
       },
       json: {
-        node_id: env().NODE_ID,
         code: env().NODE_CODE,
-        service_url: env().GATEWAY_API_URL,
-        type: deviceType,
-        model: deviceModel,
+        gateway_address: env().GATEWAY_API_URL,
+        reward_address: env().REWARD_ADDRESS,
+        device_type: deviceType,
+        gpu_type: deviceModel,
         ip: ipAddress,
       },
-    });
-    if (response.ok) {
+    }).json() as {
+      data: {
+        success: boolean,
+        error: string
+      }
+    }
+    console.log(data)
+    if (data.success) {
       this.isRegistered = true;
       this.heartbeat()
       this.logger.log('Registration successful, starting heartbeat');
+    } else {
+      this.logger.error('Registration ERROR', data.error);
     }
+    return data
   }
 
   async getDeviceType(): Promise<string> {
-    try {
-      const osInfo = await si.osInfo();
-      const graphics = await si.graphics();
-
-      // 判断是否为英伟达设备
-      const isNvidia = graphics.controllers.some(c =>
-        c.model?.toLowerCase().includes('nvidia')
-      );
-
-      if (isNvidia) return 'nvidia';
-      return osInfo.platform === 'linux' ? 'linux' :
-        osInfo.platform === 'darwin' ? 'mac' :
-          osInfo.platform === 'windows' ? 'windows' : 'other';
-    } catch {
-      return 'unknown';
-    }
+    return env().DEVICE_TYPE
   }
 
   async getDeviceModel(): Promise<string> {
-    try {
-      const graphics = await si.graphics();
-      return graphics.controllers[0]?.model || 'Unknown';
-    } catch {
-      return 'Unknown';
-    }
+    return env().GPU_MODEL
   }
 
   async getDeviceInfo(): Promise<string> {
@@ -89,7 +81,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService{
         os: `${os.distro} ${os.release} (${os.arch})`,
         cpu: `${cpu.manufacturer} ${cpu.brand} ${cpu.speed}GHz`,
         memory: `${(mem.total / 1024 / 1024 / 1024).toFixed(1)}GB`,
-       graphics: R.map(R.applySpec({
+        graphics: R.map(R.applySpec({
           model: R.prop('model'),
           vram: R.ifElse(R.both(R.has('vram'), R.pipe(R.prop('vram'), R.is(Number))), R.pipe(R.prop('vram'), R.divide(R.__, 1024), Math.round, R.toString, R.concat(R.__, 'GB')), R.always('Unknown'))
         }), graphics.controllers)
@@ -117,7 +109,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService{
         'Authorization': `Bearer ${env().GATEWAY_API_KEY}`
       },
       json: {
-        node_id: env().NODE_ID,
+        code: env().NODE_CODE,
         cpu_usage: Number(cpuLoad.currentLoad.toFixed(2)),  // 保留两位小数
         memory_usage: Number(
           ((memoryInfo.used / memoryInfo.total) * 100).toFixed(2)
