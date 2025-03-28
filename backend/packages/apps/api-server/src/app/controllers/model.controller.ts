@@ -1,7 +1,4 @@
 import { Body, Controller, Get, Inject, Logger, Post, Res } from "@nestjs/common";
-import {
-  MemoryKeeperPipeline,
-} from "@saito/keeper";
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import { OllamaService } from "@saito/ollama";
