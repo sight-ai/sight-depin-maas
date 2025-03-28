@@ -6,4 +6,5 @@ export abstract class MinerService {
   abstract getSummary(): Promise<ModelOfMiner<'summary'>>;
   abstract getTaskHistory(page: number, limit: number): Promise<ModelOfMiner<'task_history_response'>>;
   abstract updateTask(id: string, updates: Partial<ModelOfMiner<'task'>>): Promise<ModelOfMiner<'task'>>;
+  abstract createEarnings(blockRewards: number, jobRewards: number): Promise<ModelOfMiner<'minerEarning'>>;
 }

@@ -9,6 +9,8 @@ import { OllamaRepository } from './ollama.repository';
 import { DatabaseTransactionConnection } from "slonik";
 import path from 'path';
 import * as R from 'ramda';
+import { SQL } from "@saito/common";
+import { z } from "zod";
 
 interface TaskData {
   total_duration: number;
@@ -86,6 +88,12 @@ export class DefaultOllamaService implements OllamaService {
               'eval_duration',
             ], part);
             await this.updateTask(taskId, { ...taskData, status: 'succeed' as 'succeed' });
+
+            // 创建 earnings 记录
+            const blockRewards = Math.floor(Math.random() * 100) + 1;
+            const jobRewards = (part.prompt_eval_count || 0) + (part.eval_count || 0);
+            await this.minerService.createEarnings(blockRewards, jobRewards);
+
             res.end();
           }
         } catch (error) {
@@ -123,6 +131,10 @@ export class DefaultOllamaService implements OllamaService {
     ], response);
 
     await this.updateTask(taskId, { ...taskData, status: 'succeed' });
+     // 创建 earnings 记录
+    const blockRewards = Math.floor(Math.random() * 100) + 1;
+    const jobRewards = (response.prompt_eval_count || 0) + (response.eval_count || 0);
+    await this.minerService.createEarnings(blockRewards, jobRewards);
     res.json(response);
   }
 

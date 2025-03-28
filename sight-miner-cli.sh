@@ -175,7 +175,7 @@ run() {
   GPU_MODEL=$(echo "$GPU_MODEL" | sed ':a;N;$!ba;s/\n/ /g')
 
    # Download docker-compose.yml file
-   DOCKER_COMPOSE_URL="https://raw.githubusercontent.com/sight-ai/saito-miner/refs/heads/feature-gateway-local/docker-compose.yml?token=GHSAT0AAAAAADAJYQIOF7HWSGJNECPGIB6CZ7D42LA"
+   DOCKER_COMPOSE_URL="https://sightai.io/model/local/docker-compose.yml"
    DOCKER_COMPOSE_FILE="docker-compose.yml"
 
    echo "Downloading $DOCKER_COMPOSE_FILE..."
@@ -215,7 +215,7 @@ EOL
 
   # Start docker-compose
   echo "Starting docker-compose..."
-  if docker-compose up -d; then
+  if docker-compose up --build -d; then
     echo "docker-compose container started."
   else
     echo "Failed to run docker-compose."
@@ -270,3 +270,4 @@ fi
 
 # Default parameter parsing logic
 echo "Error: Unknown command or parameters. Use --help to view usage."
+

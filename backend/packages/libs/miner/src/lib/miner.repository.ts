@@ -182,6 +182,21 @@ export class MinerRepository {
     return task;
   }
 
+  async createEarnings(
+    conn: DatabaseTransactionConnection,
+    blockRewards: number,
+    jobRewards: number
+  ) {
+    const earnings = await conn.one(SQL.type(
+      m.miner('minerEarning')
+    )`
+      INSERT INTO saito_miner.earnings (id, block_rewards, job_rewards)
+      VALUES (gen_random_uuid(), ${blockRewards}, ${jobRewards})
+      RETURNING block_rewards as total_block_rewards, job_rewards as total_job_rewards;
+    `);
+    return earnings;
+  }
+
   async getTasks(
     conn: DatabaseTransactionConnection,
     page: number,
