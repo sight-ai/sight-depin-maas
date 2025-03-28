@@ -24,12 +24,13 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     success: boolean,
     error: string
   }> {
+    console.log(`${env().GATEWAY_API_URL}/node/register`)
     const [ipAddress, deviceType, deviceModel] = await Promise.all([
       address(),
       this.getDeviceType(),
       this.getDeviceModel(),
     ]);
-    const { data } = await got.post(`${env().GATEWAY_API_URL}/node/register`, {
+    const { data, code } = await got.post(`${env().GATEWAY_API_URL}/node/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -46,11 +47,12 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     }).json() as {
       data: {
         success: boolean,
-        error: string
-      }
+        error: string,
+      },
+      code: number
     }
     console.log(data)
-    if (data.success) {
+    if (data.success && code !== 500) {
       this.isRegistered = true;
       this.heartbeat()
       this.logger.log('Registration successful, starting heartbeat');

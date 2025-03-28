@@ -24,6 +24,7 @@ export class DeviceStatusRepository {
     name: string,
     status: "online" | "offline"
   ) {
+    console.log('deviceId', deviceId);
     const now = toISOString(new Date()); // Convert date to ISO string for SQL compatibility
     return conn.query(SQL.type(m.deviceStatus('UpdateDeviceStatusSchema'))`
  WITH latest AS (
@@ -52,12 +53,14 @@ WHERE NOT EXISTS (SELECT 1 FROM updated);
     name: string,
     status: "online" | "offline",
   } | null> {
-    const result = await conn.maybeOne(SQL.type(m.deviceStatus('FindDeviceStatusSchema'))`
+    console.log('deviceId', deviceId);
+    const result = await conn.query(SQL.type(m.deviceStatus('FindDeviceStatusSchema'))`
       SELECT name, status
       FROM saito_miner.device_status
       WHERE device_id = ${deviceId};
     `);
-    return result;
+    console.log('result', result);
+    return result.rows[0];
   }
 
   async markDevicesOffline(conn: DatabaseTransactionConnection, thresholdTime: Date) {

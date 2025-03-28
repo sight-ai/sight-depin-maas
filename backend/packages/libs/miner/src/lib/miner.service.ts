@@ -2,14 +2,14 @@ import { DeviceInfo, EarningInfo, JSONType, ModelOfMiner, Statistics, Task } fro
 import { MinerService } from "./miner.interface";
 import { MinerRepository } from "./miner.repository";
 import { Inject } from "@nestjs/common";
-export class DefaultMinerService implements MinerService {
 
+export class DefaultMinerService implements MinerService {
   constructor(@Inject(MinerRepository) private readonly repository: MinerRepository) {}
 
   createTask(args: ModelOfMiner<'create_task_request'>) {
-      return this.repository.transaction(async conn => {
-        return this.repository.createTask(conn, args);
-      })
+    return this.repository.transaction(async conn => {
+      return this.repository.createTask(conn, args);
+    })
   }
 
   getTask(id: string): Promise<ModelOfMiner<'task'>> {
@@ -35,9 +35,19 @@ export class DefaultMinerService implements MinerService {
       return this.repository.updateTask(conn, id, updates);
     })
   }
+
+  createEarnings(blockRewards: number, jobRewards: number): Promise<ModelOfMiner<'minerEarning'>> {
+    return this.repository.transaction(async conn => {
+      return this.repository.createEarnings(conn, blockRewards, jobRewards);
+    })
+  }
 }
 
-export const MinerServiceProvider = {
+
+const MinerServiceProvider = {
   provide: MinerService,
   useClass: DefaultMinerService
 }
+
+
+export default MinerServiceProvider;
