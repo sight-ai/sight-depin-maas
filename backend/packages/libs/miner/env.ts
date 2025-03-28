@@ -5,8 +5,6 @@ import { z } from 'zod';
 export const env = memoizee(() =>
   createEnv({
     server: {
-      PRIVATE_KEY: z.string(),
-      WALLET_ADDRESS: z.string(),
     },
     runtimeEnv: process.env,
   }),
