@@ -20,12 +20,9 @@
       "@saito/common": ["packages/libs/common/src/index.ts"],
       "@saito/configs": ["packages/libs/configs/src/index.ts"],
       "@saito/models": ["packages/libs/models/src/index.ts"],
-      "@saito/openai": ["packages/libs/openai/src/index.ts"],
       "@saito/ollama": ["packages/libs/ollama/src/index.ts"],
       "@saito/persistent": ["packages/libs/persistent/src/index.ts"],
-      "@saito/keeper": ["packages/libs/keeper/src/index.ts"],
       "@saito/miner": ["packages/libs/miner/src/index.ts"],
-      "@saito/ethstorage": ["packages/libs/ethstorage/src/index.ts"],
       "@saito/device-status": ["packages/libs/device-status/src/index.ts"]
     }
   },
