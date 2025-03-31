@@ -1,7 +1,7 @@
-import { nextui } from '@nextui-org/react';
+import type { Config } from 'tailwindcss'
+import { nextui } from '@nextui-org/react'
 
-/** @type {import('tailwindcss').Config} */
-module.exports = {
+const config: Config = {
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -9,29 +9,80 @@ module.exports = {
     './node_modules/@nextui-org/theme/dist/**/*.{js,ts,jsx,tsx}'
   ],
   theme: {
+    container: {
+      center: true,
+      padding: '2rem',
+      screens: {
+        '2xl': '1400px',
+      },
+    },
     extend: {
       colors: {
-        // ====== 浅色主题 (Light Theme) ======
-        'light-bg': '#FFFFFF',         // 主背景
-        'light-sidebar': '#F4F4F4',    // 侧边栏背景
-        'light-card': '#FFFFFF',       // 卡片背景
-        'light-text': '#000000',       // 主要文字
-        'light-subtext': '#4F4F4F',    // 次要文字/提示
-
-        // ====== 深色主题 (Dark Theme) ======
-        'dark-bg': '#141414',         // 主背景
-        'dark-sidebar': '#000000',    // 侧边栏背景
-        'dark-card': '#1F1F1F',       // 卡片背景
-        'dark-text': '#FFFFFF',       // 主要文字
-        'dark-subtext': '#BFBFBF',    // 次要文字/提示
-
-        // ====== 其他可能需要的配色 ======
-        'brand': '#6C63FF',           // 品牌色（示例）
-        'chart-line': '#00D8FF',      // 折线图颜色（示例）
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        primary: {
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
+        },
+        secondary: {
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))',
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
+        },
+        muted: {
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
+        },
+        accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
+        },
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
+        },
+        warning: {
+          DEFAULT: 'hsl(var(--warning))',
+          foreground: 'hsl(var(--warning-foreground))',
+        },
+        success: {
+          DEFAULT: 'hsl(var(--success))',
+          foreground: 'hsl(var(--success-foreground))',
+        },
+      },
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
+      },
+      keyframes: {
+        'accordion-down': {
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' },
+        },
+        'accordion-up': {
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' },
+        },
+      },
+      animation: {
+        'accordion-down': 'accordion-down 0.2s ease-out',
+        'accordion-up': 'accordion-up 0.2s ease-out',
       },
     },
   },
-  darkMode: "class",
-  mode: 'jit',
-  plugins: []
+  darkMode: 'class',
+  plugins: [nextui()],
 }
+
+export default config

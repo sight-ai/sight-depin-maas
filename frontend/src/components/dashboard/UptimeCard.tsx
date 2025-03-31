@@ -1,34 +1,26 @@
 'use client'
 
-import { useThemeCus } from '@/hooks/useTheme'
-import { Card } from '@nextui-org/react'
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Loader2 } from "lucide-react"
 import { SummaryResponse } from '@/types/api'
+import { useThemeCus } from "@/hooks/useTheme"
 
-export function UptimeCard({summary, loading,
-    error,}: {summary: SummaryResponse | null, loading: boolean, error: string | null}) {
+export function UptimeCard({ statistics, loading,
+    error, }: { statistics: SummaryResponse | null, loading: boolean, error: string | null }) {
     const { isDark } = useThemeCus()
-    const statistics = summary?.statistics
-
     return (
-        <Card className="p-5 bg-white flex-1" style={{
-            backgroundColor: isDark ? '#1a1a1a' : '#f6f6f6',
-            borderRadius: '2rem'
-
-        }}>
-            {loading ? (
-                <div>Loading...</div>
-            ) : error ? (
-                <div className="text-red-500">{error}</div>
-            ) : (
-                <>
+        <Card className="p-8 pb-0 flex-1">
+            <CardTitle className="text-2xl font-semibold">Uptime</CardTitle>
+            <CardContent>
+                <div className="flex flex-col">
                     <div style={{ color: '#000' }} className='flex justify-end'>
                         <span className="text-base" style={{
                             color: isDark ? '#fff' : '#000',
-                        }}>Last 30 days {statistics?.up_time_percentage.toFixed(1)}% Uptime</span>
+                        }}>Last 30 days {statistics?.statistics?.up_time_percentage.toFixed(1)}% Uptime</span>
                     </div>
-                    <div className='flex mt-7 items-center justify-around mb-5'>
+                    <div className='flex items-center justify-between mt-5'>
                         {
-                            statistics?.task_activity.map((item, index) => (
+                            (statistics?.statistics?.task_activity || Array(30).fill(0)).map((item, index) => (
                                 <div key={index} style={{
                                     width: '2rem',
                                     height: '2rem',
@@ -39,7 +31,8 @@ export function UptimeCard({summary, loading,
                             ))
                         }
                     </div>
-                </>)}
+                </div>
+            </CardContent>
         </Card>
     )
 }

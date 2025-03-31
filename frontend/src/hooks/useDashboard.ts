@@ -6,7 +6,7 @@ import { SummaryResponse } from '@/types/api'
 
 export function useDashboard() {
   const [summary, setSummary] = useState<SummaryResponse | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const fetchDashboardData = async () => {
@@ -15,10 +15,10 @@ export function useDashboard() {
       setError(null)
       const data = await apiService.getSummary()
       setSummary(data)
+      setLoading(false)
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err)
       setError('Failed to load dashboard data')
-    } finally {
       setLoading(false)
     }
   }

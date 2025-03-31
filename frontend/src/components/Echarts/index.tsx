@@ -1,9 +1,9 @@
-import { useThemeCus } from '@/hooks/useTheme';
 import ReactECharts, { EChartsOption } from 'echarts-for-react';
 import { SummaryResponse } from '@/types/api';
+import { useTheme } from 'next-themes';
 
 export default function ({summary}: {summary: SummaryResponse | null}) {
-  const { isDark } = useThemeCus()
+  const { theme } = useTheme()
   const statistics = summary?.statistics
 
   const getTopViewOption = (): EChartsOption => ({
@@ -14,7 +14,7 @@ export default function ({summary}: {summary: SummaryResponse | null}) {
       }
     },
     grid: {
-    top: 0,
+      top: 0,
       left: '2%',
       right: '2%',
       bottom: '3%',
@@ -29,7 +29,7 @@ export default function ({summary}: {summary: SummaryResponse | null}) {
         return `${date.getDate()}\n${date.toLocaleString('default', { month: 'short' })}`;
       }),
       axisLabel: {
-        color: isDark ? '#fff' :'#000',
+        color: theme === 'dark' ? '#fff' : '#000',
         fontSize: 12,
         lineHeight: 16
       },
@@ -40,21 +40,20 @@ export default function ({summary}: {summary: SummaryResponse | null}) {
       }
     },
     {
-        type: 'category',
-        boundaryGap: false,
-        data: statistics?.earning_serials.map(value => Number(value).toFixed(2))  || Array(30).fill(0),
-        axisLabel: {
-          color:  isDark ? '#fff' :'#000',
-          fontSize: 12,
-          lineHeight: 16
-        },
-        axisLine: {
-          lineStyle: {
-            color: '#E5E7EB'
-          }
+      type: 'category',
+      boundaryGap: false,
+      data: statistics?.earning_serials.map(value => Number(value).toFixed(2))  || Array(30).fill(0),
+      axisLabel: {
+        color: theme === 'dark' ? '#fff' : '#000',
+        fontSize: 12,
+        lineHeight: 16
+      },
+      axisLine: {
+        lineStyle: {
+          color: '#E5E7EB'
         }
       }
-],
+    }],
     yAxis: {
       type: 'value',
       min: 0,
@@ -80,15 +79,14 @@ export default function ({summary}: {summary: SummaryResponse | null}) {
       symbol: 'circle',
       symbolSize: 6,
       lineStyle: {
-        color:  isDark ? '#fff' :'#000',
+        color: theme === 'dark' ? '#fff' : '#000',
         width: 2
       },
       itemStyle: {
         color: '#000',
         borderWidth: 2,
         borderColor: '#fff'
-      },
-      // areaStyle: null
+      }
     }]
   });
 

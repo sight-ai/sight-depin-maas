@@ -1,24 +1,28 @@
 'use client'
 
-import { useThemeCus } from '@/hooks/useTheme'
+import { useTheme } from 'next-themes'
+import { Button } from '@/components/ui/button'
+import { Moon, Sun } from 'lucide-react'
 
 export function ThemeSwitch() {
-    const { theme, setTheme } = useThemeCus()
+    const { theme, setTheme } = useTheme()
 
     return (
-        <div className="p-5 ">
+        <div className="p-5">
             <div className="flex items-center justify-between">
-                <div className='flex flex-col '>
-                    <span className="text-base font-medium">DAYTIME</span>
-                    <span className="text-base font-medium">THEME</span>
+                <div className='flex flex-col'>
+                    <span className="text-base font-medium text-foreground">DAYTIME</span>
+                    <span className="text-base font-medium text-foreground">THEME</span>
                 </div>
-                <div
-                    className={`switch-wrapper ${theme === 'dark' ? 'dark' : 'light'}`}
+                <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                    className="rounded-full"
                 >
-                    <div className="switch-bg"></div>
-                    <div className="switch-thumb"></div>
-                </div>
+                    <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                    <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                </Button>
             </div>
         </div>
     )
