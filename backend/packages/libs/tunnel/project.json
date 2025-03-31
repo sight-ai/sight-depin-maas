@@ -1,0 +1,36 @@
+{
+  "name": "tunnel",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/libs/tunnel/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/libs/tunnel",
+        "main": "packages/libs/tunnel/src/index.ts",
+        "tsConfig": "packages/libs/tunnel/tsconfig.lib.json",
+        "assets": ["packages/libs/tunnel/*.md"]
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "packages/libs/tunnel/**/*.ts",
+          "packages/libs/tunnel/package.json"
+        ]
+      }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "packages/libs/tunnel/jest.config.ts"
+      }
+    }
+  },
+  "tags": []
+}
