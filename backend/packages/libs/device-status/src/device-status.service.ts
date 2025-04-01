@@ -9,6 +9,7 @@ import si from 'systeminformation';
 import { address } from 'ip';
 import { env } from '../env'
 import { DeviceStatusService } from "./device-status.interface";
+import { TunnelService } from "@saito/tunnel";
 @Injectable()
 export class DefaultDeviceStatusService implements DeviceStatusService {
   private readonly logger = new Logger(DefaultDeviceStatusService.name);
@@ -17,7 +18,8 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
   constructor(
     private readonly deviceStatusRepository: DeviceStatusRepository,
     @Inject(OllamaService)
-    private readonly ollamaService: OllamaService
+    private readonly ollamaService: OllamaService,
+    private readonly tunnelService: TunnelService
   ) {
   }
   async register(): Promise<{
@@ -48,6 +50,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       data: {
         success: boolean,
         error: string,
+        node_id: string
       },
       code: number
     }
@@ -55,6 +58,8 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     if (data.success && code !== 500) {
       this.isRegistered = true;
       this.heartbeat()
+      console.log(data)
+      this.tunnelService.connectSocket(data.node_id)
       this.logger.log('Registration successful, starting heartbeat');
     } else {
       this.logger.error('Registration ERROR', data.error);
