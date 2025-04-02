@@ -2,7 +2,7 @@ version: '3'
 
 services:
   sight-miner-backend:
-    image: gcr.io/celtic-descent-398803/sight-miner-backend:0.0.4-SNAPSHOT
+    image: gcr.io/celtic-descent-398803/sight-miner-backend:0.0.5-SNAPSHOT
     ports:
       - "8716:8716"
     networks:
