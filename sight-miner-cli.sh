@@ -8,6 +8,22 @@ CONFIG_FILE="config.conf"
 # Default configuration
 REGISTER_URL="http://localhost:8716/api/v1/device-status/register"
 
+# Check if Ollama service is running
+check_ollama_service() {
+  if ! command -v ollama &> /dev/null; then
+    echo "Error: Ollama is not installed. Please install Ollama first."
+    echo "Visit https://ollama.ai/download for installation instructions."
+    exit 1
+  fi
+
+  # Check if Ollama service is running
+  if ! curl -s http://localhost:11434/api/version &> /dev/null; then
+    echo "Error: Ollama service is not running. Please start Ollama service first."
+    echo "You can start it by running: ollama serve"
+    exit 1
+  fi
+}
+
 # Load configuration file
 load_config() {
   if [ -f "$CONFIG_FILE" ]; then
@@ -144,6 +160,9 @@ get_gpu_info() {
 
 # Main execution function
 run() {
+  # Check Ollama service first
+  check_ollama_service
+
   echo "GATEWAY_API_URL: $GATEWAY_API_URL"
   echo "NODE_CODE: $NODE_CODE"
   echo "GATEWAY_API_KEY: $GATEWAY_API_KEY"

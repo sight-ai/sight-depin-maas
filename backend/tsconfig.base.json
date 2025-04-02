@@ -23,6 +23,7 @@
       "@saito/ollama": ["packages/libs/ollama/src/index.ts"],
       "@saito/persistent": ["packages/libs/persistent/src/index.ts"],
       "@saito/miner": ["packages/libs/miner/src/index.ts"],
+      "@saito/tunnel": ["packages/libs/tunnel/src/index.ts"],
       "@saito/device-status": ["packages/libs/device-status/src/index.ts"]
     }
   },

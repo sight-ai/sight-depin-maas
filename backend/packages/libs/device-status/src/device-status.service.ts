@@ -9,6 +9,7 @@ import si from 'systeminformation';
 import { address } from 'ip';
 import { env } from '../env'
 import { DeviceStatusService } from "./device-status.interface";
+import { TunnelService } from "@saito/tunnel";
 @Injectable()
 export class DefaultDeviceStatusService implements DeviceStatusService {
   private readonly logger = new Logger(DefaultDeviceStatusService.name);
@@ -17,49 +18,64 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
   constructor(
     private readonly deviceStatusRepository: DeviceStatusRepository,
     @Inject(OllamaService)
-    private readonly ollamaService: OllamaService
+    private readonly ollamaService: OllamaService,
+    private readonly tunnelService: TunnelService
   ) {
   }
   async register(): Promise<{
     success: boolean,
     error: string
   }> {
-    console.log(`${env().GATEWAY_API_URL}/node/register`)
-    const [ipAddress, deviceType, deviceModel] = await Promise.all([
-      address(),
-      this.getDeviceType(),
-      this.getDeviceModel(),
-    ]);
-    const { data, code } = await got.post(`${env().GATEWAY_API_URL}/node/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${env().GATEWAY_API_KEY}`
-      },
-      json: {
-        code: env().NODE_CODE,
-        gateway_address: env().GATEWAY_API_URL,
-        reward_address: env().REWARD_ADDRESS,
-        device_type: deviceType,
-        gpu_type: deviceModel,
-        ip: ipAddress,
-      },
-    }).json() as {
-      data: {
-        success: boolean,
-        error: string,
-      },
-      code: number
+    try {
+      const [ipAddress, deviceType, deviceModel] = await Promise.all([
+        address(),
+        this.getDeviceType(),
+        this.getDeviceModel(),
+      ]);
+
+      this.logger.debug(`Registering device with gateway: ${env().GATEWAY_API_URL}`);
+      
+      const { data, code } = await got.post(`${env().GATEWAY_API_URL}/node/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${env().GATEWAY_API_KEY}`
+        },
+        json: {
+          code: env().NODE_CODE,
+          gateway_address: env().GATEWAY_API_URL,
+          reward_address: env().REWARD_ADDRESS,
+          device_type: deviceType,
+          gpu_type: deviceModel,
+          ip: ipAddress,
+        },
+      }).json() as {
+        data: {
+          success: boolean,
+          error: string,
+          node_id: string
+        },
+        code: number
+      }
+
+      if (data.success && code !== 500) {
+        this.isRegistered = true;
+        this.heartbeat()
+        await this.tunnelService.connectSocket(data.node_id)
+        this.logger.log('Device registration successful');
+        return data;
+      } else {
+        this.logger.error(`Registration failed: ${data.error}`);
+        return data;
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      this.logger.error(`Registration error: ${errorMessage}`);
+      return {
+        success: false,
+        error: errorMessage
+      };
     }
-    console.log(data)
-    if (data.success && code !== 500) {
-      this.isRegistered = true;
-      this.heartbeat()
-      this.logger.log('Registration successful, starting heartbeat');
-    } else {
-      this.logger.error('Registration ERROR', data.error);
-    }
-    return data
   }
 
   async getDeviceType(): Promise<string> {
@@ -93,26 +109,25 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     }
   }
   async heartbeat() {
-    if (!this.isRegistered) return; // 确保只在注册后上报
-    // 获取系统指标
-    const [cpuLoad, memoryInfo, gpuInfo, ipAddress, deviceType, deviceModel, deviceInfo] = await Promise.all([
-      si.currentLoad().catch(() => ({ currentLoad: 0 })),
-      si.mem().catch(() => ({ used: 0, total: 1 })), // 避免除零错误
-      si.graphics().catch(() => ({ controllers: [{ utilizationGpu: 0 }] })),
-      address(),
-      this.getDeviceType(),
-      this.getDeviceModel(),
-      this.getDeviceInfo()
-    ]);
-    const response = await got.post(`${env().GATEWAY_API_URL}/node/heartbeat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${env().GATEWAY_API_KEY}`
-      },
-      json: {
+    if (!this.isRegistered) {
+      this.logger.debug('Skipping heartbeat - device not registered');
+      return;
+    }
+
+    try {
+      const [cpuLoad, memoryInfo, gpuInfo, ipAddress, deviceType, deviceModel, deviceInfo] = await Promise.all([
+        si.currentLoad().catch(() => ({ currentLoad: 0 })),
+        si.mem().catch(() => ({ used: 0, total: 1 })),
+        si.graphics().catch(() => ({ controllers: [{ utilizationGpu: 0 }] })),
+        address(),
+        this.getDeviceType(),
+        this.getDeviceModel(),
+        this.getDeviceInfo()
+      ]);
+
+      const heartbeatData = {
         code: env().NODE_CODE,
-        cpu_usage: Number(cpuLoad.currentLoad.toFixed(2)),  // 保留两位小数
+        cpu_usage: Number(cpuLoad.currentLoad.toFixed(2)),
         memory_usage: Number(
           ((memoryInfo.used / memoryInfo.total) * 100).toFixed(2)
         ),
@@ -125,8 +140,24 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         model: deviceModel,
         device_info: deviceInfo,
         gateway_url: env().GATEWAY_API_URL
-      },
-    });
+      };
+
+      await got.post(`${env().GATEWAY_API_URL}/node/heartbeat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${env().GATEWAY_API_KEY}`
+        },
+        json: heartbeatData,
+      });
+
+      this.logger.debug('Heartbeat sent successfully');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      this.logger.error(`Heartbeat failed: ${errorMessage}`);
+      // 如果心跳失败，可能需要重新注册
+      this.isRegistered = false;
+    }
   }
   async updateDeviceStatus(deviceId: string, name: string, status: "online" | "offline") {
     return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {

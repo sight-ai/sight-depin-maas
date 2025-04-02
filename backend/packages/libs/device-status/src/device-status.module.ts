@@ -5,11 +5,11 @@ import { MinerModule } from '@saito/miner';
 import { DeviceStatusRepository } from './device-status.repository';
 import DeviceStatusServiceProvider from './device-status.service';
 import { OllamaModule, DefaultOllamaService } from '@saito/ollama';
-
+import { TunnelModule } from '@saito/tunnel';
 import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
-  imports: [HttpModule, PersistentModule, MinerModule,  ScheduleModule.forRoot(), OllamaModule],
+  imports: [HttpModule, PersistentModule, MinerModule,  ScheduleModule.forRoot(), OllamaModule, TunnelModule],
   providers: [DeviceStatusServiceProvider, DeviceStatusRepository],
   exports: [DeviceStatusServiceProvider, DeviceStatusRepository],
 })
