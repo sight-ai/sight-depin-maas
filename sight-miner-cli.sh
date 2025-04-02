@@ -25,10 +25,6 @@ Options:
     --gateway-url=<URL>       GATEWAY API URL
     --node-code=<CODE>        Node code
     --gateway-api-key=<KEY>   GATEWAY API Key
-    --openai-api-key=<KEY>    OpenAI API Key
-    --openpipe-api-key=<KEY>  OpenPipe API Key
-    --private-key=<KEY>       Private Key
-  --register-url=<URL>      URL to register device status (defaults to $REGISTER_URL)
   --help                    Show this help information
   --version                 Show script version
 EOF
@@ -151,13 +147,10 @@ run() {
   echo "GATEWAY_API_URL: $GATEWAY_API_URL"
   echo "NODE_CODE: $NODE_CODE"
   echo "GATEWAY_API_KEY: $GATEWAY_API_KEY"
-  echo "OPENAI_API_KEY: $OPENAI_API_KEY"
-  echo "OPENPIPE_API_KEY: $OPENPIPE_API_KEY"
-  echo "PRIVATE_KEY: $PRIVATE_KEY"
   echo "REWARD_ADDRESS: $REWARD_ADDRESS"
 
   # Check if necessary parameters are provided
-  if [ -z "$GATEWAY_API_URL" ] || [ -z "$NODE_CODE" ] || [ -z "$GATEWAY_API_KEY" ] || [ -z "$OPENAI_API_KEY" ] || [ -z "$OPENPIPE_API_KEY" ] || [ -z "$PRIVATE_KEY" ]  || [ -z "$REWARD_ADDRESS" ]; then
+  if [ -z "$GATEWAY_API_URL" ] || [ -z "$NODE_CODE" ] || [ -z "$GATEWAY_API_KEY" ] || [ -z "$REWARD_ADDRESS" ]; then
     echo "Error: Missing required parameters. Use --help to view usage."
     exit 1
   fi
@@ -203,9 +196,6 @@ services:
       - GPU_BRAND="${GPU_BRAND}"
       - DEVICE_TYPE="${os}"
       - GPU_MODEL="${GPU_MODEL}"
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENPIPE_API_KEY=${OPENPIPE_API_KEY}
-      - PRIVATE_KEY=${PRIVATE_KEY}
       - REWARD_ADDRESS=${REWARD_ADDRESS}
 EOL
 
@@ -251,10 +241,6 @@ if [ "$1" == "run" ]; then
       --gateway-url=*)        GATEWAY_API_URL="${1#*=}" ;;
       --node-code=*)          NODE_CODE="${1#*=}" ;;
       --gateway-api-key=*)    GATEWAY_API_KEY="${1#*=}" ;;
-      --openai-api-key=*)     OPENAI_API_KEY="${1#*=}" ;;
-      --openpipe-api-key=*)   OPENPIPE_API_KEY="${1#*=}" ;;
-      --private-key=*)        PRIVATE_KEY="${1#*=}" ;;
-      --register-url=*)       REGISTER_URL="${1#*=}" ;;
       --reward-address=*)     REWARD_ADDRESS="${1#*=}" ;;
       --help)                 show_help; exit 0 ;;
       --version)              show_version; exit 0 ;;
