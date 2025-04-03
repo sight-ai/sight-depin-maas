@@ -34,8 +34,6 @@ export class ModelController {
   @Post('/chat')
   async generateChatResponse(@Body() args: ModelOfOllama<'chat_request'>, @Res() res: Response) {
     try {
-      this.logger.log(args);
-      this.logger.log("Model:" + args.model);
       await this.ollamaService.chat(args, res);
     } catch (error) {
       this.logger.error('Error during chat response:', error);
@@ -46,5 +44,10 @@ export class ModelController {
   @Get('/tags')
   async listModels() {
     return this.ollamaService.listModel();
+  }
+
+  @Get('/show')
+  async showModelInformation(@Body() args: ModelOfOllama<'show_model_request'>) {
+    return this.ollamaService.showModelInformation(args);
   }
 }
