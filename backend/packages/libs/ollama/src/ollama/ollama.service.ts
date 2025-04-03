@@ -249,8 +249,8 @@ export class DefaultOllamaService implements OllamaService {
       console.log(response);
       console.log(true);
       return !!response;
-    } catch {
-      console.log(false);
+    } catch (error){
+      console.log(error);
       return false;
     }
   }

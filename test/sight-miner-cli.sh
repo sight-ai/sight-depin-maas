@@ -18,17 +18,6 @@ check_ollama_service() {
   fi
 }
 
-# Pull deepseek-r1:7b model if Ollama is running
-pull_deepseek_model() {
-  echo "Pulling deepseek-r1:7b model..."
-  if ollama pull deepseek-r1:7b; then
-    echo "Successfully pulled deepseek-r1:7b model"
-  else
-    echo "Failed to pull deepseek-r1:7b model"
-    exit 1
-  fi
-}
-
 # # Load configuration file
 # load_config() {
 #   if [ -f "$CONFIG_FILE" ]; then
@@ -168,8 +157,6 @@ get_gpu_info() {
 run() {
   # Check Ollama service first
   check_ollama_service
-  # Pull deepseek model
-  pull_deepseek_model
 
   echo "GATEWAY_API_URL: $GATEWAY_API_URL"
   echo "NODE_CODE: $NODE_CODE"
@@ -301,4 +288,5 @@ else
   echo "Error: Unknown command or parameters. Use --help to view usage."
   exit 1
 fi
+
 
