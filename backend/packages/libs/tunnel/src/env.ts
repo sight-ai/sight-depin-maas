@@ -5,10 +5,9 @@ import { z } from 'zod';
 export const env = memoizee(() =>
   createEnv({
     server: {
-      GATEWAY_API_URL: z.string(),
+      GATEWAY_API_URL: z.string().optional(),
       GATEWAY_API_KEY: z.string().optional(),
-      NODE_CODE: z.string(),
-
+      NODE_CODE: z.string().optional(),
     },
     runtimeEnv: process.env,
   }),

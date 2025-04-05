@@ -5,15 +5,15 @@ import { z } from 'zod';
 export const env = memoizee(() =>
   createEnv({
     server: {
-      GATEWAY_API_URL: z.string(),
-      GATEWAY_API_KEY: z.string().optional(),
-      NODE_CODE: z.string(),
-      OLLAMA_DEVICE_ID: z.string(),
-      OLLAMA_DEVICE_NAME: z.string(),
-      GPU_BRAND: z.string(),
-      DEVICE_TYPE: z.string(),
-      GPU_MODEL: z.string(),
-      REWARD_ADDRESS: z.string()
+      GATEWAY_API_URL: z.string().default('unknown'),
+      GATEWAY_API_KEY: z.string().optional().default('unknown'),
+      NODE_CODE: z.string().default('unknown'),
+      OLLAMA_DEVICE_ID: z.string().default('unknown'),
+      OLLAMA_DEVICE_NAME: z.string().default('unknown'),
+      GPU_BRAND: z.string().default('unknown'),
+      DEVICE_TYPE: z.string().default('unknown'),
+      GPU_MODEL: z.string().default('unknown'),
+      REWARD_ADDRESS: z.string().default('unknown')
     },
     runtimeEnv: process.env,
   }),

@@ -2,6 +2,8 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app/app.module';
+import { MinerService } from "@saito/miner";
+import { MockedMinerService } from './mock/miner.service';
 
 describe('IndexController (e2e)', () => {
   let app: INestApplication;
@@ -9,7 +11,9 @@ describe('IndexController (e2e)', () => {
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    }).overrideProvider(MinerService)
+      .useClass(MockedMinerService) // override with your test service
+      .compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
