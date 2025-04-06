@@ -67,14 +67,14 @@ export class DefaultOllamaService implements OllamaService {
           const part = JSON.parse(chunk.toString());
           if (isChat) {
             if (part instanceof Object) {
-              res.write(`${JSON.stringify({ ...part })}\n\n`);
+              res.write(`${JSON.stringify(part)}`);
             }
           } else {
             if (!part.done) {
               msg += part.response;
             }
             if (part instanceof Object) {
-              res.write(`${JSON.stringify({ ...part })}\n\n`);
+              res.write(`${JSON.stringify(part)}`);
             }
           }
 
@@ -94,7 +94,6 @@ export class DefaultOllamaService implements OllamaService {
             const jobRewards = (part.prompt_eval_count || 0) + (part.eval_count || 0);
             await this.minerService.createEarnings(blockRewards, jobRewards);
 
-            res.end();
           }
         } catch (error) {
           console.error(error)
@@ -110,6 +109,10 @@ export class DefaultOllamaService implements OllamaService {
       if (!res.headersSent) {
         res.status(500).json({ error: error });
       }
+      res.end();
+    });
+
+    stream.on('end', async (error: any) => {
       res.end();
     });
   }
@@ -131,11 +134,11 @@ export class DefaultOllamaService implements OllamaService {
     ], response);
 
     await this.updateTask(taskId, { ...taskData, status: 'succeed' });
-     // 创建 earnings 记录
+    // 创建 earnings 记录
     const blockRewards = Math.floor(Math.random() * 100) + 1;
     const jobRewards = (response.prompt_eval_count || 0) + (response.eval_count || 0);
     await this.minerService.createEarnings(blockRewards, jobRewards);
-    res.status(200).json(response);
+    res.json(response);
   }
 
   async complete(args: ModelOfOllama<'generate_request'>, res: Response) {
