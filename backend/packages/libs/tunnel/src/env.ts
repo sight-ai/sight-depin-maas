@@ -8,7 +8,7 @@ export const env = memoizee(() =>
       GATEWAY_API_URL: z.string(),
       GATEWAY_API_KEY: z.string().optional(),
       NODE_CODE: z.string(),
-
+      NODE_ENV: z.enum(['development', 'production']).default('development'),
     },
     runtimeEnv: process.env,
   }),
