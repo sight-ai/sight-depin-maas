@@ -251,6 +251,7 @@ EOL
   echo "Starting Open WebUI..."
   if docker run -d --network host \
     -v open-webui:/app/backend/data \
+    -p 3001:8080 \
     -e OLLAMA_BASE_URL=http://localhost:8719 \
     --name open-webui --restart always \
     ghcr.io/open-webui/open-webui:main; then

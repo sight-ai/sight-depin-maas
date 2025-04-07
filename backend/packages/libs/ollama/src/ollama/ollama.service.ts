@@ -305,11 +305,122 @@ export class DefaultOllamaService implements OllamaService {
     return response;
   }
 
-  async listModels(): Promise<any> {
+  async listModels(): Promise<ModelOfOllama<'list_model_response'>> {
     const response = await got
       .get(`${env().OLLAMA_API_URL}api/models`)
       .json();
-    return response;
+    const parseResult = m.ollama('list_model_response').safeParse(response);
+    if (parseResult.success) {
+      return parseResult.data;
+    } else {
+      this.logger.error(
+        `failed to parse list models response: ${parseResult.error}`
+      );
+      return { models: [] };
+    }
+  }
+
+  async createModel(args: ModelOfOllama<'create_request'>): Promise<ModelOfOllama<'create_response'>> {
+    const response = await got
+      .post(`${env().OLLAMA_API_URL}api/create`, {
+        json: args
+      })
+      .json();
+    const parseResult = m.ollama('create_response').safeParse(response);
+    if (parseResult.success) {
+      return parseResult.data;
+    } else {
+      this.logger.error(
+        `failed to parse create model response: ${parseResult.error}`
+      );
+      return { status: 'error' };
+    }
+  }
+
+  async copyModel(args: ModelOfOllama<'copy_request'>): Promise<void> {
+    await got
+      .post(`${env().OLLAMA_API_URL}api/copy`, {
+        json: args
+      });
+  }
+
+  async deleteModel(args: ModelOfOllama<'delete_request'>): Promise<void> {
+    await got
+      .delete(`${env().OLLAMA_API_URL}api/delete`, {
+        json: args
+      });
+  }
+
+  async pullModel(args: ModelOfOllama<'pull_request'>, res: Response): Promise<void> {
+    const stream = got.stream(`${env().OLLAMA_API_URL}api/pull`, {
+      method: 'POST',
+      json: args
+    });
+
+    stream.on('data', (chunk) => {
+      res.write(chunk);
+    });
+
+    stream.on('end', () => {
+      res.end();
+    });
+
+    stream.on('error', (err) => {
+      res.status(500).json({ error: err });
+      res.end();
+    });
+  }
+
+  async pushModel(args: ModelOfOllama<'push_request'>, res: Response): Promise<void> {
+    const stream = got.stream(`${env().OLLAMA_API_URL}api/push`, {
+      method: 'POST',
+      json: args
+    });
+
+    stream.on('data', (chunk) => {
+      res.write(chunk);
+    });
+
+    stream.on('end', () => {
+      res.end();
+    });
+
+    stream.on('error', (err) => {
+      res.status(500).json({ error: err });
+      res.end();
+    });
+  }
+
+  async generateEmbeddings(args: ModelOfOllama<'embed_request'>): Promise<ModelOfOllama<'embed_response'>> {
+    const response = await got
+      .post(`${env().OLLAMA_API_URL}api/embed`, {
+        json: args
+      })
+      .json();
+    const parseResult = m.ollama('embed_response').safeParse(response);
+    if (parseResult.success) {
+      return parseResult.data;
+    } else {
+      this.logger.error(
+        `failed to parse embeddings response: ${parseResult.error}`
+      );
+      return { model: args.model, embeddings: [] };
+    }
+  }
+
+  async listRunningModels(): Promise<ModelOfOllama<'list_running_models_response'>> {
+    const response = await got
+      .get(`${env().OLLAMA_API_URL}api/ps`)
+      .json();
+    const parseResult = m.ollama('list_running_models_response').safeParse(response);
+    if (parseResult.success) {
+      return parseResult.data;
+    } else {
+      this.logger.error(
+        `failed to parse running models response: ${parseResult.error}`
+      );
+      return { models: [] };
+    }
   }
 }
 
