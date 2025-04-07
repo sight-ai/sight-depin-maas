@@ -19,15 +19,15 @@ check_ollama_service() {
 }
 
 # Pull deepseek-r1:7b model if Ollama is running
-pull_deepseek_model() {
-  echo "Pulling deepseek-r1:7b model..."
-  if ollama pull deepseek-r1:7b; then
-    echo "Successfully pulled deepseek-r1:7b model"
-  else
-    echo "Failed to pull deepseek-r1:7b model"
-    exit 1
-  fi
-}
+# pull_deepseek_model() {
+#   echo "Pulling deepseek-r1:7b model..."
+#   if ollama pull deepseek-r1:7b; then
+#     echo "Successfully pulled deepseek-r1:7b model"
+#   else
+#     echo "Failed to pull deepseek-r1:7b model"
+#     exit 1
+#   fi
+# }
 
 # # Load configuration file
 # load_config() {

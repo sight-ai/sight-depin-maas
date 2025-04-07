@@ -235,6 +235,10 @@ export const ollamaModelTag = z.object({
   })
 })
 
+export const OllamaShowModelRequest = z.object({
+  model: z.string()
+})
+
 export const ollamaListModelsResponse = z.object({
   models: z.array(ollamaModelTag)
 })
@@ -268,6 +272,7 @@ export const OllamaModel = {
   FindChatRecordSchema,
   UpdateChatRecordSchema,
   chat_request: OllamaChatRequest,
+  show_model_request: OllamaShowModelRequest,
   model_tag: ollamaModelTag,
   list_model_response: ollamaListModelsResponse
 };

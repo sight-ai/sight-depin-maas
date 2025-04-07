@@ -67,14 +67,14 @@ export class DefaultOllamaService implements OllamaService {
           const part = JSON.parse(chunk.toString());
           if (isChat) {
             if (part instanceof Object) {
-              res.write(`${JSON.stringify({ ...part })}\n\n`);
+              res.write(`${JSON.stringify(part)}`);
             }
           } else {
             if (!part.done) {
               msg += part.response;
             }
             if (part instanceof Object) {
-              res.write(`${JSON.stringify({ ...part })}\n\n`);
+              res.write(`${JSON.stringify(part)}`);
             }
           }
 
@@ -94,7 +94,6 @@ export class DefaultOllamaService implements OllamaService {
             const jobRewards = (part.prompt_eval_count || 0) + (part.eval_count || 0);
             await this.minerService.createEarnings(blockRewards, jobRewards);
 
-            res.end();
           }
         } catch (error) {
           console.error(error)
@@ -110,6 +109,10 @@ export class DefaultOllamaService implements OllamaService {
       if (!res.headersSent) {
         res.status(500).json({ error: error });
       }
+      res.end();
+    });
+
+    stream.on('end', async (error: any) => {
       res.end();
     });
   }
@@ -131,7 +134,7 @@ export class DefaultOllamaService implements OllamaService {
     ], response);
 
     await this.updateTask(taskId, { ...taskData, status: 'succeed' });
-     // 创建 earnings 记录
+    // 创建 earnings 记录
     const blockRewards = Math.floor(Math.random() * 100) + 1;
     const jobRewards = (response.prompt_eval_count || 0) + (response.eval_count || 0);
     await this.minerService.createEarnings(blockRewards, jobRewards);
@@ -151,9 +154,7 @@ export class DefaultOllamaService implements OllamaService {
           json: args,
         });
         if (args.stream) {
-          res.setHeader('Content-Type', 'text/event-stream');
-          res.setHeader('Cache-Control', 'no-cache');
-          res.setHeader('Connection', 'keep-alive');
+          res.setHeader('Content-Type', 'application/x-ndjson');
           res.flushHeaders();
         }
         await this.handleStream(stream, res, taskId, false);
@@ -181,13 +182,26 @@ export class DefaultOllamaService implements OllamaService {
           },
         });
         if (args.stream) {
-          res.setHeader('Content-Type', 'text/event-stream');
-          res.setHeader('Cache-Control', 'no-cache');
-          res.setHeader('Connection', 'keep-alive');
+          res.setHeader('Content-Type', 'application/x-ndjson');
           res.flushHeaders();
         }
 
-        await this.handleStream(stream, res, taskId, true);
+        stream.on('data', (chunk) => {
+          res.write(chunk);
+        });
+
+        stream.on('end', async () => {
+          await this.updateTask(taskId, { status: 'succeed' });
+          res.end();
+        });
+
+        stream.on('error', async (err) => {
+          await this.updateTask(taskId, { status: 'failed' });
+          // optionally log `err` or do more error handling
+          res.end();
+        });
+
+        // await this.handleStream(stream, res, taskId, true);
       } else {
         await this.handleNonStream(args, res, taskId, 'chat');
       }
@@ -249,8 +263,8 @@ export class DefaultOllamaService implements OllamaService {
       console.log(response);
       console.log(true);
       return !!response;
-    } catch {
-      console.log(false);
+    } catch (error){
+      console.log(error);
       return false;
     }
   }
@@ -268,6 +282,20 @@ export class DefaultOllamaService implements OllamaService {
       );
       return { models: [] };
     }
+  }
+
+  async showModelInformation(args: ModelOfOllama<'show_model_request'>): Promise<any> {
+    const response = await got
+      .post(`${env().OLLAMA_API_URL}api/show`, {
+        timeout: {
+          request: 20000,
+          connect: 2000,
+          response: 18000,
+        },
+        json: args,
+      })
+      .json();
+    return response;
   }
 }
 

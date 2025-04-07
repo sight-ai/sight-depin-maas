@@ -7,4 +7,5 @@ export abstract class OllamaService {
   abstract chat(args: ModelOfOllama<'chat_request'>, res: Response): Promise<void>;
   abstract checkStatus(): Promise<boolean>;
   abstract listModel(): Promise<any>;
+  abstract showModelInformation(args: ModelOfOllama<'show_model_request'>): Promise<any>;
 }
