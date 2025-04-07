@@ -42,12 +42,16 @@ export class ModelController {
   }
 
   @Get('/tags')
-  async listModels() {
-    return this.ollamaService.listModel();
+  async listModelTags() {
+    return this.ollamaService.listModelTags();
   }
 
   @Get('/show')
   async showModelInformation(@Body() args: ModelOfOllama<'show_model_request'>) {
     return this.ollamaService.showModelInformation(args);
+  }
+  @Get('/version')
+  async showModelVersion() {
+    return this.ollamaService.showModelVersion();
   }
 }

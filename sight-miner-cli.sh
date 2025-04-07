@@ -18,13 +18,13 @@ check_ollama_service() {
   fi
 }
 
-# Pull deepseek-r1:7b model if Ollama is running
+# Pull deepscaler model if Ollama is running
 pull_deepseek_model() {
-  echo "Pulling deepseek-r1:7b model..."
-  if ollama pull deepseek-r1:7b; then
-    echo "Successfully pulled deepseek-r1:7b model"
+  echo "Pulling deepscaler model..."
+  if ollama pull deepscaler; then
+    echo "Successfully pulled deepscaler model"
   else
-    echo "Failed to pull deepseek-r1:7b model"
+    echo "Failed to pull deepscaler model"
     exit 1
   fi
 }

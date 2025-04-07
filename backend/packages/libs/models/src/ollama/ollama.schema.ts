@@ -224,6 +224,7 @@ export const OllamaChatRequest = z.object({
 export const ollamaModelTag = z.object({
   name: z.string(),
   modified_at: z.coerce.date(),
+  model: z.string(),
   size: z.number(),
   digest: z.string(),
   details: z.object({

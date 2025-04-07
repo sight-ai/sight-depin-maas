@@ -269,7 +269,7 @@ export class DefaultOllamaService implements OllamaService {
     }
   }
 
-  async listModel(): Promise<ModelOfOllama<'list_model_response'>> {
+  async listModelTags(): Promise<ModelOfOllama<'list_model_response'>> {
     const response = await got
       .get(path.join(this.baseUrl, 'api/tags'))
       .json();
@@ -294,6 +294,20 @@ export class DefaultOllamaService implements OllamaService {
         },
         json: args,
       })
+      .json();
+    return response;
+  }
+
+  async showModelVersion(): Promise<any> {
+    const response = await got
+      .get(`${env().OLLAMA_API_URL}api/version`)
+      .json();
+    return response;
+  }
+
+  async listModels(): Promise<any> {
+    const response = await got
+      .get(`${env().OLLAMA_API_URL}api/models`)
       .json();
     return response;
   }
