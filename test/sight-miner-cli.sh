@@ -177,9 +177,9 @@ open_browser() {
 # Main execution function
 run() {
   # Check Ollama service first
-   check_ollama_service
+  check_ollama_service
   # Pull deepseek model
-  # pull_deepseek_model
+  pull_deepseek_model
 
   echo "Starting Sight AI Miner..."
 
@@ -200,13 +200,13 @@ run() {
   DOCKER_COMPOSE_URL="https://sightai.io/model/local/docker-compose.yml"
   DOCKER_COMPOSE_FILE="docker-compose.yml"
 
-  # echo "Downloading $DOCKER_COMPOSE_FILE..."
-  # if curl -fsSL -o "$DOCKER_COMPOSE_FILE" "$DOCKER_COMPOSE_URL"; then
-  #   echo "$DOCKER_COMPOSE_FILE downloaded successfully."
-  # else
-  #   echo "Failed to download $DOCKER_COMPOSE_FILE, please check network connection."
-  #   exit 1
-  # fi
+  echo "Downloading $DOCKER_COMPOSE_FILE..."
+  if curl -fsSL -o "$DOCKER_COMPOSE_FILE" "$DOCKER_COMPOSE_URL"; then
+    echo "$DOCKER_COMPOSE_FILE downloaded successfully."
+  else
+    echo "Failed to download $DOCKER_COMPOSE_FILE, please check network connection."
+    exit 1
+  fi
 
   sleep 2
 
@@ -269,7 +269,7 @@ EOL
   echo "Opening web interfaces..."
   open_browser "http://localhost:3000"
   sleep 2
-  open_browser "http://localhost:8080"
+  open_browser "http://localhost:3001"
 
   echo "Setup complete! You can access:"
   echo "- Sight AI Miner at: http://localhost:3000"
