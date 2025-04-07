@@ -7,7 +7,8 @@ import got from "got-cjs";
 import { OllamaChatRequest, OllamaGenerateRequest } from '@saito/models'
 
 export class DefaultTunnelService implements TunnelService {
-  private readonly gatewayUrl = env().GATEWAY_API_URL;
+  private readonly gatewayUrl = env().GATEWAY_API_URL || 'https://sightai.io';
+  private readonly gatewayPath = '/api/model/socket.io';
   private readonly logger = new Logger(DefaultTunnelService.name);
   private readonly socket: Socket;
   node_id: string = '';
@@ -18,9 +19,24 @@ export class DefaultTunnelService implements TunnelService {
   constructor(
     private readonly ollamaService: OllamaService,
   ) {
-    this.socket = io(this.gatewayUrl, {
-      reconnection: false, // 禁用自动重连，使用自定义重连逻辑
+    // 解析基础URL和路径
+    const baseUrl = this.gatewayUrl.endsWith('/api/model') 
+      ? this.gatewayUrl.slice(0, -'/api/model'.length)
+      : this.gatewayUrl;
+
+    this.socket = io(baseUrl, {
+      path: env().NODE_ENV === 'development' ? '/socket.io' : this.gatewayPath,
+      reconnection: true,
+      reconnectionAttempts: this.maxReconnectAttempts,
+      reconnectionDelay: this.reconnectDelay,
       timeout: 10000,
+      transports: ['polling', 'websocket'],
+      forceNew: true,
+      secure: true,
+      rejectUnauthorized: false,
+      extraHeaders: {
+        'Origin': baseUrl
+      }
     });
     
     this.setupSocketListeners();
@@ -28,7 +44,8 @@ export class DefaultTunnelService implements TunnelService {
 
   private setupSocketListeners(): void {
     this.socket.on('connect', () => {
-      this.logger.log('Socket connected');
+      this.logger.log('Socket connected successfully');
+      this.logger.log(`Socket ID: ${this.socket.id}`);
       this.reconnectAttempts = 0;
     });
 
@@ -36,10 +53,21 @@ export class DefaultTunnelService implements TunnelService {
       this.logger.log(`Connected with deviceId: ${deviceId}`);
     });
 
+    this.socket.on('connect_error', (error: Error) => {
+      this.logger.error(`Socket connection error: ${error.message}`);
+      this.logger.error('Detailed error:', error);
+    });
+
+    this.socket.on('reconnect_attempt', (attemptNumber: number) => {
+      this.logger.log(`Attempting to reconnect (${attemptNumber}/${this.maxReconnectAttempts})`);
+      // 在重连时切换传输方式
+      this.socket.io.opts.transports = ['polling', 'websocket'];
+    });
+
     this.socket.on('messageFromServer', this.handleServerMessage.bind(this));
 
-    this.socket.on('disconnect', () => {
-      this.logger.warn('Socket disconnected');
+    this.socket.on('disconnect', (reason: string) => {
+      this.logger.warn(`Socket disconnected: ${reason}`);
       this.handleDisconnect();
     });
 

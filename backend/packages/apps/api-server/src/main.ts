@@ -1,8 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, OpenAPIObject, SwaggerModule } from '@nestjs/swagger';
 import assert from 'assert';
-import express, { Response, json, urlencoded } from 'express';
+import express, { Response, Request, NextFunction, json, urlencoded } from 'express';
 import { patchNestJsSwagger } from 'nestjs-zod';
+import { map } from 'rxjs/operators';
 import { AppModule } from './app/app.module';
 import { AllExceptionsFilter } from './app/interceptors/all-exceptions.filter';
 import { env } from './env';
@@ -37,6 +38,18 @@ async function bootstrap() {
   app.use(json({ limit: clientJsonPayloadLimit }));
   app.use(urlencoded({ limit: clientJsonPayloadLimit, extended: true }));
   app.useGlobalFilters(new AllExceptionsFilter());
+
+  // Set all success responses to 200
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const originalStatus = res.status;
+    res.status = function(code: number) {
+      if (code === 201) {
+        return originalStatus.call(this, 200);
+      }
+      return originalStatus.call(this, code);
+    };
+    next();
+  });
 
   const swaggerBuilder = new DocumentBuilder()
     .addBearerAuth()
