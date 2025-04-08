@@ -2,10 +2,10 @@ version: '3'
 services:
   sight-miner-backend:
     environment:
-      - NODE_CODE=1
-      - GATEWAY_API_URL=1
-      - GATEWAY_API_KEY=11
-      - GPU_BRAND="Unknown"
+      - NODE_CODE=default
+      - GATEWAY_API_URL=https://sightai.io
+      - GATEWAY_API_KEY=default
+      - REWARD_ADDRESS=default
+      - GPU_BRAND="NVIDIA"
       - DEVICE_TYPE="Linux"
-      - GPU_MODEL="Unknown"
-      - REWARD_ADDRESS=1
+      - GPU_MODEL="NVIDIA GeForce RTX 3050 Laptop GPU"

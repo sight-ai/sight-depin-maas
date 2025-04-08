@@ -162,6 +162,143 @@ export const ollamaChoice = z.object({
   finish_reason: z.string().optional(),
 });
 
+export const OllamaChatRequest = z.object({
+  model: z.string(),
+  messages: z.array(z.object({
+    role: z.string(),
+    content: z.string()
+  })),
+  suffix: z.string().optional(),
+  images: z.array(z.string()).optional(),
+  format: z.union([z.literal('json'), JSONSchema]).optional(),
+  options: z.record(z.any()).optional(),
+  system: z.string().optional(),
+  template: z.string().optional(),
+  stream: z.boolean().optional(),
+  raw: z.boolean().optional(),
+  keep_alive: z.string().optional(),
+  context: z.array(z.number()).optional(),
+});
+
+export const OllamaShowModelRequest = z.object({
+  model: z.string()
+});
+
+export const ollamaModelTag = z.object({
+  name: z.string(),
+  modified_at: z.coerce.date(),
+  model: z.string(),
+  size: z.number(),
+  digest: z.string(),
+  details: z.object({
+    format: z.string(),
+    family: z.string(),
+    families: z.array(z.string()).nullable(), // null or array of strings
+    parameter_size: z.string(),
+    quantization_level: z.string(),
+  })
+});
+
+export const ollamaListModelsResponse = z.object({
+  models: z.array(ollamaModelTag)
+});
+
+export const OllamaCreateRequest = z.object({
+  model: z.string(),
+  from: z.string().optional(),
+  files: z.record(z.string()).optional(),
+  adapters: z.record(z.string()).optional(),
+  template: z.string().optional(),
+  license: z.union([z.string(), z.array(z.string())]).optional(),
+  system: z.string().optional(),
+  parameters: z.record(z.any()).optional(),
+  messages: z.array(z.object({
+    role: z.string(),
+    content: z.string()
+  })).optional(),
+  stream: z.boolean().optional(),
+  quantize: z.string().optional()
+});
+
+export const OllamaCreateResponse = z.object({
+  status: z.string()
+});
+
+export const OllamaCopyRequest = z.object({
+  source: z.string(),
+  destination: z.string()
+});
+
+export const OllamaDeleteRequest = z.object({
+  model: z.string()
+});
+
+export const OllamaPullRequest = z.object({
+  model: z.string(),
+  insecure: z.boolean().optional(),
+  stream: z.boolean().optional()
+});
+
+export const OllamaPullResponse = z.object({
+  status: z.string(),
+  digest: z.string().optional(),
+  total: z.number().optional(),
+  completed: z.number().optional()
+});
+
+export const OllamaPushRequest = z.object({
+  model: z.string(),
+  insecure: z.boolean().optional(),
+  stream: z.boolean().optional()
+});
+
+export const OllamaPushResponse = z.object({
+  status: z.string(),
+  digest: z.string().optional(),
+  total: z.number().optional()
+});
+
+export const OllamaEmbedRequest = z.object({
+  model: z.string(),
+  input: z.union([z.string(), z.array(z.string())]),
+  truncate: z.boolean().optional(),
+  options: z.record(z.any()).optional(),
+  keep_alive: z.string().optional()
+});
+
+export const OllamaEmbedResponse = z.object({
+  model: z.string(),
+  embeddings: z.array(z.array(z.number())),
+  total_duration: z.number().optional(),
+  load_duration: z.number().optional(),
+  prompt_eval_count: z.number().optional()
+});
+
+export const OllamaVersionResponse = z.object({
+  version: z.string()
+});
+
+export const OllamaRunningModel = z.object({
+  name: z.string(),
+  model: z.string(),
+  size: z.number(),
+  digest: z.string(),
+  details: z.object({
+    parent_model: z.string(),
+    format: z.string(),
+    family: z.string(),
+    families: z.array(z.string()),
+    parameter_size: z.string(),
+    quantization_level: z.string()
+  }),
+  expires_at: z.string(),
+  size_vram: z.number()
+});
+
+export const OllamaListRunningModelsResponse = z.object({
+  models: z.array(OllamaRunningModel)
+});
+
 /**
  * The complete Ollama API schema.
  */
@@ -170,8 +307,51 @@ export const OllamaAPISchema = {
     request: OllamaGenerateRequest,
     response: OllamaGenerateResponse,
   },
+  chat: {
+    request: OllamaChatRequest,
+    response: OllamaGenerateResponse,
+  },
+  create: {
+    request: OllamaCreateRequest,
+    response: OllamaCreateResponse,
+  },
+  copy: {
+    request: OllamaCopyRequest,
+    response: z.void(),
+  },
+  delete: {
+    request: OllamaDeleteRequest,
+    response: z.void(),
+  },
+  pull: {
+    request: OllamaPullRequest,
+    response: OllamaPullResponse,
+  },
+  push: {
+    request: OllamaPushRequest,
+    response: OllamaPushResponse,
+  },
+  embed: {
+    request: OllamaEmbedRequest,
+    response: OllamaEmbedResponse,
+  },
+  version: {
+    request: z.void(),
+    response: OllamaVersionResponse,
+  },
+  ps: {
+    request: z.void(),
+    response: OllamaListRunningModelsResponse,
+  },
+  show: {
+    request: OllamaShowModelRequest,
+    response: z.any(), // Complex response type that includes model details
+  },
+  tags: {
+    request: z.void(),
+    response: ollamaListModelsResponse,
+  }
 };
-
 
 export const ChatRecordSchema = z.object({
   chatId: z.string().min(1),
@@ -203,45 +383,6 @@ export const UpdateChatRecordSchema = z.object({
   status: z.enum(["active", "archived"]),
   task_id: z.string().optional()
 });
-export const OllamaChatRequest = z.object({
-  model: z.string(),
-  messages: z.array(z.object({
-    role: z.string(),
-    content: z.string()
-  })),
-  suffix: z.string().optional(),
-  images: z.array(z.string()).optional(),
-  format: z.union([z.literal('json'), JSONSchema]).optional(),
-  options: z.record(z.any()).optional(),
-  system: z.string().optional(),
-  template: z.string().optional(),
-  stream: z.boolean().optional(),
-  raw: z.boolean().optional(),
-  keep_alive: z.string().optional(),
-  context: z.array(z.number()).optional(),
-});
-
-export const ollamaModelTag = z.object({
-  name: z.string(),
-  modified_at: z.coerce.date(),
-  size: z.number(),
-  digest: z.string(),
-  details: z.object({
-    format: z.string(),
-    family: z.string(),
-    families: z.array(z.string()).nullable(), // null or array of strings
-    parameter_size: z.string(),
-    quantization_level: z.string(),
-  })
-})
-
-export const OllamaShowModelRequest = z.object({
-  model: z.string()
-})
-
-export const ollamaListModelsResponse = z.object({
-  models: z.array(ollamaModelTag)
-})
 
 /**
  * The final Ollama model definitions.
@@ -274,7 +415,17 @@ export const OllamaModel = {
   chat_request: OllamaChatRequest,
   show_model_request: OllamaShowModelRequest,
   model_tag: ollamaModelTag,
-  list_model_response: ollamaListModelsResponse
+  list_model_response: ollamaListModelsResponse,
+  version_response: OllamaVersionResponse,
+  create_request: OllamaCreateRequest,
+  create_response: OllamaCreateResponse,
+  copy_request: OllamaCopyRequest,
+  delete_request: OllamaDeleteRequest,
+  pull_request: OllamaPullRequest,
+  push_request: OllamaPushRequest,
+  embed_request: OllamaEmbedRequest,
+  embed_response: OllamaEmbedResponse,
+  list_running_models_response: OllamaListRunningModelsResponse
 };
 
 /**
@@ -282,3 +433,4 @@ export const OllamaModel = {
  */
 export type ModelOfOllama<T extends keyof typeof OllamaModel> =
   (typeof OllamaModel)[T] extends z.ZodType<infer O> ? O : never;
+
