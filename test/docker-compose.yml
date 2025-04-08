@@ -2,14 +2,14 @@ version: '3'
 
 services:
   sight-miner-backend:
-    image: ghcr.io/sight-ai/sight-miner-backend:0.0.4-SNAPSHOT
+    image: ghcr.io/sight-ai/sight-miner-backend:0.0.5-SNAPSHOT
     ports:
       - "8716:8716"
     networks:
       - app-network
 
   sight-miner-frontend:
-    image: ghcr.io/sight-ai/sight-miner-frontend:0.0.1-SNAPSHOT
+    image: ghcr.io/sight-ai/sight-miner-frontend:0.0.2-SNAPSHOT
     ports:
       - "3000:3000"
     networks:
