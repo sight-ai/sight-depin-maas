@@ -58,23 +58,20 @@ export class DefaultOllamaService implements OllamaService {
   }
 
   private async handleStream(stream: any, res: Response, taskId: string, isChat: boolean) {
-    let msg: any = isChat ? { role: '', content: '' } : '';
-
+    res.setHeader('Content-Type', 'application/x-ndjson');
+    res.flushHeaders();
+    console.log('stream')
     stream.on('data', async (chunk: any) => {
       try {
         try {
-          console.log(chunk.toString())
           const part = JSON.parse(chunk.toString());
           if (isChat) {
             if (part instanceof Object) {
-              res.write(`${JSON.stringify(part)}`);
+              res.write(chunk);
             }
           } else {
-            if (!part.done) {
-              msg += part.response;
-            }
             if (part instanceof Object) {
-              res.write(`${JSON.stringify(part)}`);
+              res.write(chunk);
             }
           }
 
@@ -181,27 +178,7 @@ export class DefaultOllamaService implements OllamaService {
             ...args,
           },
         });
-        if (args.stream) {
-          res.setHeader('Content-Type', 'application/x-ndjson');
-          res.flushHeaders();
-        }
-
-        stream.on('data', (chunk) => {
-          res.write(chunk);
-        });
-
-        stream.on('end', async () => {
-          await this.updateTask(taskId, { status: 'succeed' });
-          res.end();
-        });
-
-        stream.on('error', async (err) => {
-          await this.updateTask(taskId, { status: 'failed' });
-          // optionally log `err` or do more error handling
-          res.end();
-        });
-
-        // await this.handleStream(stream, res, taskId, true);
+        await this.handleStream(stream, res, taskId, true);
       } else {
         await this.handleNonStream(args, res, taskId, 'chat');
       }
@@ -263,7 +240,7 @@ export class DefaultOllamaService implements OllamaService {
       console.log(response);
       console.log(true);
       return !!response;
-    } catch (error){
+    } catch (error) {
       console.log(error);
       return false;
     }
