@@ -1,4 +1,4 @@
-This guide will walk you through the steps to locally deploy **Sight AI Miner** and **Open WebUI** for seamless AI chat experience and real-time mining dashboard.
+This guide walks through steps to deploy **Sight Compute Node** on local devices, set up the real-time dashboard, and [optionally] chat via **Open WebUI** with the backend.
 
 ---
 
@@ -6,52 +6,45 @@ This guide will walk you through the steps to locally deploy **Sight AI Miner** 
 
 ### 1. Install Docker
 
-Download and install Docker for your system:
-
-🔗 [https://www.docker.com](https://www.docker.com/)
-
+🔗  [https://www.docker.com](https://www.docker.com/) \
 Make sure Docker is running after installation.
+
+
 
 ### 2. Install Ollama
 
-Download and install Ollama for model inference:
 
-🔗 [https://ollama.com](https://ollama.com/)
+🔗  [https://ollama.com](https://ollama.com/)
 
-Follow the official instructions based on your OS (macOS, Windows, or Linux).
 
 ---
 
 ## 🚀 Setup Steps
 
-### 1. Download the installer script
+### 1. Download the installer, fix permission
 
 ```bash
 curl https://www.sightai.io/model/sight-miner-cli-local.sh -O
-
 ```
-
-### 2. Fix script permission
 
 ```bash
 chmod +x ./sight-miner-cli-local.sh
-
 ```
 
-### 3. (M1/M2/M3 Mac only) Set Docker platform for compatibility
+### 2. (For Macbook M1/M2/M3) Set Docker platform
 
 ```bash
 export DOCKER_DEFAULT_PLATFORM=linux/amd64
 
 ```
 
-### 4. Run the script
+---
 
+## ⏳ Run the script!
 ```bash
 ./sight-miner-cli-local.sh
 
 ```
-
 This script will:
 
 - Pull the `deepscaler` model to your Ollama
@@ -67,22 +60,22 @@ Once setup is complete, your terminal will display:
 
 ```
 Setup complete! You can access:
-- Sight AI Miner at: http://localhost:3000
+- Sight Compute Node at: http://localhost:3000
 - Open WebUI at: http://localhost:8080
 
 ```
 
-### 🔹 `http://localhost:3000` – Sight AI Miner Dashboard
-
+### 🔹 Sight Compute Node Dashboard
+[http://localhost:3000](http://localhost:3000).
 View your node’s activity, request logs, and reward earnings.
 
-### 🔹 `http://localhost:8080` – Open WebUI
-
+### 🔹 Open WebUI
+[http://localhost:8080](http://localhost:8080).
 A web-based AI chat interface where users can talk with models like `deepscaler`.
 
 ---
 
-## 💬 Using Open WebUI
+## 💬 Chat via Open WebUI
 
 1. Go to [http://localhost:8080](http://localhost:8080/)
 2. Register a new account and log in
@@ -93,7 +86,7 @@ A web-based AI chat interface where users can talk with models like `deepscaler`
 
 ---
 
-## 📊 Dashboard Monitoring
+## 📊 Dashboard
 
 While using Open WebUI, go to [http://localhost:3000](http://localhost:3000/) to:
 
