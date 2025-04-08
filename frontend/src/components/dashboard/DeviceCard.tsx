@@ -231,10 +231,11 @@ export function DeviceCard({
                 {/* 右侧网格 */}
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: view === 'Year' ? 'repeat(12, 1fr)' : `repeat(${daysInSelectedMonth}, 1fr)`,
+                    gridTemplateColumns: view === 'Year' ? 'repeat(12, 1fr)' : `repeat(10, 1fr)`,
                     gap: '0.5rem',
                     padding: '0.5rem',
-                    flex: 1
+                    flex: 1,
+                    margin: '0.5rem'
                 }}>
                     {view === 'Year' ? (
                         // Year view: 12 blocks for months
@@ -266,7 +267,8 @@ export function DeviceCard({
                                         width: '30px',
                                         height: '30px',
                                         backgroundColor: getColorForActivity(dayData, isDark),
-                                        borderRadius: '2px'
+                                        borderRadius: '2px',
+                                        margin: '0.5rem'
                                     }}
                                     title={`Day ${index + 1}: ${dayData} tasks`}
                                 />

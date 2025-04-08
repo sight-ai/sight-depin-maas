@@ -20,8 +20,8 @@ export function EarningsCard({
             <h2 className="text-2xl mb-3 text-black" style={{
                 color: isDark ? '#fff' : '#000'
             }}>Earnings</h2>
-            <Card className="p-8 bg-white" style={{
-                backgroundColor: isDark ? '#1a1a1a' : '#f6f6f6',
+            <Card className="bg-white" style={{
+                // backgroundColor: isDark ? '#1a1a1a' : '#f6f6f6',
                 borderRadius: '1rem'
             }}>
 
