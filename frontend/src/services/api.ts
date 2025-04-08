@@ -19,8 +19,14 @@ export const apiService = {
         return request<HistoryResponse>(`/miner/history?${queryString}`);
     },
 
-    async getSummary(): Promise<SummaryResponse> {
-        return request<SummaryResponse>('/miner/summary');
+    async getSummary(timeRange: 'daily' | 'weekly' | 'monthly' = 'daily', filter?: { year?: string; month?: string; view?: 'Month' | 'Year' }): Promise<SummaryResponse> {
+        const queryString = new URLSearchParams({
+            timeRange: JSON.stringify({ 
+                request_serials: timeRange,
+                filteredTaskActivity: filter || {}
+            })
+        }).toString();
+        return request<SummaryResponse>(`/miner/summary?${queryString}`);
     },
     
     async sendDeviceStatus(data:any) {

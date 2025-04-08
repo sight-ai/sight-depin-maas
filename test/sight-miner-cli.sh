@@ -179,7 +179,7 @@ run() {
   # Check Ollama service first
   check_ollama_service
   # Pull deepseek model
-  pull_deepseek_model
+  # pull_deepseek_model
 
   echo "Starting Sight AI Miner..."
 
@@ -252,7 +252,7 @@ EOL
   if docker run -d --network host \
     -v open-webui:/app/backend/data \
     -p 8080:8080 \
-    -e OLLAMA_BASE_URL=http://localhost:8716 \
+    -e OLLAMA_BASE_URL=http://host.docker.internal:8716 \
     --name open-webui --restart always \
     ghcr.io/open-webui/open-webui:main; then
     echo "Open WebUI started successfully"

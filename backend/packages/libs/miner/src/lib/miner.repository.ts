@@ -5,6 +5,8 @@ import { SQL } from "@saito/common";
 import { m, ModelOfMiner } from "@saito/models";
 import { z } from "zod";
 
+const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 export class MinerRepository {
   constructor(
     @Inject(PersistentService)
@@ -17,7 +19,19 @@ export class MinerRepository {
     return this.persistentService.pgPool.transaction(handler);
   }
 
-  async getSummary(conn: DatabaseTransactionConnection): Promise<ModelOfMiner<'summary'>> {
+  async getSummary(conn: DatabaseTransactionConnection, timeRange?: { 
+    request_serials?: 'daily' | 'weekly' | 'monthly',
+    filteredTaskActivity?: { 
+      year?: string; 
+      month?: string; 
+      view?: 'Month' | 'Year' 
+    }
+  }): Promise<ModelOfMiner<'summary'>> {
+    // Calculate the interval based on timeRange
+    const requestTimeRange = timeRange?.request_serials || 'daily';
+    const interval = requestTimeRange === 'daily' ? '1 day' : requestTimeRange === 'weekly' ? '7 days' : '30 days';
+    const dataPoints = requestTimeRange === 'daily' ? 24 : requestTimeRange === 'weekly' ? 7 : 30;
+
     // 获取收益信息
     const { total_block_rewards, total_job_rewards } = await conn.one(SQL.type(
       m.miner('minerEarning')
@@ -52,7 +66,7 @@ export class MinerRepository {
       where created_at >= now() - interval '30 days';
     `);
 
-    // 获取最近30天的收益数据
+    // 获取收益数据
     const earnings = await conn.any(SQL.type(
       m.miner('minerEarningsHistory')
     )`
@@ -71,7 +85,34 @@ export class MinerRepository {
       group by d.day
       order by d.day;
     `);
+    // 获取请求数量统计
+    const timeUnit = requestTimeRange === 'daily' ? 'hour' : 'day';
+    const intervalValue = requestTimeRange === 'daily' ? '24 hours' : '7 days';
+    const groupByUnit = requestTimeRange === 'daily' ? 'hour' : 'day';
+    
+    const dailyRequests = await conn.any(SQL.type(
+      m.miner('minerDailyRequests')
+    )`
+      with dates as (
+        select generate_series(
+          date_trunc(${timeUnit}, now()) - ${SQL.fragment([`interval '${intervalValue}'`])},
+          date_trunc(${timeUnit}, now()),
+          ${SQL.fragment([`interval '1 ${timeUnit}'`])}
+        ) as time_point
+      )
+      select 
+        coalesce(count(t.id), 0) as request_count
+      from dates d
+      left join saito_miner.tasks t
+        on date_trunc(${groupByUnit}, t.created_at) = d.time_point
+      group by d.time_point
+      order by d.time_point;
+    `);
 
+    // 获取任务活动数据
+    const year = timeRange?.filteredTaskActivity?.year ? parseInt(timeRange.filteredTaskActivity.year) : 2025;
+    const month = timeRange?.filteredTaskActivity?.month ? months.indexOf(timeRange.filteredTaskActivity.month) + 1 : null;
+    
     const taskActivity = await conn.any(SQL.type(
       m.miner('minerTaskActivity')
     )`
@@ -88,6 +129,8 @@ export class MinerRepository {
       from dates d
       left join saito_miner.tasks t
         on date_trunc('day', t.created_at) = d.day
+      where extract(year from t.created_at) = ${year}
+        ${month ? SQL.fragment`and extract(month from t.created_at) = ${month}` : SQL.fragment``}
       group by d.day
       order by d.day;
     `);
@@ -104,6 +147,7 @@ export class MinerRepository {
       statistics: {
         up_time_percentage: uptime_percentage,
         earning_serials: earnings.map(e => e.daily_earning),
+        request_serials: dailyRequests.map(r => r.request_count),
         task_activity: taskActivity.map(t => t.task_count)
       }
     };

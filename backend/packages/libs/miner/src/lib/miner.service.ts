@@ -18,9 +18,16 @@ export class DefaultMinerService implements MinerService {
     })
   }
 
-  async getSummary(): Promise<ModelOfMiner<'summary'>> {
+  async getSummary(timeRange?: { 
+    request_serials?: 'daily' | 'weekly' | 'monthly',
+    filteredTaskActivity?: { 
+      year?: string; 
+      month?: string; 
+      view?: 'Month' | 'Year' 
+    }
+  }): Promise<ModelOfMiner<'summary'>> {
     return this.repository.transaction(async conn => {
-      return this.repository.getSummary(conn);
+      return this.repository.getSummary(conn, timeRange);
     })
   }
 

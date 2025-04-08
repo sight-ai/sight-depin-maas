@@ -2,7 +2,7 @@ import { useThemeCus } from '@/hooks/useTheme';
 import ReactECharts, { EChartsOption } from 'echarts-for-react';
 import { SummaryResponse } from '@/types/api';
 
-export default function ({summary}: {summary: SummaryResponse | null}) {
+export default function ({summary, type = 'earnings', timeRange}: {summary: SummaryResponse | null, type?: 'earnings' | 'requests', timeRange?: 'daily' | 'weekly' | 'monthly'}) {
   const { isDark } = useThemeCus()
   const statistics = summary?.statistics
 
@@ -14,7 +14,7 @@ export default function ({summary}: {summary: SummaryResponse | null}) {
       }
     },
     grid: {
-    top: 0,
+      top: 0,
       left: '2%',
       right: '2%',
       bottom: '3%',
@@ -23,10 +23,23 @@ export default function ({summary}: {summary: SummaryResponse | null}) {
     xAxis: [{
       type: 'category',
       boundaryGap: false,
-      data: Array.from({length: 30}, (_, i) => {
+      data: Array.from({length: type === 'requests' ? (timeRange === 'daily' ? 24 : timeRange === 'weekly' ? 7 : 30) : 30}, (_, i) => {
         const date = new Date();
-        date.setDate(date.getDate() - (29 - i));
-        return `${date.getDate()}\n${date.toLocaleString('default', { month: 'short' })}`;
+        if (type === 'requests') {
+          if (timeRange === 'daily') {
+            date.setHours(date.getHours() - (23 - i));
+            return `${date.getHours()}:00`;
+          } else if (timeRange === 'weekly') {
+            date.setDate(date.getDate() - (6 - i));
+            return `${date.getDate()}\n${date.toLocaleString('default', { month: 'short' })}`;
+          } else {
+            date.setDate(date.getDate() - (29 - i));
+            return `${date.getDate()}\n${date.toLocaleString('default', { month: 'short' })}`;
+          }
+        } else {
+          date.setDate(date.getDate() - (29 - i));
+          return `${date.getDate()}\n${date.toLocaleString('default', { month: 'short' })}`;
+        }
       }),
       axisLabel: {
         color: isDark ? '#fff' :'#000',
@@ -38,28 +51,16 @@ export default function ({summary}: {summary: SummaryResponse | null}) {
           color: '#E5E7EB'
         }
       }
-    },
-    {
-        type: 'category',
-        boundaryGap: false,
-        data: statistics?.earning_serials.map(value => Number(value).toFixed(2))  || Array(30).fill(0),
-        axisLabel: {
-          color:  isDark ? '#fff' :'#000',
-          fontSize: 12,
-          lineHeight: 16
-        },
-        axisLine: {
-          lineStyle: {
-            color: '#E5E7EB'
-          }
-        }
-      }
-],
+    }],
     yAxis: {
       type: 'value',
       min: 0,
-      max: Math.max(...(statistics?.earning_serials || [0])) * 1.2,
-      interval: Math.max(...(statistics?.earning_serials || [0])) * 0.2,
+      max: type === 'earnings' 
+        ? Math.max(...(statistics?.earning_serials || [0])) * 1.2
+        : Math.max(...(statistics?.request_serials || [0])) * 1.2,
+      interval: type === 'earnings'
+        ? Math.max(...(statistics?.earning_serials || [0])) * 0.2
+        : Math.max(...(statistics?.request_serials || [0])) * 0.2,
       axisLabel: {
         show: false
       },
@@ -74,13 +75,15 @@ export default function ({summary}: {summary: SummaryResponse | null}) {
       }
     },
     series: [{
-      data: statistics?.earning_serials ? statistics?.earning_serials.map(value => Number(value).toFixed(2)) :  Array(30).fill(0),
+      data: type === 'earnings'
+        ? statistics?.earning_serials ? statistics.earning_serials.map(value => Number(value).toFixed(2)) : Array(30).fill(0)
+        : statistics?.request_serials ? statistics.request_serials.map(value => Number(value).toFixed(0)) : Array(30).fill(0),
       type: 'line',
       smooth: false,
       symbol: 'circle',
       symbolSize: 6,
       lineStyle: {
-        color:  isDark ? '#fff' :'#000',
+        color: isDark ? '#fff' :'#000',
         width: 2
       },
       itemStyle: {
@@ -88,7 +91,6 @@ export default function ({summary}: {summary: SummaryResponse | null}) {
         borderWidth: 2,
         borderColor: '#fff'
       },
-      // areaStyle: null
     }]
   });
 

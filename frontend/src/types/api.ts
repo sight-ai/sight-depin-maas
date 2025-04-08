@@ -45,5 +45,6 @@ export interface SummaryResponse {
         up_time_percentage: number;
         earning_serials: number[];
         task_activity: number[];
+        request_serials: number[];
     };
 }

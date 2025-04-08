@@ -24,6 +24,28 @@ export class QueryDeviceStatusDto extends createZodDto(
     deviceId: z.string(),
   })
 ) {}
+
+export class SummaryQueryDto extends createZodDto(
+  z.object({
+    timeRange: z.string().transform((val) => {
+      try {
+        return JSON.parse(val);
+      } catch (e) {
+        return { request_serials: 'daily', filteredTaskActivity: {} };
+      }
+    }).pipe(
+      z.object({
+        request_serials: z.enum(['daily', 'weekly', 'monthly']).default('daily'),
+        filteredTaskActivity: z.object({
+          year: z.string().optional(),
+          month: z.string().optional(),
+          view: z.enum(['Month', 'Year']).optional()
+        }).optional()
+      })
+    ).default('{"request_serials":"daily","filteredTaskActivity":{}}')
+  })
+) {}
+
 @Controller('/api/v1/miner')
 export class MinerController {
   private readonly logger = new Logger(MinerController.name);
@@ -33,8 +55,9 @@ export class MinerController {
   ) {}
 
   @Get('/summary')
-  async getSummary() {
-    return this.minerService.getSummary();
+  async getSummary(@Query() query: SummaryQueryDto = { timeRange: { request_serials: 'daily' } }) {
+    console.log(query.timeRange)
+    return this.minerService.getSummary(query.timeRange);
   }
 
   @Post('/chat')

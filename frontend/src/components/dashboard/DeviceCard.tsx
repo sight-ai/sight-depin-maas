@@ -8,7 +8,7 @@ import { useThemeCus } from '@/hooks/useTheme'
 import { SummaryResponse } from '@/types/api'
 import { useDevice } from '@/hooks/useDeviceStatus'
 import dayjs from 'dayjs'
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 
 const months = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -19,10 +19,12 @@ export function DeviceCard({
     summary,
     loading,
     error,
+    onFilterChange
 }: {
     summary: SummaryResponse | null;
     loading: boolean;
     error: string | null;
+    onFilterChange: (filter: { year?: string; month?: string; view?: 'Month' | 'Year' }) => void;
 }) {
     const { isDark } = useThemeCus()
     const [selectedYear, setSelectedYear] = useState('2025')
@@ -33,6 +35,39 @@ export function DeviceCard({
     const {
         data
     } = useDevice()
+
+    // 处理筛选条件变化
+    useEffect(() => {
+        onFilterChange({
+            year: selectedYear,
+            month: selectedMonth,
+            view
+        })
+    }, [selectedYear, selectedMonth, view, onFilterChange])
+
+    // 根据筛选条件过滤 task_activity 数据
+    const filteredTaskActivity = useMemo(() => {
+        if (!summary?.statistics?.task_activity) return [];
+        
+        const taskActivity = summary.statistics.task_activity;
+        const now = new Date();
+        const selectedDate = new Date(parseInt(selectedYear), months.indexOf(selectedMonth), 1);
+        
+        if (view === 'Year') {
+            // 年度视图：显示所有月份的数据
+            return taskActivity;
+        } else {
+            // 月度视图：只显示选中月份的数据
+            const startDate = new Date(selectedDate);
+            const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+            
+            return taskActivity.filter((_, index) => {
+                const date = new Date();
+                date.setDate(date.getDate() - (29 - index));
+                return date >= startDate && date <= endDate;
+            });
+        }
+    }, [summary?.statistics?.task_activity, selectedYear, selectedMonth, view]);
 
     const onPanelChange = (value: Dayjs, mode: CalendarMode) => {
         console.log(value.format('YYYY-MM-DD'), mode);
@@ -101,7 +136,7 @@ export function DeviceCard({
                                 { value: '2024', label: '2024' },
                             ]}
                             bordered={false}
-                            dropdownStyle={{ backgroundColor: isDark ? '#1a1a1a' : '#fff' }}
+                            dropdownStyle={{ backgroundColor: isDark ? '#1a1a1a' : '#fff', color: isDark ? '#fff' : '#000' }}
                         />
                         <div style={{
                             display: 'flex',
@@ -162,20 +197,20 @@ export function DeviceCard({
                 {/* 右侧网格 */}
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(9, 1fr)',
+                    gridTemplateColumns: view === 'Year' ? 'repeat(12, 1fr)' : 'repeat(31, 1fr)',
                     gap: '0.5rem',
                     padding: '0.5rem',
+                    flex: 1
                 }}>
-                    {gridData.map((item) => (
+                    {filteredTaskActivity.map((item, index) => (
                         <div
-                            key={item.id}
+                            key={index}
                             style={{
                                 width: '30px',
                                 height: '30px',
                                 backgroundColor: 
-                                    item.status === 'active' ? '#000' : 
-                                    item.status === 'partial' ? '#666' : 
-                                    '#eee',
+                                    item === 0 ? '#E5E7EB' : 
+                                    item >= 10 ? '#0800ff' : '#807cfc',
                                 borderRadius: '2px'
                             }}
                         />

@@ -11,10 +11,30 @@ import { Header } from '@/components/Header'
 import { MainContent } from '@/components/MainContent'
 import { useDashboard } from '@/hooks/useDashboard'
 import { useThemeCus } from '@/hooks/useTheme'
+import { useState, useCallback } from 'react'
 
 export default function DashboardPage() {
-    const { summary, loading, error, refreshStatistics } = useDashboard()
+    const [timeRange, setTimeRange] = useState<'daily' | 'weekly' | 'monthly'>('daily')
+    const [filter, setFilter] = useState<{ year?: string; month?: string; view?: 'Month' | 'Year' }>({
+        year: '2025',
+        month: 'Mar',
+        view: 'Year'
+    })
+    const { summary, loading, error, refreshStatistics } = useDashboard(timeRange, filter)
     const { isDark } = useThemeCus()
+
+    const handleTimeRangeChange = (range: 'daily' | 'weekly' | 'monthly') => {
+        setTimeRange(range)
+    }
+
+    const handleFilterChange = useCallback((newFilter: { year?: string; month?: string; view?: 'Month' | 'Year' }) => {
+        setFilter(prevFilter => {
+            if (JSON.stringify(prevFilter) === JSON.stringify(newFilter)) {
+                return prevFilter
+            }
+            return newFilter
+        })
+    }, [])
 
     return (
         <MainContent>
@@ -31,7 +51,12 @@ export default function DashboardPage() {
                 <div className="flex justify-between items-start">
                     <div className="flex-1 flex">
                         <EarningsCard summary={summary} loading={loading} error={error} />
-                        <DeviceCard summary={summary} loading={loading} error={error} />
+                        <DeviceCard 
+                            summary={summary} 
+                            loading={loading} 
+                            error={error} 
+                            onFilterChange={handleFilterChange}
+                        />
                     </div>
                 </div>
                 {/* <UptimeCard  summary={summary}  loading={loading} error={error}/> */}
@@ -45,29 +70,46 @@ export default function DashboardPage() {
                 }}>
                     <div className="p-6">
                         <div className="flex items-center justify-end mb-6">
-
                             <div className="flex gap-4">
-                                <span style={{
-                                    color: isDark ? '#999' : '#666',
-                                    fontSize: '0.875rem'
-                                }}>daily</span>
-                                <span style={{
-                                    color: isDark ? '#999' : '#666',
-                                    fontSize: '0.875rem'
-                                }}>weekly</span>
-                                <span style={{
-                                    color: isDark ? '#fff' : '#000',
-                                    fontSize: '0.875rem',
-                                    padding: '0 0.5rem',
-                                    backgroundColor: isDark ? '#333' : '#eee',
-                                    borderRadius: '1rem'
-                                }}>monthly</span>
+                                <span 
+                                    onClick={() => handleTimeRangeChange('daily')}
+                                    style={{
+                                        color: timeRange === 'daily' ? (isDark ? '#fff' : '#000') : (isDark ? '#999' : '#666'),
+                                        fontSize: '0.875rem',
+                                        padding: '0 0.5rem',
+                                        backgroundColor: timeRange === 'daily' ? (isDark ? '#333' : '#eee') : 'transparent',
+                                        borderRadius: '1rem',
+                                        cursor: 'pointer'
+                                    }}
+                                >daily</span>
+                                <span 
+                                    onClick={() => handleTimeRangeChange('weekly')}
+                                    style={{
+                                        color: timeRange === 'weekly' ? (isDark ? '#fff' : '#000') : (isDark ? '#999' : '#666'),
+                                        fontSize: '0.875rem',
+                                        padding: '0 0.5rem',
+                                        backgroundColor: timeRange === 'weekly' ? (isDark ? '#333' : '#eee') : 'transparent',
+                                        borderRadius: '1rem',
+                                        cursor: 'pointer'
+                                    }}
+                                >weekly</span>
+                                <span 
+                                    onClick={() => handleTimeRangeChange('monthly')}
+                                    style={{
+                                        color: timeRange === 'monthly' ? (isDark ? '#fff' : '#000') : (isDark ? '#999' : '#666'),
+                                        fontSize: '0.875rem',
+                                        padding: '0 0.5rem',
+                                        backgroundColor: timeRange === 'monthly' ? (isDark ? '#333' : '#eee') : 'transparent',
+                                        borderRadius: '1rem',
+                                        cursor: 'pointer'
+                                    }}
+                                >monthly</span>
                             </div>
                         </div>
                         <div style={{
                             height: '280px'
                         }}>
-                            <Echarts summary={summary}></Echarts>
+                            <Echarts summary={summary} type='requests' timeRange={timeRange} />
                         </div>
                     </div>
                 </Card>
@@ -79,30 +121,10 @@ export default function DashboardPage() {
                     borderRadius: '1rem'
                 }}>
                     <div className="p-6">
-                        <div className="flex items-center justify-between mb-6">
-
-                            {/* <div className="flex gap-4">
-                                <span style={{
-                                    color: isDark ? '#999' : '#666',
-                                    fontSize: '0.875rem'
-                                }}>daily</span>
-                                <span style={{
-                                    color: isDark ? '#999' : '#666',
-                                    fontSize: '0.875rem'
-                                }}>weekly</span>
-                                <span style={{
-                                    color: isDark ? '#fff' : '#000',
-                                    fontSize: '0.875rem',
-                                    padding: '0 0.5rem',
-                                    backgroundColor: isDark ? '#333' : '#eee',
-                                    borderRadius: '1rem'
-                                }}>monthly</span>
-                            </div> */}
-                        </div>
                         <div style={{
                             height: '280px'
                         }}>
-                            <Echarts summary={summary}></Echarts>
+                            <Echarts summary={summary} type='earnings' timeRange={timeRange} />
                         </div>
                     </div>
                 </Card>

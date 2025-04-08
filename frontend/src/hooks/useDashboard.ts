@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { apiService } from '@/services/api'
 import { SummaryResponse } from '@/types/api'
 
-export function useDashboard() {
+export function useDashboard(timeRange: 'daily' | 'weekly' | 'monthly' = 'daily', filter?: { year?: string; month?: string; view?: 'Month' | 'Year' }) {
   const [summary, setSummary] = useState<SummaryResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -13,7 +13,7 @@ export function useDashboard() {
     try {
       setLoading(true)
       setError(null)
-      const data = await apiService.getSummary()
+      const data = await apiService.getSummary(timeRange, filter)
       setSummary(data)
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err)
@@ -25,7 +25,7 @@ export function useDashboard() {
 
   useEffect(() => {
     fetchDashboardData()
-  }, [])
+  }, [timeRange, filter])
 
   const refreshStatistics = async () => {
     await fetchDashboardData()
