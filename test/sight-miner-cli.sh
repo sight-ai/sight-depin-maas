@@ -251,8 +251,8 @@ EOL
   echo "Starting Open WebUI..."
   if docker run -d --network host \
     -v open-webui:/app/backend/data \
-    -p 3001:8080 \
-    -e OLLAMA_BASE_URL=http://localhost:8719 \
+    -p 8080:8080 \
+    -e OLLAMA_BASE_URL=http://localhost:8716 \
     --name open-webui --restart always \
     ghcr.io/open-webui/open-webui:main; then
     echo "Open WebUI started successfully"
@@ -269,11 +269,11 @@ EOL
   echo "Opening web interfaces..."
   open_browser "http://localhost:3000"
   sleep 2
-  open_browser "http://localhost:3001"
+  open_browser "http://localhost:8080"
 
   echo "Setup complete! You can access:"
   echo "- Sight AI Miner at: http://localhost:3000"
-  echo "- Open WebUI at: http://localhost:3001"
+  echo "- Open WebUI at: http://localhost:8080"
 }
 
 # Main script execution
