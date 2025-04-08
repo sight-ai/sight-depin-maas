@@ -40,7 +40,7 @@ export class SummaryQueryDto extends createZodDto(
           year: z.string().optional(),
           month: z.string().optional(),
           view: z.enum(['Month', 'Year']).optional()
-        }).optional()
+        }).optional().default({})
       })
     ).default('{"request_serials":"daily","filteredTaskActivity":{}}')
   })
@@ -55,8 +55,8 @@ export class MinerController {
   ) {}
 
   @Get('/summary')
-  async getSummary(@Query() query: SummaryQueryDto = { timeRange: { request_serials: 'daily' } }) {
-    console.log(query.timeRange)
+  async getSummary(@Query() query: SummaryQueryDto = { timeRange: { request_serials: 'daily', filteredTaskActivity: {} } }) {
+    this.logger.log(`Getting summary with timeRange: ${JSON.stringify(query.timeRange)}`);
     return this.minerService.getSummary(query.timeRange);
   }
 

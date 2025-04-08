@@ -40,7 +40,7 @@ export function DeviceCard({
     useEffect(() => {
         onFilterChange({
             year: selectedYear,
-            month: selectedMonth,
+            month: view === 'Month' ? selectedMonth : undefined,
             view
         })
     }, [selectedYear, selectedMonth, view, onFilterChange])
@@ -50,24 +50,31 @@ export function DeviceCard({
         if (!summary?.statistics?.task_activity) return [];
         
         const taskActivity = summary.statistics.task_activity;
-        const now = new Date();
-        const selectedDate = new Date(parseInt(selectedYear), months.indexOf(selectedMonth), 1);
         
-        if (view === 'Year') {
-            // 年度视图：显示所有月份的数据
-            return taskActivity;
-        } else {
-            // 月度视图：只显示选中月份的数据
-            const startDate = new Date(selectedDate);
-            const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
-            
-            return taskActivity.filter((_, index) => {
-                const date = new Date();
-                date.setDate(date.getDate() - (29 - index));
-                return date >= startDate && date <= endDate;
-            });
-        }
-    }, [summary?.statistics?.task_activity, selectedYear, selectedMonth, view]);
+        // Data should already be filtered on the backend
+        return taskActivity;
+    }, [summary?.statistics?.task_activity]);
+
+    // 生成可选的年份列表，从当前年份开始往前推5年
+    const yearOptions = useMemo(() => {
+        const currentYear = new Date().getFullYear();
+        return Array(5).fill(0).map((_, index) => {
+            const year = (currentYear - index).toString();
+            return { value: year, label: year };
+        });
+    }, []);
+
+    // Helper function to get the appropriate number of days based on month and year
+    const getDaysInMonth = (year: number, month: number): number => {
+        return new Date(year, month, 0).getDate();
+    };
+
+    // Calculate number of days to display in Month view
+    const daysInSelectedMonth = useMemo(() => {
+        if (view !== 'Month') return 31;
+        const monthIndex = months.indexOf(selectedMonth) + 1;
+        return getDaysInMonth(parseInt(selectedYear), monthIndex);
+    }, [selectedYear, selectedMonth, view]);
 
     const onPanelChange = (value: Dayjs, mode: CalendarMode) => {
         console.log(value.format('YYYY-MM-DD'), mode);
@@ -131,10 +138,7 @@ export function DeviceCard({
                             value={selectedYear}
                             onChange={setSelectedYear}
                             style={{ width: 80 }}
-                            options={[
-                                { value: '2025', label: '2025' },
-                                { value: '2024', label: '2024' },
-                            ]}
+                            options={yearOptions}
                             bordered={false}
                             dropdownStyle={{ backgroundColor: isDark ? '#1a1a1a' : '#fff', color: isDark ? '#fff' : '#000' }}
                         />
@@ -161,29 +165,59 @@ export function DeviceCard({
                             ))}
                         </div>
                     </div>
-                    <div style={{
+
+                    {/* 年份选择网格 */}
+                    {view === 'Year' && <div style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(3, 1fr)',
-                        gap: '0.25rem'
+                        gap: '0.25rem',
+                        marginBottom: '0.5rem'
                     }}>
-                        {months.map((month, index) => (
+                        {yearOptions.map((yearOption) => (
                             <div
-                                key={month}
+                                key={yearOption.value}
                                 style={{
                                     padding: '4px 8px',
                                     borderRadius: '4px',
                                     cursor: 'pointer',
-                                    backgroundColor: month === selectedMonth ? '#000' : 'transparent',
-                                    color: month === selectedMonth ? '#fff' : (isDark ? '#fff' : '#000'),
+                                    backgroundColor: yearOption.value === selectedYear ? (isDark ? '#fff' : '#000') : 'transparent',
+                                    color: yearOption.value === selectedYear ? (isDark ? '#000' : '#fff') : (isDark ? '#fff' : '#000'),
                                     fontSize: '12px',
                                     textAlign: 'center'
                                 }}
-                                onClick={() => setSelectedMonth(month)}
+                                onClick={() => setSelectedYear(yearOption.value)}
                             >
-                                {month}
+                                {yearOption.value}
                             </div>
                         ))}
-                    </div>
+                    </div>}
+                    
+                    {/* Only show months grid when view is 'Month' */}
+                    {view === 'Month' && (
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(3, 1fr)',
+                            gap: '0.25rem'
+                        }}>
+                            {months.map((month, index) => (
+                                <div
+                                    key={month}
+                                    style={{
+                                        padding: '4px 8px',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        backgroundColor: month === selectedMonth ? (isDark ? '#fff' : '#000') : 'transparent',
+                                        color: month === selectedMonth ? (isDark ? '#000' : '#fff') : (isDark ? '#fff' : '#000'),
+                                        fontSize: '12px',
+                                        textAlign: 'center'
+                                    }}
+                                    onClick={() => setSelectedMonth(month)}
+                                >
+                                    {month}
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* 分隔线 */}
@@ -197,27 +231,59 @@ export function DeviceCard({
                 {/* 右侧网格 */}
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: view === 'Year' ? 'repeat(12, 1fr)' : 'repeat(31, 1fr)',
+                    gridTemplateColumns: view === 'Year' ? 'repeat(12, 1fr)' : `repeat(${daysInSelectedMonth}, 1fr)`,
                     gap: '0.5rem',
                     padding: '0.5rem',
                     flex: 1
                 }}>
-                    {filteredTaskActivity.map((item, index) => (
-                        <div
-                            key={index}
-                            style={{
-                                width: '30px',
-                                height: '30px',
-                                backgroundColor: 
-                                    item === 0 ? '#E5E7EB' : 
-                                    item >= 10 ? '#0800ff' : '#807cfc',
-                                borderRadius: '2px'
-                            }}
-                        />
-                    ))}
+                    {view === 'Year' ? (
+                        // Year view: 12 blocks for months
+                        Array(12).fill(null).map((_, index) => {
+                            // Use data from backend - it should already have 12 months worth of data
+                            const monthData = filteredTaskActivity[index] || 0;
+                            return (
+                                <div
+                                    key={index}
+                                    style={{
+                                        width: '30px',
+                                        height: '30px',
+                                        backgroundColor: getColorForActivity(monthData, isDark),
+                                        borderRadius: '2px'
+                                    }}
+                                    title={`${months[index]}: ${monthData} tasks`}
+                                />
+                            );
+                        })
+                    ) : (
+                        // Month view: dynamic number of days based on selected month
+                        Array(daysInSelectedMonth).fill(null).map((_, index) => {
+                            // Use data from backend - should have data for the days in the selected month
+                            const dayData = filteredTaskActivity[index] || 0;
+                            return (
+                                <div
+                                    key={index}
+                                    style={{
+                                        width: '30px',
+                                        height: '30px',
+                                        backgroundColor: getColorForActivity(dayData, isDark),
+                                        borderRadius: '2px'
+                                    }}
+                                    title={`Day ${index + 1}: ${dayData} tasks`}
+                                />
+                            );
+                        })
+                    )}
                 </div>
             </div>
         </Card>
         </div>
     )
+}
+
+// Helper function to determine color based on activity level
+function getColorForActivity(count: number, isDark: boolean) {
+    if (count === 0) return isDark ? '#333' : '#E5E7EB';
+    if (count < 5) return '#c0befe';
+    if (count < 10) return '#807cfc';
+    return '#0800ff';
 }

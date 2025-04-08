@@ -15,28 +15,6 @@ export function EarningsCard({
 }) {
     const { isDark } = useThemeCus()
 
-    if (loading) {
-        return (
-            <Card className="p-8 bg-white flex-1" style={{
-                backgroundColor: isDark ? '#1a1a1a' : '#f6f6f6',
-                borderRadius: '2rem'
-            }}>
-                <div>loading...</div>
-            </Card>
-        )
-    }
-
-    if (error) {
-        return (
-            <Card className="p-8 bg-white flex-1" style={{
-                backgroundColor: isDark ? '#1a1a1a' : '#f6f6f6',
-                borderRadius: '2rem'
-            }}>
-                <div className="text-red-500">{error}</div>
-            </Card>
-        )
-    }
-
     return (
         <div className='flex-1'>
             <h2 className="text-2xl mb-3 text-black" style={{

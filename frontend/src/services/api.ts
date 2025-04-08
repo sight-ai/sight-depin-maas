@@ -20,12 +20,21 @@ export const apiService = {
     },
 
     async getSummary(timeRange: 'daily' | 'weekly' | 'monthly' = 'daily', filter?: { year?: string; month?: string; view?: 'Month' | 'Year' }): Promise<SummaryResponse> {
+        // Create a properly formatted timeRange object
+        const timeRangeObj = { 
+            request_serials: timeRange,
+            filteredTaskActivity: filter || {}
+        };
+        
+        // Only include month if view is 'Month'
+        if (filter?.view !== 'Month' && timeRangeObj.filteredTaskActivity.month) {
+            delete timeRangeObj.filteredTaskActivity.month;
+        }
+        
         const queryString = new URLSearchParams({
-            timeRange: JSON.stringify({ 
-                request_serials: timeRange,
-                filteredTaskActivity: filter || {}
-            })
+            timeRange: JSON.stringify(timeRangeObj)
         }).toString();
+        
         return request<SummaryResponse>(`/miner/summary?${queryString}`);
     },
     
