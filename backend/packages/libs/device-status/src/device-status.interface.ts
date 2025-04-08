@@ -18,4 +18,16 @@ export abstract class DeviceStatusService {
   abstract checkOllamaStatus(): void;
 
   abstract isOllamaOnline(): Promise<boolean>;
+
+  abstract getDeviceList(): Promise<{
+    deviceId: string,
+    name: string,
+    status: "online" | "offline"
+  }[]>;
+
+  abstract getCurrentDevice(): Promise<{
+    deviceId: string,
+    name: string,
+    status: "online" | "offline"
+  }>;
 }

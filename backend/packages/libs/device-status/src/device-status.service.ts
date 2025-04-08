@@ -14,7 +14,8 @@ import { TunnelService } from "@saito/tunnel";
 export class DefaultDeviceStatusService implements DeviceStatusService {
   private readonly logger = new Logger(DefaultDeviceStatusService.name);
   private isRegistered = false; // 新增注册状态标志
-
+  private deviceId: string | null = null;
+  private deviceName: string | null = null;
   constructor(
     private readonly deviceStatusRepository: DeviceStatusRepository,
     @Inject(OllamaService)
@@ -53,13 +54,16 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         data: {
           success: boolean,
           error: string,
-          node_id: string
+          node_id: string,
+          name: string
         },
         code: number
       }
 
       if (data.success && code !== 500) {
         this.isRegistered = true;
+        this.deviceId = data.node_id;
+        this.deviceName = data.name;
         this.heartbeat()
         await this.tunnelService.connectSocket(data.node_id)
         this.logger.log('Device registration successful');
@@ -181,8 +185,8 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
   @Cron(CronExpression.EVERY_30_SECONDS)
   async checkOllamaStatus() {
     this.heartbeat()
-    const deviceId = env().OLLAMA_DEVICE_ID;
-    const deviceName = env().OLLAMA_DEVICE_NAME
+    const deviceId = this.deviceId;
+    const deviceName = this.deviceName
 
     if (!deviceId || !deviceName) {
       return;
@@ -209,6 +213,26 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     } catch (error) {
       return false;
     }
+  }
+
+  async getDeviceList(): Promise<{
+    deviceId: string,
+    name: string,
+    status: "online" | "offline"
+  }[]> {
+    return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
+      return this.deviceStatusRepository.findDeviceList(conn);
+    });
+  }
+
+  async getCurrentDevice(): Promise<{
+    deviceId: string,
+    name: string,
+    status: "online" | "offline"
+  }> {
+    return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
+      return this.deviceStatusRepository.findCurrentDevice(conn);
+    });
   }
 }
 

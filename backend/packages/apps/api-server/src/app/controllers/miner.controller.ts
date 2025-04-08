@@ -55,4 +55,14 @@ export class MinerController {
   async getDeviceStatus(@Query() args:QueryDeviceStatusDto ) {
     return this.deviceStatusService.getDeviceStatus(args.deviceId);
   }
+
+  @Get('deviceList')
+  async getDeviceList() {
+    return this.deviceStatusService.getDeviceList();
+  }
+
+  @Get('currentDevice')
+  async getCurrentDevice() {
+    return this.deviceStatusService.getCurrentDevice();
+  }
 }

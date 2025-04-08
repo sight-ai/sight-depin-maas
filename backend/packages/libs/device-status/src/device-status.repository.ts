@@ -71,4 +71,26 @@ WHERE NOT EXISTS (SELECT 1 FROM updated);
       WHERE updated_at < ${thresholdTimeStr} AND status = 'online';
     `);
   }
+
+  async findDeviceList(conn: DatabaseTransactionConnection): Promise<{
+    deviceId: string,
+    name: string,
+    status: "online" | "offline"
+  }[]> {
+    const result = await conn.query(SQL.type(m.deviceStatus('FindDeviceListSchema'))`
+      SELECT device_id, name, status FROM saito_miner.device_status WHERE status = 'online';
+    `);
+    return [...result.rows];
+  }
+
+  async findCurrentDevice(conn: DatabaseTransactionConnection): Promise<{
+    deviceId: string,
+    name: string,
+    status: "online" | "offline"
+  }> {  
+    const result = await conn.query(SQL.type(m.deviceStatus('FindCurrentDeviceSchema'))`
+      SELECT device_id, name, status FROM saito_miner.device_status WHERE status = 'online' ORDER BY created_at DESC LIMIT 1;
+    `);
+    return result.rows[0];
+  }
 }
