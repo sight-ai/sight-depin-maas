@@ -13,40 +13,18 @@ Make sure Docker is running after installation.
 
 ### 2. Install Ollama
 
-
 🔗  [https://ollama.com](https://ollama.com/)
 
 
 ---
 
-## 🚀 Setup Steps
-
-### 1. Download the installer, fix permission
+## 🚀 Setup
 
 ```bash
-curl https://www.sightai.io/model/sight-miner-cli-local.sh -O
+curl -s https://www.sightai.io/model/sight-miner-cli-local.sh | bash
 ```
 
-```bash
-chmod +x ./sight-miner-cli-local.sh
-```
-
-### 2. (For Macbook M1/M2/M3) Set Docker platform
-
-```bash
-export DOCKER_DEFAULT_PLATFORM=linux/amd64
-
-```
-
----
-
-## ⏳ Run the script!
-```bash
-./sight-miner-cli-local.sh
-
-```
 This script will:
-
 - Pull the `deepscaler` model to your Ollama
 - Start all necessary containers (Postgres, backend, frontend)
 - Install and run Open WebUI (for chat)
