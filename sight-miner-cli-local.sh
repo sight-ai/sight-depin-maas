@@ -179,7 +179,7 @@ run() {
   # Check Ollama service first
   check_ollama_service
   # Pull deepseek model
-  # pull_deepseek_model
+  pull_deepseek_model
 
   echo "Starting Sight AI Miner..."
 

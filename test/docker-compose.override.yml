@@ -2,10 +2,10 @@ version: '3'
 services:
   sight-miner-backend:
     environment:
-      - NODE_CODE=bjgf12jfq
-      - GATEWAY_API_URL=https://sightai.io/api/model
-      - GATEWAY_API_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIweDU2Y2ZmMTQ5OTdEMDQ4MzVmOUZBYzM1Y2FmYkI4YWJhMUQxRmJmZEEiLCJpc3MiOiJodHRwczovL3NpZ2h0YWkuaW8iLCJhdWQiOiJodHRwczovL3NpZ2h0YWkuaW8iLCJhZGRyZXNzIjoiMHg1NmNmZjE0OTk3RDA0ODM1ZjlGQWMzNWNhZmJCOGFiYTFEMUZiZmRBIiwiaWF0IjoxNzQzNjg1MTIxLCJleHAiOjE3NDYyNzcxMjF9.ljdKCQkj-Fy_T_e255TG4he5B6Uhn5Gv5eNzCevuxTE
+      - NODE_CODE=default
+      - GATEWAY_API_URL=https://sightai.io
+      - GATEWAY_API_KEY=default
+      - REWARD_ADDRESS=default
       - GPU_BRAND="NVIDIA"
       - DEVICE_TYPE="Linux"
       - GPU_MODEL="NVIDIA GeForce RTX 3050 Laptop GPU"
-      - REWARD_ADDRESS=0x56cff14997D04835f9FAc35cafbB8aba1D1FbfdA

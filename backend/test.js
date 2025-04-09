@@ -12,7 +12,7 @@ function testOllamaStream() {
   };
 
   const payload = JSON.stringify({
-    "model": "deepseek-r1:7b",
+    "model": "deepscaler",
     "prompt": "你好，请介绍一下自己",
     "stream": true,
     "options": {

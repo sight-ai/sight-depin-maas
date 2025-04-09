@@ -58,23 +58,20 @@ export class DefaultOllamaService implements OllamaService {
   }
 
   private async handleStream(stream: any, res: Response, taskId: string, isChat: boolean) {
-    let msg: any = isChat ? { role: '', content: '' } : '';
-
+    res.setHeader('Content-Type', 'application/x-ndjson');
+    res.flushHeaders();
+    console.log('stream')
     stream.on('data', async (chunk: any) => {
       try {
         try {
-          console.log(chunk.toString())
           const part = JSON.parse(chunk.toString());
           if (isChat) {
             if (part instanceof Object) {
-              res.write(`${JSON.stringify(part)}`);
+              res.write(chunk);
             }
           } else {
-            if (!part.done) {
-              msg += part.response;
-            }
             if (part instanceof Object) {
-              res.write(`${JSON.stringify(part)}`);
+              res.write(chunk);
             }
           }
 
@@ -184,27 +181,7 @@ export class DefaultOllamaService implements OllamaService {
             ...args,
           },
         });
-        if (args.stream) {
-          res.setHeader('Content-Type', 'application/x-ndjson');
-          res.flushHeaders();
-        }
-
-        stream.on('data', (chunk) => {
-          res.write(chunk);
-        });
-
-        stream.on('end', async () => {
-          await this.updateTask(taskId, { status: 'succeed' });
-          res.end();
-        });
-
-        stream.on('error', async (err) => {
-          await this.updateTask(taskId, { status: 'failed' });
-          // optionally log `err` or do more error handling
-          res.end();
-        });
-
-        // await this.handleStream(stream, res, taskId, true);
+        await this.handleStream(stream, res, taskId, true);
       } else {
         await this.handleNonStream(args, res, taskId, 'chat');
       }
@@ -267,14 +244,13 @@ export class DefaultOllamaService implements OllamaService {
       console.log(response);
       console.log(true);
       return !!response;
-    } catch (error){
+    } catch (error) {
       console.log(error);
       return false;
     }
   }
 
-  async listModel(): Promise<ModelOfOllama<'list_model_response'>> {
-    const url = new URL(`api/tags`, this.baseUrl);
+  async listModelTags(): Promise<ModelOfOllama<'list_model_response'>> {
     const response = await got
       .get(url.toString())
       .json();
@@ -302,6 +278,131 @@ export class DefaultOllamaService implements OllamaService {
       })
       .json();
     return response;
+  }
+
+  async showModelVersion(): Promise<any> {
+    const response = await got
+      .get(`${env().OLLAMA_API_URL}api/version`)
+      .json();
+    return response;
+  }
+
+  async listModels(): Promise<ModelOfOllama<'list_model_response'>> {
+    const response = await got
+      .get(`${env().OLLAMA_API_URL}api/models`)
+      .json();
+    const parseResult = m.ollama('list_model_response').safeParse(response);
+    if (parseResult.success) {
+      return parseResult.data;
+    } else {
+      this.logger.error(
+        `failed to parse list models response: ${parseResult.error}`
+      );
+      return { models: [] };
+    }
+  }
+
+  async createModel(args: ModelOfOllama<'create_request'>): Promise<ModelOfOllama<'create_response'>> {
+    const response = await got
+      .post(`${env().OLLAMA_API_URL}api/create`, {
+        json: args
+      })
+      .json();
+    const parseResult = m.ollama('create_response').safeParse(response);
+    if (parseResult.success) {
+      return parseResult.data;
+    } else {
+      this.logger.error(
+        `failed to parse create model response: ${parseResult.error}`
+      );
+      return { status: 'error' };
+    }
+  }
+
+  async copyModel(args: ModelOfOllama<'copy_request'>): Promise<void> {
+    await got
+      .post(`${env().OLLAMA_API_URL}api/copy`, {
+        json: args
+      });
+  }
+
+  async deleteModel(args: ModelOfOllama<'delete_request'>): Promise<void> {
+    await got
+      .delete(`${env().OLLAMA_API_URL}api/delete`, {
+        json: args
+      });
+  }
+
+  async pullModel(args: ModelOfOllama<'pull_request'>, res: Response): Promise<void> {
+    const stream = got.stream(`${env().OLLAMA_API_URL}api/pull`, {
+      method: 'POST',
+      json: args
+    });
+
+    stream.on('data', (chunk) => {
+      res.write(chunk);
+    });
+
+    stream.on('end', () => {
+      res.end();
+    });
+
+    stream.on('error', (err) => {
+      res.status(500).json({ error: err });
+      res.end();
+    });
+  }
+
+  async pushModel(args: ModelOfOllama<'push_request'>, res: Response): Promise<void> {
+    const stream = got.stream(`${env().OLLAMA_API_URL}api/push`, {
+      method: 'POST',
+      json: args
+    });
+
+    stream.on('data', (chunk) => {
+      res.write(chunk);
+    });
+
+    stream.on('end', () => {
+      res.end();
+    });
+
+    stream.on('error', (err) => {
+      res.status(500).json({ error: err });
+      res.end();
+    });
+  }
+
+  async generateEmbeddings(args: ModelOfOllama<'embed_request'>): Promise<ModelOfOllama<'embed_response'>> {
+    const response = await got
+      .post(`${env().OLLAMA_API_URL}api/embed`, {
+        json: args
+      })
+      .json();
+    const parseResult = m.ollama('embed_response').safeParse(response);
+    if (parseResult.success) {
+      return parseResult.data;
+    } else {
+      this.logger.error(
+        `failed to parse embeddings response: ${parseResult.error}`
+      );
+      return { model: args.model, embeddings: [] };
+    }
+  }
+
+  async listRunningModels(): Promise<ModelOfOllama<'list_running_models_response'>> {
+    const response = await got
+      .get(`${env().OLLAMA_API_URL}api/ps`)
+      .json();
+    const parseResult = m.ollama('list_running_models_response').safeParse(response);
+    if (parseResult.success) {
+      return parseResult.data;
+    } else {
+      this.logger.error(
+        `failed to parse running models response: ${parseResult.error}`
+      );
+      return { models: [] };
+    }
   }
 }
 
