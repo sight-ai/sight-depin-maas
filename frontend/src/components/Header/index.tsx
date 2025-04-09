@@ -1,9 +1,16 @@
 import { useThemeCus } from '@/hooks/useTheme'
 import { Button } from '@nextui-org/button'
 import Image from 'next/image'
+import { useDevice } from '@/hooks/useDevice'
 
 export const Header = () => {
     const { isDark } = useThemeCus()
+    const { data } = useDevice()
+
+    const formatAddress = (address: string) => {
+        if (!address) return '0x00...0000'
+        return `${address.slice(0, 4)}...${address.slice(-4)}`
+    }
 
     return <div className="flex justify-end gap-5">
         <div className="flex items-center gap-3 h-20">
@@ -35,7 +42,7 @@ export const Header = () => {
                 <span className="font-medium flex items-center" style={{
                     color: isDark ? '#000' : '#fff'
                 }}>
-                    0 Point | 0x44...3d92
+                    0 Point | {formatAddress(data?.rewardAddress || '')}
                 </span>
             </Button>
         </div>

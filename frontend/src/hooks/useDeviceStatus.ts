@@ -5,35 +5,40 @@ import { apiService } from '@/services/api'
 
 export function useDevice() {
   let [data, setData] = useState<any>({})
-  // function getDeviceName() {
-  //   const userAgent = navigator.userAgent;
-  //   let deviceName = 'Unknown Device';
+  let [deviceId, setDeviceId] = useState<string>('')
   
-  //   if (/Android/i.test(userAgent)) {
-  //     deviceName = 'Android Device';
-  //   } else if (/iPhone|iPad|iPod/i.test(userAgent)) {
-  //     deviceName = 'iOS Device';
-  //   } else if (/Windows NT/i.test(userAgent)) {
-  //     deviceName = 'Windows Device';
-  //   } else if (/Macintosh/i.test(userAgent)) {
-  //     deviceName = 'Mac Device';
-  //   }
-  
-  //   return deviceName;
-  // }
+  const fetchDeviceId = async () => {
+    try {
+      const currentDevice = await apiService.getCurrentDevice();
+      if (currentDevice && currentDevice.deviceId) {
+        setDeviceId(currentDevice.deviceId);
+      }
+    } catch (error) {
+      console.error('Error fetching device ID:', error);
+    }
+  }
   
   const fetchDashboardData = async () => {
-    let data:any = await apiService.getDeviceStatus()
-    console.log(data)
-    setData(data)
+    if (!deviceId) return;
+    try {
+      let data:any = await apiService.getDeviceStatus(deviceId);
+      setData(data);
+    } catch (error) {
+      console.error('Error fetching device status:', error);
+    }
   }
 
   useEffect(() => {
-    fetchDashboardData()
-    setInterval(() => {
-      fetchDashboardData()
-    }, 1000*30);
-  }, [])
+    fetchDeviceId();
+  }, []);
+
+  useEffect(() => {
+    if (deviceId) {
+      fetchDashboardData();
+      const interval = setInterval(fetchDashboardData, 1000 * 30);
+      return () => clearInterval(interval);
+    }
+  }, [deviceId]);
 
   return {
     fetchDashboardData,

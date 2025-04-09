@@ -68,11 +68,6 @@ export class MinerController {
   async getHistory(@Query() query: HistoryQueryDto) {
     return this.minerService.getTaskHistory(query.page, query.limit);
   }
-
-  @Post('deviceStatus')
-  async sendDeviceStatus(@Body() args:SendDeviceStatusDto ) {
-    return this.deviceStatusService.updateDeviceStatus(args.deviceId, args.name, "online");
-  }
   
   @Get('deviceStatus')
   async getDeviceStatus(@Query() args:QueryDeviceStatusDto ) {

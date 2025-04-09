@@ -10,10 +10,8 @@ import { useState } from 'react'
 import { ConfigProvider, theme } from 'antd'
 
 export default function HistoryPage() {
-    const { historyItems, loading, error } = useHistory()
+    const { historyItems, loading, error, page, setPage, pageSize, setPageSize, total } = useHistory()
     const { isDark } = useThemeCus()
-    const [currentPage, setCurrentPage] = useState(1)
-    const [pageSize, setPageSize] = useState(10)
 
     const formatRequestId = (requestId: string) => {
         if (requestId.length <= 8) return requestId;
@@ -187,14 +185,13 @@ export default function HistoryPage() {
                                 }}
                             >
                                 <Pagination
-                                    current={currentPage}
+                                    current={page}
                                     pageSize={pageSize}
-                                    total={500}
+                                    total={total}
                                     showSizeChanger
-                                    showQuickJumper
                                     pageSizeOptions={[10, 20, 50]}
                                     onChange={(page, size) => {
-                                        setCurrentPage(page)
+                                        setPage(page)
                                         setPageSize(size)
                                     }}
                                 />

@@ -38,11 +38,11 @@ export const apiService = {
         return request<SummaryResponse>(`/miner/summary?${queryString}`);
     },
     
-    async sendDeviceStatus(data:any) {
-        return request('/miner/deviceStatus', {method: 'POST', body:JSON.stringify(data)});
+    async getDeviceStatus(deviceId: string) {
+        return request(`/miner/deviceStatus?deviceId=${deviceId}`, {method: 'GET'});
     },
-    
-    async getDeviceStatus() {
-        return request('/miner/deviceStatus?deviceId=ollama-1', {method: 'GET'});
+
+    async getCurrentDevice() {
+        return request<{ deviceId: string, rewardAddress: string | null }>('/miner/currentDevice', {method: 'GET'});
     }
 };

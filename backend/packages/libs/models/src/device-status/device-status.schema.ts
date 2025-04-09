@@ -17,7 +17,8 @@ export const UpdateDeviceStatusSchema = z.object({
   deviceId: z.string(),
   name: z.string(),
   status: z.enum(["online", "offline"]),
-  now: z.string()
+  now: z.string(),
+  rewardAddress: z.string()
 });
 
 export const FindDeviceStatusSchema = z.object({
@@ -39,6 +40,7 @@ export const FindCurrentDeviceSchema = z.object({
   deviceId: z.string(),
   name: z.string(),
   status: z.enum(["online", "offline"]),
+  rewardAddress: z.string().nullable()
 });
 
 export const DeviceSchema = {

@@ -22,7 +22,8 @@ export class DeviceStatusRepository {
     conn: DatabaseTransactionConnection,
     deviceId: string,
     name: string,
-    status: "online" | "offline"
+    status: "online" | "offline",
+    rewardAddress: string
   ) {
     console.log('deviceId', deviceId);
     const now = toISOString(new Date()); // Convert date to ISO string for SQL compatibility
@@ -36,15 +37,15 @@ export class DeviceStatusRepository {
 ),
 updated AS (
     UPDATE saito_miner.device_status
-    SET status = ${status}, updated_at = ${now}
+    SET status = ${status}, updated_at = ${now}, reward_address = ${rewardAddress}
     WHERE device_id = ${deviceId}
     RETURNING * -- Return the updated row
 )
-INSERT INTO saito_miner.device_status (device_id, name, status, up_time_start, created_at, updated_at)
+INSERT INTO saito_miner.device_status (device_id, name, status, up_time_start, created_at, updated_at, reward_address)
 SELECT COALESCE(${deviceId}, 'default_id'), 
        COALESCE(${name}, 'default_name'), 
        COALESCE(${status}, 'unknown_status'), 
-       ${now}, ${now}, ${now}
+       ${now}, ${now}, ${now}, ${rewardAddress}
 WHERE NOT EXISTS (SELECT 1 FROM updated);
     `);
   }
@@ -78,7 +79,7 @@ WHERE NOT EXISTS (SELECT 1 FROM updated);
     status: "online" | "offline"
   }[]> {
     const result = await conn.query(SQL.type(m.deviceStatus('FindDeviceListSchema'))`
-      SELECT device_id, name, status FROM saito_miner.device_status WHERE status = 'online';
+      SELECT device_id as "deviceId", name, status FROM saito_miner.device_status WHERE status = 'online';
     `);
     return [...result.rows];
   }
@@ -86,11 +87,26 @@ WHERE NOT EXISTS (SELECT 1 FROM updated);
   async findCurrentDevice(conn: DatabaseTransactionConnection): Promise<{
     deviceId: string,
     name: string,
-    status: "online" | "offline"
+    status: "online" | "offline",
+    rewardAddress: string | null
   }> {  
     const result = await conn.query(SQL.type(m.deviceStatus('FindCurrentDeviceSchema'))`
-      SELECT device_id, name, status FROM saito_miner.device_status WHERE status = 'online' ORDER BY created_at DESC LIMIT 1;
+      SELECT device_id as "deviceId", name, status, reward_address as "rewardAddress"
+      FROM saito_miner.device_status 
+      WHERE status = 'online' 
+      ORDER BY created_at DESC 
+      LIMIT 1;
     `);
+    
+    if (!result.rows.length) {
+      return {
+        deviceId: 'default_device',
+        name: 'Default Device',
+        status: 'offline' as const,
+        rewardAddress: null
+      };
+    }
+    
     return result.rows[0];
   }
 }

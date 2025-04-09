@@ -9,7 +9,7 @@ export abstract class DeviceStatusService {
 
   abstract getDeviceInfo(): Promise<string>;
   abstract heartbeat(): void;
-  abstract updateDeviceStatus(deviceId: string, name: string, status: "online" | "offline"): void;
+  abstract updateDeviceStatus(deviceId: string, name: string, status: "online" | "offline", rewardAddress: string): void;
 
   abstract getDeviceStatus(deviceId: string): void;
 
@@ -28,6 +28,7 @@ export abstract class DeviceStatusService {
   abstract getCurrentDevice(): Promise<{
     deviceId: string,
     name: string,
-    status: "online" | "offline"
+    status: "online" | "offline",
+    rewardAddress: string | null
   }>;
 }
