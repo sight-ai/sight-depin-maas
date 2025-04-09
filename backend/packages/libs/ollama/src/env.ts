@@ -5,8 +5,8 @@ import { z } from 'zod';
 export const env = memoizee(() =>
   createEnv({
     server: {
-      OLLAMA_API_URL: z.string(),
-      OLLAMA_MODEL: z.string()
+      OLLAMA_API_URL: z.string().default('http://localhost:11434'),
+      OLLAMA_MODEL: z.string().default('gemma3:4b')
     },
     runtimeEnv: process.env,
   }),

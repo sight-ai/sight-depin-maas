@@ -43,11 +43,9 @@ export class DefaultMinerService implements MinerService {
   }
 }
 
-
 const MinerServiceProvider = {
   provide: MinerService,
   useClass: DefaultMinerService
 }
-
 
 export default MinerServiceProvider;
