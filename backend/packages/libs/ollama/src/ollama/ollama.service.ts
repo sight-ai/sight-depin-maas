@@ -251,6 +251,7 @@ export class DefaultOllamaService implements OllamaService {
   }
 
   async listModelTags(): Promise<ModelOfOllama<'list_model_response'>> {
+    const url = new URL(`api/tags`, this.baseUrl);
     const response = await got
       .get(url.toString())
       .json();
@@ -281,15 +282,17 @@ export class DefaultOllamaService implements OllamaService {
   }
 
   async showModelVersion(): Promise<any> {
+    const url = new URL(`api/version`, this.baseUrl);
     const response = await got
-      .get(`${env().OLLAMA_API_URL}api/version`)
+      .get(url.toString())
       .json();
     return response;
   }
 
   async listModels(): Promise<ModelOfOllama<'list_model_response'>> {
+    const url = new URL(`api/models`, this.baseUrl);
     const response = await got
-      .get(`${env().OLLAMA_API_URL}api/models`)
+      .get(url.toString())
       .json();
     const parseResult = m.ollama('list_model_response').safeParse(response);
     if (parseResult.success) {
@@ -303,8 +306,9 @@ export class DefaultOllamaService implements OllamaService {
   }
 
   async createModel(args: ModelOfOllama<'create_request'>): Promise<ModelOfOllama<'create_response'>> {
+    const url = new URL(`api/create`, this.baseUrl);
     const response = await got
-      .post(`${env().OLLAMA_API_URL}api/create`, {
+      .post(url.toString(), {
         json: args
       })
       .json();
@@ -320,21 +324,24 @@ export class DefaultOllamaService implements OllamaService {
   }
 
   async copyModel(args: ModelOfOllama<'copy_request'>): Promise<void> {
+    const url = new URL(`api/copy`, this.baseUrl);
     await got
-      .post(`${env().OLLAMA_API_URL}api/copy`, {
+      .post(url.toString(), {
         json: args
       });
   }
 
   async deleteModel(args: ModelOfOllama<'delete_request'>): Promise<void> {
+    const url = new URL(`api/delete`, this.baseUrl);
     await got
-      .delete(`${env().OLLAMA_API_URL}api/delete`, {
+      .delete(url.toString(), {
         json: args
       });
   }
 
   async pullModel(args: ModelOfOllama<'pull_request'>, res: Response): Promise<void> {
-    const stream = got.stream(`${env().OLLAMA_API_URL}api/pull`, {
+    const url = new URL(`api/pull`, this.baseUrl);
+    const stream = got.stream(url.toString(), {
       method: 'POST',
       json: args
     });
@@ -354,7 +361,8 @@ export class DefaultOllamaService implements OllamaService {
   }
 
   async pushModel(args: ModelOfOllama<'push_request'>, res: Response): Promise<void> {
-    const stream = got.stream(`${env().OLLAMA_API_URL}api/push`, {
+    const url = new URL(`api/push`, this.baseUrl);
+    const stream = got.stream(url.toString(), {
       method: 'POST',
       json: args
     });
@@ -374,8 +382,9 @@ export class DefaultOllamaService implements OllamaService {
   }
 
   async generateEmbeddings(args: ModelOfOllama<'embed_request'>): Promise<ModelOfOllama<'embed_response'>> {
+    const url = new URL(`api/embed`, this.baseUrl);
     const response = await got
-      .post(`${env().OLLAMA_API_URL}api/embed`, {
+      .post(url.toString(), {
         json: args
       })
       .json();
@@ -391,8 +400,9 @@ export class DefaultOllamaService implements OllamaService {
   }
 
   async listRunningModels(): Promise<ModelOfOllama<'list_running_models_response'>> {
+    const url = new URL(`api/ps`, this.baseUrl);
     const response = await got
-      .get(`${env().OLLAMA_API_URL}api/ps`)
+      .get(url.toString())
       .json();
     const parseResult = m.ollama('list_running_models_response').safeParse(response);
     if (parseResult.success) {
