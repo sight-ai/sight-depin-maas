@@ -35,4 +35,8 @@ export abstract class DeviceStatusService {
   abstract getGatewayStatus(): Promise<{
     isRegistered: boolean
   }>;
+
+  abstract getDeviceId(): Promise<string>;
+  abstract getDeviceName(): Promise<string>;
+  abstract getRewardAddress(): Promise<string>;
 }

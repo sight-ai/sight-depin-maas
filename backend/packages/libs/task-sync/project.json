@@ -1,0 +1,36 @@
+{
+  "name": "task-sync",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/libs/task-sync/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/libs/task-sync",
+        "main": "packages/libs/task-sync/src/index.ts",
+        "tsConfig": "packages/libs/task-sync/tsconfig.lib.json",
+        "assets": ["packages/libs/task-sync/*.md"]
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "packages/libs/task-sync/**/*.ts",
+          "packages/libs/task-sync/package.json"
+        ]
+      }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "packages/libs/task-sync/jest.config.ts"
+      }
+    }
+  },
+  "tags": []
+}

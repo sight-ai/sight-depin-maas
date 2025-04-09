@@ -1,4 +1,4 @@
-import { Injectable, Inject, Logger } from "@nestjs/common";
+import { Injectable, Inject, Logger, forwardRef } from "@nestjs/common";
 import * as R from 'ramda';
 import { DeviceStatusRepository } from "./device-status.repository";
 import { DatabaseTransactionConnection } from "slonik";
@@ -19,7 +19,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
   private rewardAddress: string = 'local_reward_address';
   constructor(
     private readonly deviceStatusRepository: DeviceStatusRepository,
-    @Inject(OllamaService)
+    @Inject(forwardRef(() => OllamaService))
     private readonly ollamaService: OllamaService,
     private readonly tunnelService: TunnelService
   ) {
@@ -245,6 +245,18 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     return {
       isRegistered: this.isRegistered
     };
+  }
+
+  async getDeviceId(): Promise<string> {
+    return this.deviceId;
+  }
+
+  async getDeviceName(): Promise<string> {
+    return this.deviceName;
+  }
+
+  async getRewardAddress(): Promise<string> {
+    return this.rewardAddress;
   }
 }
 

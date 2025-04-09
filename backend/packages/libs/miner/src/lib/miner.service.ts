@@ -1,10 +1,14 @@
 import { DeviceInfo, EarningInfo, JSONType, ModelOfMiner, Statistics, Task } from "@saito/models";
 import { MinerService } from "./miner.interface";
 import { MinerRepository } from "./miner.repository";
-import { Inject } from "@nestjs/common";
+import { Inject, forwardRef } from "@nestjs/common";
+import { TaskSyncService } from "@saito/task-sync";
 
 export class DefaultMinerService implements MinerService {
-  constructor(@Inject(MinerRepository) private readonly repository: MinerRepository) {}
+  constructor(
+    @Inject(MinerRepository) private readonly repository: MinerRepository,
+    @Inject(forwardRef(() => TaskSyncService)) private readonly taskSyncService: TaskSyncService
+  ) {}
 
   createTask(args: ModelOfMiner<'create_task_request'>) {
     return this.repository.transaction(async conn => {
@@ -13,9 +17,7 @@ export class DefaultMinerService implements MinerService {
   }
 
   getTask(id: string): Promise<ModelOfMiner<'task'>> {
-    return this.repository.transaction(async conn => {
-      return this.repository.getTask(conn, id);
-    })
+    return this.taskSyncService.getTask(id);
   }
 
   async getSummary(timeRange?: { 
@@ -26,15 +28,11 @@ export class DefaultMinerService implements MinerService {
       view?: 'Month' | 'Year' 
     }
   }): Promise<ModelOfMiner<'summary'>> {
-    return this.repository.transaction(async conn => {
-      return this.repository.getSummary(conn, timeRange);
-    })
+    return this.taskSyncService.getSummary(timeRange);
   }
 
   getTaskHistory(page: number, limit: number) {
-    return this.repository.transaction(async conn => {
-      return this.repository.getTasks(conn, page, limit);
-    })
+    return this.taskSyncService.getTasks(page, limit);
   }
 
   updateTask(id: string, updates: Partial<ModelOfMiner<'task'>>) {
@@ -50,11 +48,9 @@ export class DefaultMinerService implements MinerService {
   }
 }
 
-
 const MinerServiceProvider = {
   provide: MinerService,
   useClass: DefaultMinerService
 }
-
 
 export default MinerServiceProvider;
