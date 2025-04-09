@@ -115,8 +115,9 @@ export class DefaultOllamaService implements OllamaService {
   }
 
   private async handleNonStream(args: any, res: Response, taskId: string, endpoint: string) {
+    const url = new URL(`api/${endpoint}`, this.baseUrl);
     const response: any = await got
-      .post(`${env().OLLAMA_API_URL}api/${endpoint}`, {
+      .post(url.toString(), {
         json: { ...args },
       })
       .json();
@@ -146,7 +147,8 @@ export class DefaultOllamaService implements OllamaService {
 
     try {
       if (args.stream) {
-        const stream = got.stream(`${env().OLLAMA_API_URL}api/generate`, {
+        const url = new URL(`api/generate`, this.baseUrl);
+        const stream = got.stream(url.toString(), {
           method: 'POST',
           json: args,
         });
@@ -172,7 +174,8 @@ export class DefaultOllamaService implements OllamaService {
 
     try {
       if (args.stream) {
-        const stream = got.stream(`${env().OLLAMA_API_URL}api/chat`, {
+        const url = new URL(`api/chat`, this.baseUrl);
+        const stream = got.stream(url.toString(), {
           method: 'POST',
           json: {
             ...args,
@@ -227,8 +230,9 @@ export class DefaultOllamaService implements OllamaService {
 
   async checkStatus(): Promise<boolean> {
     try {
+      const url = new URL(`api/generate`, this.baseUrl);
       const response = await got
-        .post(`${env().OLLAMA_API_URL}api/generate`, {
+        .post(url.toString(), {
           timeout: {
             request: 20000,
             connect: 2000,
@@ -248,7 +252,7 @@ export class DefaultOllamaService implements OllamaService {
 
   async listModelTags(): Promise<ModelOfOllama<'list_model_response'>> {
     const response = await got
-      .get(path.join(this.baseUrl, 'api/tags'))
+      .get(url.toString())
       .json();
     const parseResult = m.ollama('list_model_response').safeParse(response);
     if (parseResult.success) {
@@ -262,8 +266,9 @@ export class DefaultOllamaService implements OllamaService {
   }
 
   async showModelInformation(args: ModelOfOllama<'show_model_request'>): Promise<any> {
+    const url = new URL(`api/show`, this.baseUrl);
     const response = await got
-      .post(`${env().OLLAMA_API_URL}api/show`, {
+      .post(url.toString(), {
         timeout: {
           request: 20000,
           connect: 2000,
