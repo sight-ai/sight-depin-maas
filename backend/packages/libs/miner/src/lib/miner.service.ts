@@ -3,12 +3,21 @@ import { MinerService } from "./miner.interface";
 import { MinerRepository } from "./miner.repository";
 import { Inject, forwardRef } from "@nestjs/common";
 import { TaskSyncService } from "@saito/task-sync";
+import { DeviceStatusService } from "@saito/device-status";
+import { DatabaseTransactionConnection } from "slonik";
 
 export class DefaultMinerService implements MinerService {
   constructor(
     @Inject(MinerRepository) private readonly repository: MinerRepository,
-    @Inject(forwardRef(() => TaskSyncService)) private readonly taskSyncService: TaskSyncService
+    @Inject(forwardRef(() => TaskSyncService)) private readonly taskSyncService: TaskSyncService,
+    @Inject(DeviceStatusService) private readonly deviceStatusService: DeviceStatusService
   ) {}
+
+  private async shouldUseGateway() {
+    const { isRegistered } = await this.deviceStatusService.getGatewayStatus();
+    console.log('isRegistered', isRegistered);
+    return isRegistered;
+  }
 
   createTask(args: ModelOfMiner<'create_task_request'>) {
     return this.repository.transaction(async conn => {
@@ -16,9 +25,6 @@ export class DefaultMinerService implements MinerService {
     })
   }
 
-  getTask(id: string): Promise<ModelOfMiner<'task'>> {
-    return this.taskSyncService.getTask(id);
-  }
 
   async getSummary(timeRange?: { 
     request_serials?: 'daily' | 'weekly' | 'monthly',
@@ -28,11 +34,21 @@ export class DefaultMinerService implements MinerService {
       view?: 'Month' | 'Year' 
     }
   }): Promise<ModelOfMiner<'summary'>> {
-    return this.taskSyncService.getSummary(timeRange);
+    if (await this.shouldUseGateway()) {
+      return this.taskSyncService.getSummary(timeRange);
+    }
+    return this.repository.transaction(async conn => {
+      return this.repository.getSummary(conn, timeRange);
+    });
   }
 
-  getTaskHistory(page: number, limit: number) {
-    return this.taskSyncService.getTasks(page, limit);
+  async getTaskHistory(page: number, limit: number) {
+    if (await this.shouldUseGateway()) {
+      return this.taskSyncService.getTasks(page, limit);
+    }
+    return this.repository.transaction(async conn => {
+      return this.repository.getTasks(conn, page, limit);
+    });
   }
 
   updateTask(id: string, updates: Partial<ModelOfMiner<'task'>>) {

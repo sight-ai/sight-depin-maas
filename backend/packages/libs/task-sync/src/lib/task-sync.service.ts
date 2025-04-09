@@ -23,39 +23,8 @@ export class DefaultTaskSyncService implements TaskSyncService {
     };
   }
 
-  async getTask(id: string): Promise<ModelOfMiner<'task'>> {
-    const { isRegistered } = await this.deviceStatusService.getGatewayStatus();
-    const deviceId = await this.deviceStatusService.getDeviceId();
-    if (!isRegistered) {
-      return this.minerService.getTask(id);
-    }
-
-    try {
-      // Try to get task from gateway first
-      const { data } = await got.get(`${env().GATEWAY_API_URL}/tasks?id=${id}&deviceId=${deviceId}`, {
-        headers: {
-          'Authorization': `Bearer ${env().GATEWAY_API_KEY}`
-        }
-      }).json() as { data: ModelOfMiner<'task'> };
-
-      const convertedTask = this.convertTaskDates(data);
-      // Update local task with gateway data
-      await this.minerService.updateTask(id, convertedTask);
-      
-      return convertedTask;
-    } catch (error) {
-      // If gateway request fails, fallback to local
-      return this.minerService.getTask(id);
-    }
-  }
-
   async getTasks(page: number, limit: number) {
-    const { isRegistered } = await this.deviceStatusService.getGatewayStatus();
     const deviceId = await this.deviceStatusService.getDeviceId();
-    if (!isRegistered) {
-      return this.minerService.getTaskHistory(page, limit);
-    }
-
     try {
       // Try to get tasks from gateway first
       const { data } = await got.get(`${env().GATEWAY_API_URL}/tasks?deviceId=${deviceId}`, {
@@ -89,12 +58,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
   }
 
   async syncTasksFromGateway(): Promise<void> {
-    const { isRegistered } = await this.deviceStatusService.getGatewayStatus();
     const deviceId = await this.deviceStatusService.getDeviceId();
-    if (!isRegistered) {
-      return;
-    }
-
     try {
       // Get all tasks from gateway
       const { data } = await got.get(`${env().GATEWAY_API_URL}/tasks/all?deviceId=${deviceId}`, {
@@ -123,12 +87,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
       view?: 'Month' | 'Year' 
     }
   }): Promise<ModelOfMiner<'summary'>> {
-    const { isRegistered } = await this.deviceStatusService.getGatewayStatus();
     const deviceId = await this.deviceStatusService.getDeviceId();
-    if (!isRegistered) {
-      return this.minerService.getSummary(timeRange);
-    }
-
     try {
       // Try to get summary from gateway first
       const params = new URLSearchParams();

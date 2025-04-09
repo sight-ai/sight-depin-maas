@@ -233,20 +233,6 @@ export class MinerRepository {
     return task;
   }
 
-  async getTask(
-    conn: DatabaseTransactionConnection,
-    id: string
-  ) {
-    const task = await conn.one(SQL.type(
-      m.miner('task'),
-    )`
-    select *
-    from saito_miner.tasks
-    where id = ${id}
-  `);
-    return task;
-  }
-
   async updateTask(
     conn: DatabaseTransactionConnection,
     id: string,
