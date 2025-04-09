@@ -5,11 +5,11 @@ import { useDevice } from '@/hooks/useDevice'
 
 export const Header = () => {
     const { isDark } = useThemeCus()
-    const { data } = useDevice()
+    const { data, gatewayStatus } = useDevice()
 
     const formatAddress = (address: string) => {
         if (!address) return '0x00...0000'
-        return `${address.slice(0, 4)}...${address.slice(-4)}`
+        return `${address.slice(0, 5)}...${address.slice(-7)}`
     }
 
     return <div className="flex justify-end gap-5">
@@ -29,7 +29,40 @@ export const Header = () => {
                     Active Devices
                 </span>
             </Button> */}
-
+<Button
+                style={{
+                    borderRadius: '3rem',
+                    backgroundColor: isDark ? '#fff' : '#000',
+                    padding: '0.5rem 1rem',
+                }}
+                className="flex items-center justify-center gap-2"
+                variant="light"
+            >
+                <span className="font-medium flex items-center gap-2" style={{
+                    color: isDark ? '#000' : '#fff'
+                }}>
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
+                            <div 
+                                className="w-2 h-2 rounded-full" 
+                                style={{
+                                    backgroundColor: data?.status === 'online' ? '#4CAF50' : '#F44336'
+                                }}
+                            />
+                            <span className="text-xs">Ollama</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <div 
+                                className="w-2 h-2 rounded-full" 
+                                style={{
+                                    backgroundColor: gatewayStatus.isRegistered ? '#4CAF50' : '#F44336'
+                                }}
+                            />
+                            <span className="text-xs">Gateway</span>
+                        </div>
+                    </div>
+                </span>
+            </Button>
             <Button
                 style={{
                     borderRadius: '3rem',
@@ -39,10 +72,12 @@ export const Header = () => {
                 className="flex items-center justify-center gap-2"
                 variant="light"
             >
-                <span className="font-medium flex items-center" style={{
+                <span className="font-medium flex items-center gap-2" style={{
                     color: isDark ? '#000' : '#fff'
                 }}>
-                    0 Point | {formatAddress(data?.rewardAddress || '')}
+                    <div className="flex items-center gap-2">
+                        {formatAddress(data?.rewardAddress || '')}
+                    </div>
                 </span>
             </Button>
         </div>

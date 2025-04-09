@@ -4,12 +4,22 @@ import { useState, useEffect } from 'react'
 import { apiService } from '@/services/api'
 
 export function useDevice() {
-  let [data, setData] = useState<{ deviceId: string, rewardAddress: string | null } | null>(null)
+  let [data, setData] = useState<{ 
+    deviceId: string, 
+    rewardAddress: string | null,
+    status: 'online' | 'offline'
+  } | null>(null)
+  
+  let [gatewayStatus, setGatewayStatus] = useState<{ isRegistered: boolean }>({ isRegistered: false })
   
   const fetchDeviceData = async () => {
     try {
-      const deviceData = await apiService.getCurrentDevice();
+      const [deviceData, gatewayData] = await Promise.all([
+        apiService.getCurrentDevice(),
+        apiService.getGatewayStatus()
+      ]);
       setData(deviceData);
+      setGatewayStatus(gatewayData);
     } catch (error) {
       console.error('Error fetching device data:', error);
     }
@@ -22,6 +32,7 @@ export function useDevice() {
   }, []);
 
   return {
-    data
+    data,
+    gatewayStatus
   }
 } 

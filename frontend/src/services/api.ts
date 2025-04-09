@@ -43,6 +43,14 @@ export const apiService = {
     },
 
     async getCurrentDevice() {
-        return request<{ deviceId: string, rewardAddress: string | null }>('/miner/currentDevice', {method: 'GET'});
+        return request<{ 
+            deviceId: string, 
+            rewardAddress: string | null,
+            status: 'online' | 'offline'
+        }>('/miner/currentDevice', {method: 'GET'});
+    },
+
+    async getGatewayStatus() {
+        return request<{ isRegistered: boolean }>('/device-status/gateway-status', {method: 'GET'});
     }
 };

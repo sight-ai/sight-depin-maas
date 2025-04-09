@@ -31,4 +31,8 @@ export abstract class DeviceStatusService {
     status: "online" | "offline",
     rewardAddress: string | null
   }>;
+
+  abstract getGatewayStatus(): Promise<{
+    isRegistered: boolean
+  }>;
 }

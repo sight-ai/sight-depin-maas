@@ -238,6 +238,14 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       return this.deviceStatusRepository.findCurrentDevice(conn);
     });
   }
+
+  async getGatewayStatus(): Promise<{
+    isRegistered: boolean
+  }> {
+    return {
+      isRegistered: this.isRegistered
+    };
+  }
 }
 
 
