@@ -6,12 +6,14 @@ This guide walks through steps to deploy **Sight Compute Node** on local devices
 
 ### 1. Install Docker
 
-🔗  [https://www.docker.com](https://www.docker.com/) \
+🔗  [https://www.docker.com](https://www.docker.com/) 
+
 Make sure Docker is running after installation.
 
 
 
 ### 2. Install Ollama
+
 🔗  [https://ollama.com](https://ollama.com/)
 
 Make sure both Docker and Ollama are installed and running before continuing.
@@ -24,6 +26,7 @@ Make sure both Docker and Ollama are installed and running before continuing.
 ```bash
 curl -s https://www.sightai.io/model/sight-miner-cli-local.sh | bash
 ```
+
 
 This single command will:
 
