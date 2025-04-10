@@ -6,7 +6,8 @@ This guide walks through steps to deploy **Sight Compute Node** on local devices
 
 ### 1. Install Docker
 
-🔗  [https://www.docker.com](https://www.docker.com/) \
+🔗  [https://www.docker.com](https://www.docker.com/) 
+
 Make sure Docker is running after installation.
 
 
@@ -15,33 +16,44 @@ Make sure Docker is running after installation.
 
 🔗  [https://ollama.com](https://ollama.com/)
 
-
+Make sure both Docker and Ollama are installed and running before continuing.
 ---
 
-## 🚀 Setup
+## 🚀 Setup Steps
+
+### Run the setup script
 
 ```bash
 curl -s https://www.sightai.io/model/sight-miner-cli-local.sh | bash
 ```
 
-This script will:
-- Pull the `deepscaler` model to your Ollama
-- Start all necessary containers (Postgres, backend, frontend)
-- Install and run Open WebUI (for chat)
-- Set up and open both the dashboard and chat interfaces
+
+This single command will:
+
+- ✅ Automatically pull the **`deepscaler`** model into your local **Ollama**
+- 🐳 Start all necessary Docker containers:
+  - Postgres
+  - Backend
+  - Frontend
+- 💬 Install and run **Open WebUI** (chat interface)
+- 📊 Launch the **Sight AI Miner Dashboard** (analytics/monitoring)
 
 ---
 
-## ✅ Access the Interfaces
+### ✅ After setup completes
 
-Once setup is complete, your terminal will display:
+You’ll see this output at the end:
 
 ```
 Setup complete! You can access:
-- Sight Compute Node at: http://localhost:3000
+- Sight AI Miner at: http://localhost:3000
 - Open WebUI at: http://localhost:8080
-
 ```
+
+- Go to `http://localhost:8080` to start chatting with models like `deepscaler`
+- Go to `http://localhost:3000` to monitor miner activity and earnings in real time
+
+---
 
 ### 🔹 Sight Compute Node Dashboard
 [http://localhost:3000](http://localhost:3000).
