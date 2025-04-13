@@ -10,7 +10,7 @@ export class DefaultMinerService implements MinerService {
   constructor(
     @Inject(MinerRepository) private readonly repository: MinerRepository,
     @Inject(forwardRef(() => TaskSyncService)) private readonly taskSyncService: TaskSyncService,
-    @Inject(DeviceStatusService) private readonly deviceStatusService: DeviceStatusService
+    @Inject(forwardRef(() => DeviceStatusService)) private readonly deviceStatusService: DeviceStatusService
   ) {}
 
   private async shouldUseGateway() {
@@ -24,7 +24,6 @@ export class DefaultMinerService implements MinerService {
       return this.repository.createTask(conn, args);
     })
   }
-
 
   async getSummary(timeRange?: { 
     request_serials?: 'daily' | 'weekly' | 'monthly',

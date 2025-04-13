@@ -7,7 +7,7 @@ export class MockedMinerService implements MinerService {
     return Promise.resolve(
       m.miner('task').parse({
       id: 'mock-1',
-      model: 'gemma3:4b',
+      model: 'deepscaler',
       created_at: new Date(),
       status: 'in-progress',
       total_duration: 0,
@@ -24,7 +24,7 @@ export class MockedMinerService implements MinerService {
     return Promise.resolve(
       m.miner('task').parse({
         id: 'mock-1',
-        model: 'gemma3:4b',
+        model: 'deepscaler',
         created_at: new Date(),
         status: 'in-progress',
         total_duration: 0,
@@ -50,7 +50,8 @@ export class MockedMinerService implements MinerService {
       statistics: {
         up_time_percentage: 0,
         earning_serials: new Array(30).fill(0),
-        task_activity:new Array(30).fill(0)
+        task_activity: new Array(30).fill(0),
+        request_serials: new Array(30).fill(0)
       },
     })
   }
@@ -68,7 +69,7 @@ export class MockedMinerService implements MinerService {
     return Promise.resolve(
       m.miner('task').parse({
         id: 'mock-1',
-        model: 'gemma3:4b',
+        model: 'deepscaler',
         created_at: new Date(),
         status: 'in-progress',
         total_duration: 0,

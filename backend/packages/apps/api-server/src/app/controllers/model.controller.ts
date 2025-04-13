@@ -14,6 +14,11 @@ export class OllamaPullRequestMessage extends createZodDto(m.ollama('pull_reques
 export class OllamaPushRequestMessage extends createZodDto(m.ollama('push_request')) { }
 export class OllamaEmbedRequestMessage extends createZodDto(m.ollama('embed_request')) { }
 
+interface ErrorResponse {
+  error: string;
+  details?: string;
+}
+
 @Controller('/api/')
 export class ModelController {
   private readonly logger = new Logger(ModelController.name);
@@ -24,10 +29,28 @@ export class ModelController {
   @Post('/generate')
   async generateResponse(@Body() req: OllamaGenerateRequestMessage, @Res() res: Response) {
     try {
+      // 检查本地 Ollama 服务是否可用
+      const isAvailable = await this.ollamaService.checkStatus();
+      if (!isAvailable) {
+        this.logger.error('Ollama service is not available');
+        if (!res.headersSent) {
+          res.status(503).json({ 
+            error: 'Ollama service is not available',
+            details: 'Please ensure Ollama service is running at http://127.0.0.1:11434/'
+          });
+        }
+        return;
+      }
+
       await this.ollamaService.complete(req, res);
     } catch (error) {
-      this.logger.error('Error during chat response:', error);
-      res.status(500).send('Error during generate response');
+      this.logger.error('Error during generate response:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ 
+          error: 'Error during generate response',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
     }
   }
 
@@ -40,10 +63,28 @@ export class ModelController {
   @Post('/chat')
   async generateChatResponse(@Body() args: ModelOfOllama<'chat_request'>, @Res() res: Response) {
     try {
+      // 检查本地 Ollama 服务是否可用
+      const isAvailable = await this.ollamaService.checkStatus();
+      if (!isAvailable) {
+        this.logger.error('Ollama service is not available');
+        if (!res.headersSent) {
+          res.status(503).json({ 
+            error: 'Ollama service is not available',
+            details: 'Please ensure Ollama service is running at http://127.0.0.1:11434/'
+          });
+        }
+        return;
+      }
+
       await this.ollamaService.chat(args, res);
     } catch (error) {
       this.logger.error('Error during chat response:', error);
-      res.status(500).send('Error during chat response');
+      if (!res.headersSent) {
+        res.status(500).json({ 
+          error: 'Error during chat response',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
     }
   }
 
@@ -61,40 +102,40 @@ export class ModelController {
     return this.ollamaService.showModelVersion();
   }
 
-  @Post('/create')
-  async createModel(@Body() args: OllamaCreateRequestMessage) {
-    return this.ollamaService.createModel(args);
-  }
+  // @Post('/create')
+  // async createModel(@Body() args: OllamaCreateRequestMessage) {
+  //   return this.ollamaService.createModel(args);
+  // }
 
-  @Post('/copy')
-  async copyModel(@Body() args: OllamaCopyRequestMessage) {
-    return this.ollamaService.copyModel(args);
-  }
+  // @Post('/copy')
+  // async copyModel(@Body() args: OllamaCopyRequestMessage) {
+  //   return this.ollamaService.copyModel(args);
+  // }
 
-  @Delete('/delete')
-  async deleteModel(@Body() args: OllamaDeleteRequestMessage) {
-    return this.ollamaService.deleteModel(args);
-  }
+  // @Delete('/delete')
+  // async deleteModel(@Body() args: OllamaDeleteRequestMessage) {
+  //   return this.ollamaService.deleteModel(args);
+  // }
 
-  @Post('/pull')
-  async pullModel(@Body() args: OllamaPullRequestMessage, @Res() res: Response) {
-    try {
-      await this.ollamaService.pullModel(args, res);
-    } catch (error) {
-      this.logger.error('Error during model pull:', error);
-      res.status(500).send('Error during model pull');
-    }
-  }
+  // @Post('/pull')
+  // async pullModel(@Body() args: OllamaPullRequestMessage, @Res() res: Response) {
+  //   try {
+  //     await this.ollamaService.pullModel(args, res);
+  //   } catch (error) {
+  //     this.logger.error('Error during model pull:', error);
+  //     res.status(500).send('Error during model pull');
+  //   }
+  // }
 
-  @Post('/push')
-  async pushModel(@Body() args: OllamaPushRequestMessage, @Res() res: Response) {
-    try {
-      await this.ollamaService.pushModel(args, res);
-    } catch (error) {
-      this.logger.error('Error during model push:', error);
-      res.status(500).send('Error during model push');
-    }
-  }
+  // @Post('/push')
+  // async pushModel(@Body() args: OllamaPushRequestMessage, @Res() res: Response) {
+  //   try {
+  //     await this.ollamaService.pushModel(args, res);
+  //   } catch (error) {
+  //     this.logger.error('Error during model push:', error);
+  //     res.status(500).send('Error during model push');
+  //   }
+  // }
 
   @Post('/embed')
   async generateEmbeddings(@Body() args: OllamaEmbedRequestMessage) {

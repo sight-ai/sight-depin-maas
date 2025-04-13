@@ -9,7 +9,7 @@ import { MinerRepository } from "./miner.repository";
   imports: [
     PersistentModule,
     forwardRef(() => TaskSyncModule),
-    DeviceStatusModule
+    forwardRef(() => DeviceStatusModule)
   ],
   providers: [
     MinerServiceProvider,

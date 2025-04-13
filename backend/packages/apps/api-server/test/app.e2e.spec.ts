@@ -3,20 +3,35 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app/app.module';
 import { MinerService } from "@saito/miner";
-import { MockedMinerService } from './mock/miner.service';
+import { MockedMinerService } from "./mock/miner.service";
+import { DeviceStatusService } from "@saito/device-status";
+import { MockedDeviceStatusService } from "./mock/device-status.service";
+import { TunnelService } from "@saito/tunnel";
+import { MockedTunnelService } from "./mock/tunnel.service";
 
-describe('IndexController (e2e)', () => {
+describe('AppController (e2e)', () => {
   let app: INestApplication;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).overrideProvider(MinerService)
-      .useClass(MockedMinerService) // override with your test service
+    })
+      .overrideProvider(MinerService)
+      .useValue(new MockedMinerService())
+      .overrideProvider(DeviceStatusService)
+      .useValue(new MockedDeviceStatusService())
+      .overrideProvider(TunnelService)
+      .useValue(new MockedTunnelService())
       .compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
+  });
+
+  afterAll(async () => {
+    if (app) {
+      await app.close();
+    }
   });
 
   it('/ (GET)', () => {

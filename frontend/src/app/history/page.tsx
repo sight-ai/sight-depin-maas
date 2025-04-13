@@ -5,13 +5,15 @@ import { Header } from '@/components/Header'
 import { MainContent } from '@/components/MainContent'
 import { useHistory } from '@/hooks/useHistory'
 import { useThemeCus } from '@/hooks/useTheme'
-import { Pagination, Select } from 'antd'
+import { Pagination, Select, Tooltip } from 'antd'
 import { useState } from 'react'
 import { ConfigProvider, theme } from 'antd'
+import { useDevice } from '@/hooks/useDevice'
 
 export default function HistoryPage() {
     const { historyItems, loading, error, page, setPage, pageSize, setPageSize, total } = useHistory()
     const { isDark } = useThemeCus()
+    const { gatewayStatus } = useDevice()
 
     const formatRequestId = (requestId: string) => {
         if (requestId.length <= 8) return requestId;
@@ -61,6 +63,23 @@ export default function HistoryPage() {
                                     <th className="flex-1 px-6 py-3 flex justify-center" style={{ minWidth: '120px' }}>
                                         <div className='text-center text-base font-bold text-white bg-black rounded-lg' style={{ width: 100, padding: 10, borderRadius: 30, backgroundColor: '#000', color: '#fff' }}>
                                             Reward
+                                            {!gatewayStatus.isRegistered && (
+                                                <Tooltip 
+                                                    title={
+                                                        <div>
+                                                            <p style={{ color: '#ff4d4f' }}>Device not registered with gateway</p>
+                                                            <a href="/settings" style={{ color: '#1890ff' }}>Click here to register</a>
+                                                        </div>
+                                                    }
+                                                    color={isDark ? '#1a1a1a' : '#fff'}
+                                                >
+                                                    <span style={{ 
+                                                        marginLeft: '8px', 
+                                                        cursor: 'pointer',
+                                                        color: '#ff4d4f'
+                                                    }}>?</span>
+                                                </Tooltip>
+                                            )}
                                         </div>
                                     </th>
                                     <th className="flex-1 px-6 py-3 flex justify-center" style={{ minWidth: '120px' }}>
