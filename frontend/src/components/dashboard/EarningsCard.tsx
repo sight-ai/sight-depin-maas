@@ -46,7 +46,7 @@ export function EarningsCard({
                                 fontFamily: 'Aldrich',
                                 letterSpacing: '0.05em'
                             }}>
-                                ${(summary?.earning_info.total_block_rewards || 1000).toFixed(1)}
+                                ${(summary?.earning_info.total_block_rewards || 0).toFixed(1)}
                             </div>
                         </div>
                     </div>

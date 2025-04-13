@@ -24,7 +24,7 @@ ENV OLLAMA_API_URL="http://host.docker.internal:11434/"
 
 
 # RUN npm cache clean --force
-RUN npm i
+RUN npm i --legacy-peer-deps
 # RUN ollama serve & \
 #     sleep 5 && \
 #     ollama pull deepscaler

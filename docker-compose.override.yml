@@ -8,4 +8,4 @@ services:
       - REWARD_ADDRESS=default
       - GPU_BRAND="NVIDIA"
       - DEVICE_TYPE="Linux"
-      - GPU_MODEL="NVIDIA GeForce RTX 3050 Laptop GPU"
+      - GPU_MODEL="NVIDIA GeForce RTX 4060 Laptop GPU"
