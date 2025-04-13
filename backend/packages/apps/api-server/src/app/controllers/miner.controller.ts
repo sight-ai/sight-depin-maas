@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Inject, Logger, Post, Query } from "@nestjs/common";
 import { MinerService } from "@saito/miner";
 import { DeviceStatusService } from "@saito/device-status";
+import { TaskSyncService, TASK_SYNC_SERVICE } from "@saito/task-sync";
 
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
@@ -52,11 +53,16 @@ export class MinerController {
   constructor(
     @Inject(MinerService) private readonly minerService: MinerService,
     @Inject(DeviceStatusService) private readonly deviceStatusService: DeviceStatusService,
+    @Inject(TASK_SYNC_SERVICE) private readonly taskSyncService: TaskSyncService,
   ) {}
 
   @Get('/summary')
   async getSummary(@Query() query: SummaryQueryDto = { timeRange: { request_serials: 'daily', filteredTaskActivity: {} } }) {
     this.logger.log(`Getting summary with timeRange: ${JSON.stringify(query.timeRange)}`);
+    const { isRegistered } = await this.deviceStatusService.getGatewayStatus();
+    if (isRegistered) {
+      return this.taskSyncService.getSummary(query.timeRange);
+    }
     return this.minerService.getSummary(query.timeRange);
   }
 
@@ -66,6 +72,10 @@ export class MinerController {
 
   @Get('/history')
   async getHistory(@Query() query: HistoryQueryDto) {
+    const { isRegistered } = await this.deviceStatusService.getGatewayStatus();
+    if (isRegistered) {
+      return this.taskSyncService.getTasks(query.page, query.limit);
+    }
     return this.minerService.getTaskHistory(query.page, query.limit);
   }
   

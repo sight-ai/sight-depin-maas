@@ -1,8 +1,10 @@
 import { ModelOfMiner } from "@saito/models";
 
-export abstract class TaskSyncService {
-  abstract syncTasksFromGateway(): Promise<void>;
-  abstract getSummary(timeRange?: { 
+export const TASK_SYNC_SERVICE = Symbol('TASK_SYNC_SERVICE');
+
+export interface TaskSyncService {
+  syncTasksFromGateway(): Promise<void>;
+  getSummary(timeRange?: { 
     request_serials?: 'daily' | 'weekly' | 'monthly',
     filteredTaskActivity?: { 
       year?: string; 
@@ -10,7 +12,7 @@ export abstract class TaskSyncService {
       view?: 'Month' | 'Year' 
     }
   }): Promise<ModelOfMiner<'summary'>>;
-  abstract getTasks(page: number, limit: number): Promise<{
+  getTasks(page: number, limit: number): Promise<{
     page: number;
     limit: number;
     total: number;

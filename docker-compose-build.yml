@@ -1,5 +1,6 @@
 services:
   sight-miner-backend:
+    platform: linux/amd64
     build:
       context: ${BACKEND_PATH} 
       dockerfile: Dockerfile 
@@ -12,6 +13,7 @@ services:
 
 
   sight-miner-frontend:
+    platform: linux/amd64
     build:
       context: ${FRONTEND_PATH}
       dockerfile: Dockerfile 
@@ -23,6 +25,7 @@ services:
       - app-network
 
   sight-miner-postgres:
+    platform: linux/amd64
     build:
       context: .
       dockerfile: Dockerfile.postgres

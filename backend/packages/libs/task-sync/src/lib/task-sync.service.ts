@@ -1,18 +1,17 @@
 import { Injectable, Inject, forwardRef } from "@nestjs/common";
 import { MinerService } from "@saito/miner";
-import { DeviceStatusService } from "@saito/device-status";
-import { TaskSyncService } from "./task-sync.interface";
+import { TaskSyncService, TASK_SYNC_SERVICE } from "./task-sync.interface";
 import { ModelOfMiner } from "@saito/models";
 import got from "got-cjs";
 import { env } from "../../env";
+import { TaskSyncRepository } from "./task-sync.repository";
 
 @Injectable()
 export class DefaultTaskSyncService implements TaskSyncService {
   constructor(
     @Inject(forwardRef(() => MinerService))
     private readonly minerService: MinerService,
-    @Inject(DeviceStatusService)
-    private readonly deviceStatusService: DeviceStatusService
+    private readonly repository: TaskSyncRepository
   ) {}
 
   private convertTaskDates(task: any) {
@@ -23,8 +22,12 @@ export class DefaultTaskSyncService implements TaskSyncService {
     };
   }
 
+  private async getDeviceId(): Promise<string> {
+    return this.repository.transaction(conn => this.repository.getCurrentDeviceId(conn));
+  }
+
   async getTasks(page: number, limit: number) {
-    const deviceId = await this.deviceStatusService.getDeviceId();
+    const deviceId = await this.getDeviceId();
     try {
       // Try to get tasks from gateway first
       const { data } = await got.get(`${env().GATEWAY_API_URL}/tasks?deviceId=${deviceId}`, {
@@ -58,7 +61,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
   }
 
   async syncTasksFromGateway(): Promise<void> {
-    const deviceId = await this.deviceStatusService.getDeviceId();
+    const deviceId = await this.getDeviceId();
     try {
       // Get all tasks from gateway
       const { data } = await got.get(`${env().GATEWAY_API_URL}/tasks/all?deviceId=${deviceId}`, {
@@ -87,7 +90,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
       view?: 'Month' | 'Year' 
     }
   }): Promise<ModelOfMiner<'summary'>> {
-    const deviceId = await this.deviceStatusService.getDeviceId();
+    const deviceId = await this.getDeviceId();
     try {
       // Try to get summary from gateway first
       const params = new URLSearchParams();
@@ -122,7 +125,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
 }
 
 const TaskSyncServiceProvider = {
-  provide: TaskSyncService,
+  provide: TASK_SYNC_SERVICE,
   useClass: DefaultTaskSyncService
 };
 
