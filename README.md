@@ -6,64 +6,54 @@ This guide walks through steps to deploy **Sight Compute Node** on local devices
 
 ### 1. Install Docker
 
-🔗  [https://www.docker.com](https://www.docker.com/) \
+🔗  [https://www.docker.com](https://www.docker.com/) 
+
 Make sure Docker is running after installation.
 
 
 
 ### 2. Install Ollama
 
-
 🔗  [https://ollama.com](https://ollama.com/)
 
-
+Make sure both Docker and Ollama are installed and running before continuing.
 ---
 
 ## 🚀 Setup Steps
 
-### 1. Download the installer, fix permission
+### Run the setup script
 
 ```bash
-curl https://www.sightai.io/model/sight-miner-cli-local.sh -O
+curl -s https://www.sightai.io/model/sight-miner-cli-local.sh | bash
 ```
 
-```bash
-chmod +x ./sight-miner-cli-local.sh
-```
 
-### 2. (For Macbook M1/M2/M3) Set Docker platform
+This single command will:
 
-```bash
-export DOCKER_DEFAULT_PLATFORM=linux/amd64
-
-```
+- ✅ Automatically pull the **`deepscaler`** model into your local **Ollama**
+- 🐳 Start all necessary Docker containers:
+  - Postgres
+  - Backend
+  - Frontend
+- 💬 Install and run **Open WebUI** (chat interface)
+- 📊 Launch the **Sight AI Miner Dashboard** (analytics/monitoring)
 
 ---
 
-## ⏳ Run the script!
-```bash
-./sight-miner-cli-local.sh
+### ✅ After setup completes
 
-```
-This script will:
-
-- Pull the `deepscaler` model to your Ollama
-- Start all necessary containers (Postgres, backend, frontend)
-- Install and run Open WebUI (for chat)
-- Set up and open both the dashboard and chat interfaces
-
----
-
-## ✅ Access the Interfaces
-
-Once setup is complete, your terminal will display:
+You’ll see this output at the end:
 
 ```
 Setup complete! You can access:
-- Sight Compute Node at: http://localhost:3000
+- Sight AI Miner at: http://localhost:3000
 - Open WebUI at: http://localhost:8080
-
 ```
+
+- Go to `http://localhost:8080` to start chatting with models like `deepscaler`
+- Go to `http://localhost:3000` to monitor miner activity and earnings in real time
+
+---
 
 ### 🔹 Sight Compute Node Dashboard
 [http://localhost:3000](http://localhost:3000).
