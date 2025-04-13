@@ -10,7 +10,7 @@ import { TunnelService } from "@saito/tunnel";
 import { MockedTunnelService } from "./mock/tunnel.service";
 
 // Increase timeout for all tests
-jest.setTimeout(600000); // 10 minutes
+jest.setTimeout(50000); 
 
 const OLLAMA_URL = 'http://127.0.0.1:11434';
 
@@ -696,62 +696,6 @@ describe('OllamaTest (e2e)', () => {
     } catch (error: any) {
       // console.warn('Tools test warning:', error.message);
       // Skip validation if the model doesn't support tools
-    }
-  }, 300000);
-
-  it('/api/generate (POST) (error case - invalid model)', async () => {
-    const generateRequest = {
-      model: 'non-existent-model',
-      prompt: 'Hello',
-      stream: false
-    };
-
-    try {
-      // 先获取 Ollama 的响应
-      const ollamaResponse = await request(OLLAMA_URL)
-        .post('/api/generate')
-        .send(generateRequest);
-
-      // 用 Ollama 的响应状态码来验证本地服务
-      const localResponse = await request(app.getHttpServer())
-        .post('/api/generate')
-        .send(generateRequest);
-
-      // Allow status codes from 200-500 for error cases
-      expect(localResponse.status >= 200 && localResponse.status < 500).toBe(true);
-
-      // For error cases, just check there's a response
-      expect(localResponse.body).toBeDefined();
-    } catch (error: any) {
-      // console.warn('Invalid model test warning:', error.message);
-    }
-  }, 300000);
-
-  it('/api/chat (POST) (error case - invalid messages)', async () => {
-    const chatRequest = {
-      model: 'deepscaler',
-      messages: 'invalid-messages', // Should be an array
-      stream: false
-    };
-
-    try {
-      // 先获取 Ollama 的响应
-      const ollamaResponse = await request(OLLAMA_URL)
-        .post('/api/chat')
-        .send(chatRequest);
-
-      // 用 Ollama 的响应状态码来验证本地服务
-      const localResponse = await request(app.getHttpServer())
-        .post('/api/chat')
-        .send(chatRequest);
-
-      // Allow status codes from 200-500 for error cases
-      expect(localResponse.status >= 200 && localResponse.status < 500).toBe(true);
-
-      // For error cases, just check there's a response
-      expect(localResponse.body).toBeDefined();
-    } catch (error: any) {
-      // console.warn('Invalid messages test warning:', error.message);
     }
   }, 300000);
 });

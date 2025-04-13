@@ -23,7 +23,8 @@ export function useHistory() {
                     task.status === 'succeed' ? 'Done' : 'Failed',
                 requestId: task.id,
                 tokenUsage: `${task.prompt_eval_count + task.eval_count}`,
-                reward: `$${((task.total_duration || 0) * 0.1).toFixed(2)}`
+                reward: `$${((task.total_duration || 0) * 0.1).toFixed(2)}`,
+                model: task.model
             }));
             setHistoryItems(items);
             setTotal(response.total);
@@ -45,7 +46,8 @@ export function useHistory() {
                     task.status === 'succeed' ? 'Done' : 'Failed',
                 requestId: task.id,
                 tokenUsage: `${task.prompt_eval_count + task.eval_count}`,
-                reward: `$${((task.total_duration || 0) * 0.1).toFixed(2)}`
+                reward: `$${((task.total_duration || 0) * 0.1).toFixed(2)}`,
+                model: task.model
             })));
             setTotal(response.total);
         } catch (err) {

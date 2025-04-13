@@ -63,6 +63,26 @@ export const Header = () => {
                     </div>
                 </span>
             </Button>
+           {!gatewayStatus.isRegistered && <Button
+                onClick={() => {
+                    window.open('https://sightai.io/model/gateway', '_blank')
+                }}
+                style={{
+                    borderRadius: '3rem',
+                    backgroundColor: isDark ? '#fff' : '#000',
+                    padding: '0.5rem 1rem',
+                }}
+                className="flex items-center justify-center gap-2"
+                variant="light"
+            >
+                <span className="font-medium flex items-center gap-2" style={{
+                    color: isDark ? '#000' : '#fff'
+                }}>
+                    <div className="flex items-center gap-2">
+                    Active Devices 
+                    </div>
+                </span>
+            </Button>}
             <Button
                 style={{
                     borderRadius: '3rem',

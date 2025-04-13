@@ -3,6 +3,7 @@ export interface HistoryItem {
     requestId: string;
     tokenUsage: string;
     reward: string;
+    model: string;
 }
 
 export interface Task {

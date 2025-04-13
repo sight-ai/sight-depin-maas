@@ -68,7 +68,7 @@ export default function HistoryPage() {
                                                     title={
                                                         <div>
                                                             <p style={{ color: '#ff4d4f' }}>Device not registered with gateway</p>
-                                                            <a href="/settings" style={{ color: '#1890ff' }}>Click here to register</a>
+                                                            <a href="https://sightai.io/model/gateway" target="_blank" style={{ color: '#1890ff' }}>Click here to register</a>
                                                         </div>
                                                     }
                                                     color={isDark ? '#1a1a1a' : '#fff'}
@@ -137,7 +137,7 @@ export default function HistoryPage() {
                                                 color: '#000',
                                                 fontSize: '14px'
                                             }}>
-                                                DeepSeek R1
+                                                {item.model}
                                             </div>
                                         </td>
                                         <td className="flex-1 px-6 py-4 text-center text-base" style={{ minWidth: '150px', color: isDark ? '#fff' : '#000' }}>
