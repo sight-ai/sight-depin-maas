@@ -9,50 +9,53 @@ export function useHistory() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [page, setPage] = useState(1);
-    const limit = 10;
+    const [pageSize, setPageSize] = useState(10);
+    const [total, setTotal] = useState(0);
 
     const fetchHistory = useCallback(async () => {
         try {
             setLoading(true);
             setError(null);
-            const response = await apiService.getHistory({ page, limit });
-            console.log(response)
+            const response = await apiService.getHistory({ page, limit: pageSize });
             // 转换响应数据格式
             const items: HistoryItem[] = response.tasks.map(task => ({
                 status: task.status === 'in-progress' ? 'In-Progress' :
                     task.status === 'succeed' ? 'Done' : 'Failed',
                 requestId: task.id,
                 tokenUsage: `${task.prompt_eval_count + task.eval_count}`,
-                reward: `$${((task.total_duration || 0) * 0.1).toFixed(2)}`
+                reward: `$${((task.total_duration || 0) * 0.1).toFixed(2)}`,
+                model: task.model
             }));
-            console.log(items)
             setHistoryItems(items);
-        } catch {
-            // setError(err.message);
+            setTotal(response.total);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'An error occurred');
         } finally {
             setLoading(false);
         }
-    }, [page]);
+    }, [page, pageSize]);
 
     const refreshHistory = useCallback(async () => {
         setPage(1);
         try {
             setLoading(true);
             setError(null);
-            const response = await apiService.refreshHistory({ page: 1, limit });
+            const response = await apiService.refreshHistory({ page: 1, limit: pageSize });
             setHistoryItems(response.tasks.map(task => ({
                 status: task.status === 'in-progress' ? 'In-Progress' :
                     task.status === 'succeed' ? 'Done' : 'Failed',
                 requestId: task.id,
                 tokenUsage: `${task.prompt_eval_count + task.eval_count}`,
-                reward: `$${((task.total_duration || 0) * 0.1).toFixed(2)}`
+                reward: `$${((task.total_duration || 0) * 0.1).toFixed(2)}`,
+                model: task.model
             })));
-        } catch {
-            // setError(err.message)
+            setTotal(response.total);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'An error occurred');
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [pageSize]);
 
     useEffect(() => {
         fetchHistory();
@@ -64,6 +67,9 @@ export function useHistory() {
         error,
         refreshHistory,
         page,
-        setPage
+        setPage,
+        pageSize,
+        setPageSize,
+        total
     };
 }

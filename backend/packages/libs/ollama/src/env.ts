@@ -6,7 +6,7 @@ export const env = memoizee(() =>
   createEnv({
     server: {
       OLLAMA_API_URL: z.string().default('http://localhost:11434'),
-      OLLAMA_MODEL: z.string().default('gemma3:4b')
+      OLLAMA_MODEL: z.string().default('deepscaler')
     },
     runtimeEnv: process.env,
   }),

@@ -3,6 +3,7 @@ export interface HistoryItem {
     requestId: string;
     tokenUsage: string;
     reward: string;
+    model: string;
 }
 
 export interface Task {
@@ -45,5 +46,6 @@ export interface SummaryResponse {
         up_time_percentage: number;
         earning_serials: number[];
         task_activity: number[];
+        request_serials: number[];
     };
 }

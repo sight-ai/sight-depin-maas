@@ -1,4 +1,4 @@
-import { Injectable, Inject, Logger } from "@nestjs/common";
+import { Injectable, Inject, Logger, forwardRef } from "@nestjs/common";
 import * as R from 'ramda';
 import { DeviceStatusRepository } from "./device-status.repository";
 import { DatabaseTransactionConnection } from "slonik";
@@ -14,10 +14,12 @@ import { TunnelService } from "@saito/tunnel";
 export class DefaultDeviceStatusService implements DeviceStatusService {
   private readonly logger = new Logger(DefaultDeviceStatusService.name);
   private isRegistered = false; // 新增注册状态标志
-
+  private deviceId: string = 'local_device_id';
+  private deviceName: string = 'local_device_name';
+  private rewardAddress: string = 'local_reward_address';
   constructor(
     private readonly deviceStatusRepository: DeviceStatusRepository,
-    @Inject(OllamaService)
+    @Inject(forwardRef(() => OllamaService))
     private readonly ollamaService: OllamaService,
     private readonly tunnelService: TunnelService
   ) {
@@ -32,7 +34,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         this.getDeviceType(),
         this.getDeviceModel(),
       ]);
-
+ 
       this.logger.debug(`Registering device with gateway: ${env().GATEWAY_API_URL}`);
       
       const { data, code } = await got.post(`${env().GATEWAY_API_URL}/node/register`, {
@@ -53,7 +55,8 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         data: {
           success: boolean,
           error: string,
-          node_id: string
+          node_id: string,
+          name: string,
         },
         code: number
       }
@@ -61,6 +64,9 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       if (data.success && code !== 500) {
         this.isRegistered = true;
         this.heartbeat()
+        this.deviceId = data.node_id;
+        this.deviceName = data.name;
+        this.rewardAddress = env().REWARD_ADDRESS;
         await this.tunnelService.connectSocket(data.node_id)
         this.logger.log('Device registration successful');
         return data;
@@ -159,9 +165,9 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       this.isRegistered = false;
     }
   }
-  async updateDeviceStatus(deviceId: string, name: string, status: "online" | "offline") {
+  async updateDeviceStatus(deviceId: string, name: string, status: "online" | "offline", rewardAddress: string) {
     return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
-      return this.deviceStatusRepository.updateDeviceStatus(conn, deviceId, name, status);
+      return this.deviceStatusRepository.updateDeviceStatus(conn, deviceId, name, status, rewardAddress);
     });
   }
 
@@ -181,8 +187,9 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
   @Cron(CronExpression.EVERY_30_SECONDS)
   async checkOllamaStatus() {
     this.heartbeat()
-    const deviceId = env().OLLAMA_DEVICE_ID;
-    const deviceName = env().OLLAMA_DEVICE_NAME
+    const deviceId = this.deviceId;
+    const deviceName = this.deviceName
+    const rewardAddress = this.rewardAddress
 
     if (!deviceId || !deviceName) {
       return;
@@ -192,7 +199,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       const isOnline = await this.isOllamaOnline();
       const status: "online" | "offline" = isOnline ? "online" : "offline";
       R.ifElse(R.equals(true), async () => {
-        await this.updateDeviceStatus(deviceId, deviceName, status);
+        await this.updateDeviceStatus(deviceId, deviceName, status, rewardAddress);
       }, async () => {
         const inactiveDuration = 1000 * 60;
         await this.markInactiveDevicesOffline(inactiveDuration);
@@ -209,6 +216,47 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     } catch (error) {
       return false;
     }
+  }
+
+  async getDeviceList(): Promise<{
+    deviceId: string,
+    name: string,
+    status: "online" | "offline"
+  }[]> {
+    return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
+      return this.deviceStatusRepository.findDeviceList(conn);
+    });
+  }
+
+  async getCurrentDevice(): Promise<{
+    deviceId: string,
+    name: string,
+    status: "online" | "offline",
+    rewardAddress: string | null
+  }> {
+    return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
+      return this.deviceStatusRepository.findCurrentDevice(conn);
+    });
+  }
+
+  async getGatewayStatus(): Promise<{
+    isRegistered: boolean
+  }> {
+    return {
+      isRegistered: this.isRegistered
+    };
+  }
+
+  async getDeviceId(): Promise<string> {
+    return this.deviceId;
+  }
+
+  async getDeviceName(): Promise<string> {
+    return this.deviceName;
+  }
+
+  async getRewardAddress(): Promise<string> {
+    return this.rewardAddress;
   }
 }
 

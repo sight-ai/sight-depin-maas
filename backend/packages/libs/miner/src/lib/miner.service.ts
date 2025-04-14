@@ -4,7 +4,9 @@ import { MinerRepository } from "./miner.repository";
 import { Inject } from "@nestjs/common";
 
 export class DefaultMinerService implements MinerService {
-  constructor(@Inject(MinerRepository) private readonly repository: MinerRepository) {}
+  constructor(
+    @Inject(MinerRepository) private readonly repository: MinerRepository,
+  ) {}
 
   createTask(args: ModelOfMiner<'create_task_request'>) {
     return this.repository.transaction(async conn => {
@@ -12,22 +14,23 @@ export class DefaultMinerService implements MinerService {
     })
   }
 
-  getTask(id: string): Promise<ModelOfMiner<'task'>> {
+  async getSummary(timeRange?: { 
+    request_serials?: 'daily' | 'weekly' | 'monthly',
+    filteredTaskActivity?: { 
+      year?: string; 
+      month?: string; 
+      view?: 'Month' | 'Year' 
+    }
+  }): Promise<ModelOfMiner<'summary'>> {
     return this.repository.transaction(async conn => {
-      return this.repository.getTask(conn, id);
-    })
+      return this.repository.getSummary(conn, timeRange);
+    });
   }
 
-  async getSummary(): Promise<ModelOfMiner<'summary'>> {
-    return this.repository.transaction(async conn => {
-      return this.repository.getSummary(conn);
-    })
-  }
-
-  getTaskHistory(page: number, limit: number) {
+  async getTaskHistory(page: number, limit: number) {
     return this.repository.transaction(async conn => {
       return this.repository.getTasks(conn, page, limit);
-    })
+    });
   }
 
   updateTask(id: string, updates: Partial<ModelOfMiner<'task'>>) {
@@ -49,3 +52,4 @@ const MinerServiceProvider = {
 }
 
 export default MinerServiceProvider;
+

@@ -14,7 +14,8 @@ export const EarningInfo = z.object({
 export const Statistics = z.object({
   up_time_percentage: z.number(),
   earning_serials: z.array(z.number()),
-  task_activity: z.array(z.number())
+  task_activity: z.array(z.number()),
+  request_serials: z.array(z.number()),
 })
 
 export const Task = z.object({
@@ -107,6 +108,10 @@ const TaskCountSchema = z.object({
   count: z.number(),
 });
 
+const MinerDailyRequestsSchema = z.object({
+  request_count: z.number(),
+});
+
 export const MinerModel = {
   earning_info: EarningInfo,
   device_info: DeviceInfo,
@@ -120,7 +125,7 @@ export const MinerModel = {
   minerTaskActivity: MinerTaskActivitySchema,
   minerTask: MinerTaskSchema,
   taskCount: TaskCountSchema,
-
+  minerDailyRequests: MinerDailyRequestsSchema,
   // API
   create_task_request: CreateTaskRequest,
   task_history_response: TaskHistoryResponse

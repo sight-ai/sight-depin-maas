@@ -47,6 +47,7 @@ CREATE TABLE saito_miner.device_status (
     device_id text NOT NULL,
     up_time_start timestamp,
     up_time_end timestamp,
+    reward_address text NOT NULL,
     created_at timestamp NOT NULL DEFAULT now(),
     updated_at timestamp NOT NULL DEFAULT now()
 );

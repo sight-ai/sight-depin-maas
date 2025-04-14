@@ -9,9 +9,10 @@ import { MinerController } from "./controllers/miner.controller";
 import { MinerModule } from "@saito/miner";
 import { DeviceStatusController } from "./controllers/device-status.controller";
 import { TunnelModule } from "@saito/tunnel";
+import { DefaultTaskSyncService, TaskSyncModule } from '@saito/task-sync';
 
 @Module({
-  imports: [OllamaModule, MinerModule, DeviceStatusModule, TunnelModule],
+  imports: [OllamaModule, MinerModule, DeviceStatusModule, TunnelModule, TaskSyncModule],
   controllers: [IndexController, ModelController, MinerController, DeviceStatusController],
   providers: [
     {

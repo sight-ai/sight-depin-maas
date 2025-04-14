@@ -9,7 +9,7 @@ export abstract class DeviceStatusService {
 
   abstract getDeviceInfo(): Promise<string>;
   abstract heartbeat(): void;
-  abstract updateDeviceStatus(deviceId: string, name: string, status: "online" | "offline"): void;
+  abstract updateDeviceStatus(deviceId: string, name: string, status: "online" | "offline", rewardAddress: string): void;
 
   abstract getDeviceStatus(deviceId: string): void;
 
@@ -18,4 +18,25 @@ export abstract class DeviceStatusService {
   abstract checkOllamaStatus(): void;
 
   abstract isOllamaOnline(): Promise<boolean>;
+
+  abstract getDeviceList(): Promise<{
+    deviceId: string,
+    name: string,
+    status: "online" | "offline"
+  }[]>;
+
+  abstract getCurrentDevice(): Promise<{
+    deviceId: string,
+    name: string,
+    status: "online" | "offline",
+    rewardAddress: string | null
+  }>;
+
+  abstract getGatewayStatus(): Promise<{
+    isRegistered: boolean
+  }>;
+
+  abstract getDeviceId(): Promise<string>;
+  abstract getDeviceName(): Promise<string>;
+  abstract getRewardAddress(): Promise<string>;
 }

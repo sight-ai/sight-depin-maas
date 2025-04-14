@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Inject, Logger, Post, Query } from "@nestjs/common";
 import { MinerService } from "@saito/miner";
 import { DeviceStatusService } from "@saito/device-status";
+import { TaskSyncService, TASK_SYNC_SERVICE } from "@saito/task-sync";
 
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
@@ -24,17 +25,45 @@ export class QueryDeviceStatusDto extends createZodDto(
     deviceId: z.string(),
   })
 ) {}
+
+export class SummaryQueryDto extends createZodDto(
+  z.object({
+    timeRange: z.string().transform((val) => {
+      try {
+        return JSON.parse(val);
+      } catch (e) {
+        return { request_serials: 'daily', filteredTaskActivity: {} };
+      }
+    }).pipe(
+      z.object({
+        request_serials: z.enum(['daily', 'weekly', 'monthly']).default('daily'),
+        filteredTaskActivity: z.object({
+          year: z.string().optional(),
+          month: z.string().optional(),
+          view: z.enum(['Month', 'Year']).optional()
+        }).optional().default({})
+      })
+    ).default('{"request_serials":"daily","filteredTaskActivity":{}}')
+  })
+) {}
+
 @Controller('/api/v1/miner')
 export class MinerController {
   private readonly logger = new Logger(MinerController.name);
   constructor(
     @Inject(MinerService) private readonly minerService: MinerService,
     @Inject(DeviceStatusService) private readonly deviceStatusService: DeviceStatusService,
+    @Inject(TASK_SYNC_SERVICE) private readonly taskSyncService: TaskSyncService,
   ) {}
 
   @Get('/summary')
-  async getSummary() {
-    return this.minerService.getSummary();
+  async getSummary(@Query() query: SummaryQueryDto = { timeRange: { request_serials: 'daily', filteredTaskActivity: {} } }) {
+    this.logger.log(`Getting summary with timeRange: ${JSON.stringify(query.timeRange)}`);
+    const { isRegistered } = await this.deviceStatusService.getGatewayStatus();
+    if (isRegistered) {
+      return this.taskSyncService.getSummary(query.timeRange);
+    }
+    return this.minerService.getSummary(query.timeRange);
   }
 
   @Post('/chat')
@@ -43,16 +72,25 @@ export class MinerController {
 
   @Get('/history')
   async getHistory(@Query() query: HistoryQueryDto) {
+    const { isRegistered } = await this.deviceStatusService.getGatewayStatus();
+    if (isRegistered) {
+      return this.taskSyncService.getTasks(query.page, query.limit);
+    }
     return this.minerService.getTaskHistory(query.page, query.limit);
-  }
-
-  @Post('deviceStatus')
-  async sendDeviceStatus(@Body() args:SendDeviceStatusDto ) {
-    return this.deviceStatusService.updateDeviceStatus(args.deviceId, args.name, "online");
   }
   
   @Get('deviceStatus')
   async getDeviceStatus(@Query() args:QueryDeviceStatusDto ) {
     return this.deviceStatusService.getDeviceStatus(args.deviceId);
+  }
+
+  @Get('deviceList')
+  async getDeviceList() {
+    return this.deviceStatusService.getDeviceList();
+  }
+
+  @Get('currentDevice')
+  async getCurrentDevice() {
+    return this.deviceStatusService.getCurrentDevice();
   }
 }

@@ -19,14 +19,12 @@ COPY ./dist/packages/ .
 # WORKDIR /dist/packages/apps/api-server
 
 ENV NODE_DATABASE_URL="postgres://postgres:postgres@sight-miner-postgres:5432/saito_db"
-ENV OLLAMA_DEVICE_ID="ollama-1"
 ENV OLLAMA_MODEL="deepscaler"
-ENV OLLAMA_DEVICE_NAME="Sight AI Server"
 ENV OLLAMA_API_URL="http://host.docker.internal:11434/"
 
 
 # RUN npm cache clean --force
-RUN npm i
+RUN npm i --legacy-peer-deps
 # RUN ollama serve & \
 #     sleep 5 && \
 #     ollama pull deepscaler

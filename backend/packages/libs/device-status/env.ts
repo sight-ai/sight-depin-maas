@@ -8,8 +8,6 @@ export const env = memoizee(() =>
       GATEWAY_API_URL: z.string().default('unknown'),
       GATEWAY_API_KEY: z.string().optional().default('unknown'),
       NODE_CODE: z.string().default('unknown'),
-      OLLAMA_DEVICE_ID: z.string().default('unknown'),
-      OLLAMA_DEVICE_NAME: z.string().default('unknown'),
       GPU_BRAND: z.string().default('unknown'),
       DEVICE_TYPE: z.string().default('unknown'),
       GPU_MODEL: z.string().default('unknown'),

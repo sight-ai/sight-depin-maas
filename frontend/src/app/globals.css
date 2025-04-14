@@ -12,8 +12,42 @@ body {
 * {
   font-family: 'Alata', sans-serif;
   /* transition: background-color 0.1s ease-in-out, color 0.1s ease-in-out; */
-
 }
+
+/* Calendar Dark Theme Overrides */
+[data-theme='dark'] .ant-picker-calendar {
+  background-color: transparent;
+}
+
+[data-theme='dark'] .ant-picker-calendar-header {
+  background-color: transparent;
+}
+
+[data-theme='dark'] .ant-picker-calendar-date {
+  color: #fff;
+}
+
+[data-theme='dark'] .ant-picker-calendar-date-today {
+  color: #fff;
+  border-color: #fff;
+}
+
+[data-theme='dark'] .ant-picker-calendar-date:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] .ant-picker-calendar-cell {
+  color: #fff;
+}
+
+[data-theme='dark'] .ant-picker-calendar-cell-disabled {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+[data-theme='dark'] .ant-picker-calendar-cell-in-view {
+  color: #fff;
+}
+
 /* Switch wrapper container */
 .switch-wrapper {
   position: relative;

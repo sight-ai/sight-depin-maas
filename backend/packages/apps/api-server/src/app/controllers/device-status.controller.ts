@@ -24,4 +24,9 @@ export class DeviceStatusController {
       res.status(500)
     }
   }
+
+  @Get('/gateway-status')
+  async getGatewayStatus() {
+    return this.deviceStatusService.getGatewayStatus();
+  }
 }

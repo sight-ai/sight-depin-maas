@@ -25,6 +25,7 @@ export class DefaultPersistentService
   implements OnModuleDestroy
 {
   private _pgPool: DatabasePool | null = null;
+  private _isClosing: boolean = false;
 
   get pgPool(): DatabasePool {
     if (this._pgPool === null) {
@@ -60,8 +61,20 @@ export class DefaultPersistentService
     this._pgPool = pool;
   }
 
-  onModuleDestroy() {
-    return this.pgPool.end();
+  async onModuleDestroy() {
+    if (this._isClosing || this._pgPool === null) {
+      return;
+    }
+
+    this._isClosing = true;
+    try {
+      await this._pgPool.end();
+    } catch (error) {
+      console.error('Error closing database pool:', error);
+    } finally {
+      this._pgPool = null;
+      this._isClosing = false;
+    }
   }
 }
 

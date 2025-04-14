@@ -1,25 +1,34 @@
-version: '3'
-
 services:
   sight-miner-backend:
     platform: linux/amd64
-    image: ghcr.io/sight-ai/sight-miner-backend:0.0.5-SNAPSHOT
+    build:
+      context: ${BACKEND_PATH} 
+      dockerfile: Dockerfile 
     ports:
       - "8716:8716"
+    volumes:
+      - .:/app
     networks:
       - app-network
 
+
   sight-miner-frontend:
     platform: linux/amd64
-    image: ghcr.io/sight-ai/sight-miner-frontend:0.0.2-SNAPSHOT
+    build:
+      context: ${FRONTEND_PATH}
+      dockerfile: Dockerfile 
     ports:
-      - "3000:3000"
+      - "3000:3000" 
+    volumes:
+      - .:/app
     networks:
       - app-network
 
   sight-miner-postgres:
     platform: linux/amd64
-    image: ghcr.io/sight-ai/sight-miner-postgres:0.0.1-SNAPSHOT
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
     container_name: postgres-db
     ports:
       - "7543:5432"
@@ -35,5 +44,5 @@ networks:
 volumes:
   postgres-data:
     driver: local
-
-
+  ollama_data:
+    driver: local

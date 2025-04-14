@@ -17,7 +17,8 @@ export const UpdateDeviceStatusSchema = z.object({
   deviceId: z.string(),
   name: z.string(),
   status: z.enum(["online", "offline"]),
-  now: z.string()
+  now: z.string(),
+  rewardAddress: z.string()
 });
 
 export const FindDeviceStatusSchema = z.object({
@@ -29,9 +30,24 @@ export const MarkDevicesOfflineSchema = z.object({
   thresholdTimeStr: z.string()
 });
 
+export const FindDeviceListSchema = z.object({  
+  deviceId: z.string(),
+  name: z.string(),
+  status: z.enum(["online", "offline"]),
+});
+
+export const FindCurrentDeviceSchema = z.object({
+  deviceId: z.string(),
+  name: z.string(),
+  status: z.enum(["online", "offline"]),
+  rewardAddress: z.string().nullable()
+});
+
 export const DeviceSchema = {
   DeviceStatusSchema,
   UpdateDeviceStatusSchema,
   FindDeviceStatusSchema,
-  MarkDevicesOfflineSchema
+  MarkDevicesOfflineSchema,
+  FindDeviceListSchema,
+  FindCurrentDeviceSchema
 }

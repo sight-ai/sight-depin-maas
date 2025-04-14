@@ -5,6 +5,8 @@ import { SQL } from "@saito/common";
 import { m, ModelOfMiner } from "@saito/models";
 import { z } from "zod";
 
+const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 export class MinerRepository {
   constructor(
     @Inject(PersistentService)
@@ -17,7 +19,19 @@ export class MinerRepository {
     return this.persistentService.pgPool.transaction(handler);
   }
 
-  async getSummary(conn: DatabaseTransactionConnection): Promise<ModelOfMiner<'summary'>> {
+  async getSummary(conn: DatabaseTransactionConnection, timeRange?: { 
+    request_serials?: 'daily' | 'weekly' | 'monthly',
+    filteredTaskActivity?: { 
+      year?: string; 
+      month?: string; 
+      view?: 'Month' | 'Year' 
+    }
+  }): Promise<ModelOfMiner<'summary'>> {
+    // Calculate the interval based on timeRange
+    const requestTimeRange = timeRange?.request_serials || 'daily';
+    const interval = requestTimeRange === 'daily' ? '1 day' : requestTimeRange === 'weekly' ? '7 days' : '30 days';
+    const dataPoints = requestTimeRange === 'daily' ? 24 : requestTimeRange === 'weekly' ? 7 : 30;
+
     // 获取收益信息
     const { total_block_rewards, total_job_rewards } = await conn.one(SQL.type(
       m.miner('minerEarning')
@@ -52,7 +66,7 @@ export class MinerRepository {
       where created_at >= now() - interval '30 days';
     `);
 
-    // 获取最近30天的收益数据
+    // 获取收益数据
     const earnings = await conn.any(SQL.type(
       m.miner('minerEarningsHistory')
     )`
@@ -71,26 +85,100 @@ export class MinerRepository {
       group by d.day
       order by d.day;
     `);
-
-    const taskActivity = await conn.any(SQL.type(
-      m.miner('minerTaskActivity')
+    // 获取请求数量统计
+    const timeUnit = requestTimeRange === 'daily' ? 'hour' : 'day';
+    const intervalValue = requestTimeRange === 'daily' ? '24 hours' : requestTimeRange === 'weekly' ? '7 days' : '30 days';
+    const groupByUnit = requestTimeRange === 'daily' ? 'hour' : 'day';
+    
+    const dailyRequests = await conn.any(SQL.type(
+      m.miner('minerDailyRequests')
     )`
       with dates as (
         select generate_series(
-          date_trunc('day', now()) - interval '29 days',
-          date_trunc('day', now()),
-          interval '1 day'
-        )::date as day
+          date_trunc(${timeUnit}, now()) - ${SQL.fragment([`interval '${intervalValue}'`])},
+          date_trunc(${timeUnit}, now()),
+          ${SQL.fragment([`interval '1 ${timeUnit}'`])}
+        ) as time_point
       )
       select 
-        to_char(d.day, 'YYYY-MM-DD') as date,
-        count(t.id) as task_count
+        coalesce(count(t.id), 0) as request_count
       from dates d
       left join saito_miner.tasks t
-        on date_trunc('day', t.created_at) = d.day
-      group by d.day
-      order by d.day;
+        on date_trunc(${groupByUnit}, t.created_at) = d.time_point
+      group by d.time_point
+      order by d.time_point;
     `);
+
+    // 获取任务活动数据
+    const year = timeRange?.filteredTaskActivity?.year ? parseInt(timeRange.filteredTaskActivity.year) : 2025;
+    const month = timeRange?.filteredTaskActivity?.month ? months.indexOf(timeRange.filteredTaskActivity.month) + 1 : null;
+    
+    let dateRange;
+    if (month) {
+      // If month is specified, generate dates for that specific month
+      const daysInMonth = new Date(year, month, 0).getDate();
+      dateRange = SQL.fragment`
+        select generate_series(
+          date '${SQL.fragment([`${year}-${month.toString().padStart(2, '0')}-01`])}',
+          date '${SQL.fragment([`${year}-${month.toString().padStart(2, '0')}-${daysInMonth}`])}',
+          interval '1 day'
+        )::date as day
+      `;
+    } else {
+      // If only year is specified, generate dates for all days in the year
+      dateRange = SQL.fragment`
+        select generate_series(
+          date '${SQL.fragment([`${year}-01-01`])}',
+          date '${SQL.fragment([`${year}-12-31`])}',
+          interval '1 day'
+        )::date as day
+      `;
+    }
+    
+    let taskActivityQuery;
+    if (timeRange?.filteredTaskActivity?.view === 'Year') {
+      // For Year view, aggregate by month
+      taskActivityQuery = SQL.type(m.miner('minerTaskActivity'))`
+        with dates as (
+          select generate_series(1, 12) as month
+        )
+        select 
+          to_char(make_date(${year}, d.month, 1), 'YYYY-MM-DD') as date,
+          coalesce(t.count, 0) as task_count
+        from dates d
+        left join (
+          select 
+            extract(month from created_at) as month,
+            count(*) as count
+          from saito_miner.tasks
+          where extract(year from created_at) = ${year}
+          group by extract(month from created_at)
+        ) t on d.month = t.month
+        order by d.month;
+      `;
+    } else {
+      // For Month view, use daily data
+      taskActivityQuery = SQL.type(m.miner('minerTaskActivity'))`
+        with dates as (${dateRange})
+        select 
+          to_char(d.day, 'YYYY-MM-DD') as date,
+          coalesce(count(t.id), 0) as task_count
+        from dates d
+        left join saito_miner.tasks t
+          on date_trunc('day', t.created_at) = d.day
+        ${month 
+          ? SQL.fragment`where (t.id is null or (extract(year from t.created_at) = ${year} and extract(month from t.created_at) = ${month}))`
+          : SQL.fragment`where (t.id is null or extract(year from t.created_at) = ${year})`}
+        group by d.day
+        order by d.day;
+      `;
+    }
+    
+    const taskActivity = await conn.any(taskActivityQuery);
+
+    // Similar fix for earnings and daily requests
+    const earningsData = earnings.length === 30 ? earnings : Array(30).fill({ daily_earning: 0 });
+    // const requestsData = dailyRequests.length === dataPoints ? dailyRequests : Array(dataPoints).fill({ request_count: 0 });
 
     return {
       earning_info: {
@@ -103,7 +191,8 @@ export class MinerRepository {
       },
       statistics: {
         up_time_percentage: uptime_percentage,
-        earning_serials: earnings.map(e => e.daily_earning),
+        earning_serials: earningsData.map(e => e.daily_earning),
+        request_serials: dailyRequests.map(r => r.request_count),
         task_activity: taskActivity.map(t => t.task_count)
       }
     };
@@ -140,20 +229,6 @@ export class MinerRepository {
       0
     )
     returning *;
-  `);
-    return task;
-  }
-
-  async getTask(
-    conn: DatabaseTransactionConnection,
-    id: string
-  ) {
-    const task = await conn.one(SQL.type(
-      m.miner('task'),
-    )`
-    select *
-    from saito_miner.tasks
-    where id = ${id}
   `);
     return task;
   }

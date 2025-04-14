@@ -5,10 +5,20 @@ import { Header } from '@/components/Header'
 import { MainContent } from '@/components/MainContent'
 import { useHistory } from '@/hooks/useHistory'
 import { useThemeCus } from '@/hooks/useTheme'
+import { Pagination, Select, Tooltip } from 'antd'
+import { useState } from 'react'
+import { ConfigProvider, theme } from 'antd'
+import { useDevice } from '@/hooks/useDevice'
 
 export default function HistoryPage() {
-    const { historyItems, loading, error } = useHistory()
+    const { historyItems, loading, error, page, setPage, pageSize, setPageSize, total } = useHistory()
     const { isDark } = useThemeCus()
+    const { gatewayStatus } = useDevice()
+
+    const formatRequestId = (requestId: string) => {
+        if (requestId.length <= 8) return requestId;
+        return `${requestId.slice(0, 4)}...${requestId.slice(-4)}`;
+    }
 
     return (
         <MainContent>
@@ -20,60 +30,89 @@ export default function HistoryPage() {
                     fontWeight: 800,
                     fontSize: '3.125em',
                     color: isDark ? '#fff' : '#000',
-
                 }}>History</div>
                 <Card className="bg-white rounded-lg" style={{
                     backgroundColor: isDark ? '#1a1a1a' : '#f6f6f6'
                 }}>
                     <div className="overflow-x-auto pt-3">
-                        {loading && <div className="p-4 text-center">loading...</div>}
-                        {error && <div className="p-4 text-center text-red-500">{error}</div>}
+                      
                         <table className="min-w-full">
                             <thead>
                                 <tr className="flex gap-4" style={{ width: '100%' }}>
-                                    <th className="flex-1 px-6 py-3 flex justify-center" style={{ minWidth: '120px' }}>
-
-                                        <div className='text-center text-base font-bold text-white bg-black rounded-lg' style={{ width: 100, padding: 10, borderRadius: 30, backgroundColor: isDark ? '#fff' : '#000', color: isDark ? '#000' : '#fff' }}>
-                                            Status
-                                        </div>
-                                    </th>
-                                    <th className="flex-1 px-6 py-3   flex justify-center" style={{ minWidth: '150px' }}>
-                                        <div className='text-center text-base font-bold text-white bg-black rounded-lg' style={{ width: 130, padding: 10, borderRadius: 30, backgroundColor: isDark ? '#fff' : '#000', color: isDark ? '#000' : '#fff' }}>
+                                    <th className="flex-1 px-6 py-3 flex justify-center" style={{ minWidth: '150px' }}>
+                                        <div className='text-center text-base font-bold text-white bg-black rounded-lg' style={{ width: 130, padding: 10, borderRadius: 30, backgroundColor: '#000', color: '#fff' }}>
                                             Request ID
                                         </div>
                                     </th>
-                                    <th className="flex-1 px-6 py-3  flex justify-center" style={{ minWidth: '150px' }}> <div className='text-center text-base font-bold text-white bg-black rounded-lg' style={{ width: 150, padding: 10, borderRadius: 30, backgroundColor: isDark ? '#fff' : '#000', color: isDark ? '#000' : '#fff' }}>
-                                        Token Usage
-                                    </div></th>
-                                    <th className="flex-1 px-6 py-3  flex justify-center" style={{ minWidth: '120px' }}> <div className='text-center text-base font-bold text-white bg-black rounded-lg' style={{ width: 100, padding: 10, borderRadius: 30, backgroundColor: isDark ? '#fff' : '#000', color: isDark ? '#000' : '#fff' }}>
-                                        Reward
-                                    </div></th>
+                                    <th className="flex-1 px-6 py-3 flex justify-center" style={{ minWidth: '120px' }}>
+                                        <div className='text-center text-base font-bold text-white bg-black rounded-lg' style={{ width: 100, padding: 10, borderRadius: 30, backgroundColor: '#000', color: '#fff' }}>
+                                            Status
+                                        </div>
+                                    </th>
+                                    <th className="flex-1 px-6 py-3 flex justify-center" style={{ minWidth: '120px' }}>
+                                        <div className='text-center text-base font-bold text-white bg-black rounded-lg' style={{ width: 100, padding: 10, borderRadius: 30, backgroundColor: '#000', color: '#fff' }}>
+                                            Model
+                                        </div>
+                                    </th>
+                                    <th className="flex-1 px-6 py-3 flex justify-center" style={{ minWidth: '150px' }}>
+                                        <div className='text-center text-base font-bold text-white bg-black rounded-lg' style={{ width: 130, padding: 10, borderRadius: 30, backgroundColor: '#000', color: '#fff' }}>
+                                            Token Usage
+                                        </div>
+                                    </th>
+                                    <th className="flex-1 px-6 py-3 flex justify-center" style={{ minWidth: '120px' }}>
+                                        <div className='text-center text-base font-bold text-white bg-black rounded-lg' style={{ width: 100, padding: 10, borderRadius: 30, backgroundColor: '#000', color: '#fff' }}>
+                                            Reward
+                                            {!gatewayStatus.isRegistered && (
+                                                <Tooltip 
+                                                    title={
+                                                        <div>
+                                                            <p style={{ color: '#ff4d4f' }}>Device not registered with gateway</p>
+                                                            <a href="https://sightai.io/model/gateway" target="_blank" style={{ color: '#1890ff' }}>Click here to register</a>
+                                                        </div>
+                                                    }
+                                                    color={isDark ? '#1a1a1a' : '#fff'}
+                                                >
+                                                    <span style={{ 
+                                                        marginLeft: '8px', 
+                                                        cursor: 'pointer',
+                                                        color: '#ff4d4f'
+                                                    }}>?</span>
+                                                </Tooltip>
+                                            )}
+                                        </div>
+                                    </th>
+                                    <th className="flex-1 px-6 py-3 flex justify-center" style={{ minWidth: '120px' }}>
+                                        <div className='text-center text-base font-bold text-white bg-black rounded-lg' style={{ width: 100, padding: 10, borderRadius: 30, backgroundColor: '#000', color: '#fff' }}>
+                                            Time
+                                        </div>
+                                    </th>
                                 </tr>
                             </thead>
+                            {loading && <div className="p-4 text-center">loading...</div>}
+                            {error && <div className="p-4 text-center text-red-500">{error}</div>}
                             <tbody>
                                 {historyItems.map((item, index) => (
                                     <tr key={index} className="flex gap-4" style={{ width: '100%' }}>
-                                        <td
-                                            className="flex-1 px-6 py-4 text-base text-center text-black"
-                                            style={{ minWidth: '120px' }}
-                                        >
+                                        <td className="flex-1 px-6 py-4 text-center text-base" style={{ minWidth: '150px', color: isDark ? '#fff' : '#000' }}>
+                                            {formatRequestId(item.requestId)}
+                                        </td>
+                                        <td className="flex-1 px-6 py-4 text-center text-base" style={{ minWidth: '120px' }}>
                                             <div
                                                 style={{
                                                     display: 'inline-flex',
                                                     alignItems: 'center',
-                                                    gap: '6px',
-                                                    padding: item.status === 'In-Progress' ? '6px 16px' : '8px 12px',
+                                                    padding: '6px 16px',
                                                     borderRadius: '999px',
                                                     fontWeight: 'bold',
-                                                    fontSize: '16px',
-                                                    minWidth: 120,
+                                                    fontSize: '14px',
+                                                    minWidth: 100,
                                                     justifyContent: 'center',
-                                                    background:
-                                                        item.status === 'In-Progress'
-                                                            ? 'linear-gradient(90deg, #d4f4a6, #ffe58f)'
-                                                            :  isDark ?'#1a1a1a':'#efefef', // 默认灰色背景
-                                                    boxShadow: isDark ? '':'2px 2px 5px rgba(0, 0, 0, 0.1)',
-                                                    color: isDark? item.status === 'In-Progress' ? '#000' : '#fff' : '#000',
+                                                    background: item.status === 'In-Progress'
+                                                        ? 'linear-gradient(90deg, #B06AB3, #FFA07A)'
+                                                        : isDark ? '#1a1a1a' : '#efefef',
+                                                    color: isDark 
+                                                        ? item.status === 'In-Progress' ? '#fff' : '#fff' 
+                                                        : '#000',
                                                 }}
                                             >
                                                 {item.status !== 'In-Progress' && (
@@ -83,21 +122,101 @@ export default function HistoryPage() {
                                                             height: '8px',
                                                             borderRadius: '50%',
                                                             backgroundColor: item.status === 'Done' ? '#00c853' : '#d50000',
-                                                            marginRight: 10
+                                                            marginRight: '6px'
                                                         }}
                                                     />
                                                 )}
                                                 {item.status}
                                             </div>
                                         </td>
-
-                                        <td className="flex-1 px-6 py-4 text-center text-base text-black" style={{ minWidth: '150px', color: isDark ? '#fff' : '#000', }}>{item.requestId}</td>
-                                        <td className="flex-1 px-6 py-4 text-center text-base text-black" style={{ minWidth: '150px', color: isDark ? '#fff' : '#000', }}>{item.tokenUsage}</td>
-                                        <td className="flex-1 px-6 py-4 text-center text-base text-black" style={{ minWidth: '120px', color: isDark ? '#fff' : '#000', }}>{item.reward}</td>
+                                        <td className="flex-1 px-6 py-4 text-center text-base" style={{ minWidth: '120px' }}>
+                                            <div style={{
+                                                display: 'inline-block',
+                                                padding: '4px 12px',
+                                                borderRadius: '4px',
+                                                backgroundColor: '#f0f0f0',
+                                                color: '#000',
+                                                fontSize: '14px'
+                                            }}>
+                                                {item.model}
+                                            </div>
+                                        </td>
+                                        <td className="flex-1 px-6 py-4 text-center text-base" style={{ minWidth: '150px', color: isDark ? '#fff' : '#000' }}>
+                                            {item.tokenUsage}
+                                        </td>
+                                        <td className="flex-1 px-6 py-4 text-center text-base" style={{ minWidth: '120px', color: isDark ? '#fff' : '#000' }}>
+                                            {item.reward}
+                                        </td>
+                                        <td className="flex-1 px-6 py-4 text-center text-base" style={{ minWidth: '120px', color: isDark ? '#fff' : '#000' }}>
+                                            {new Date().toLocaleString('en-US', {
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                                hour12: false,
+                                            })}
+                                            <br />
+                                            {new Date().toLocaleDateString('en-US', {
+                                                month: '2-digit',
+                                                day: '2-digit',
+                                                year: 'numeric'
+                                            })}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
+                        <div style={{
+                            padding: '1rem',
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            borderTop: `1px solid ${isDark ? '#333' : '#eee'}`
+                        }}>
+                            <ConfigProvider
+                                theme={{
+                                    algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
+                                    token: {
+                                        colorText: isDark ? '#fff' : '#000',
+                                        colorTextBase: isDark ? '#fff' : '#000',
+                                        colorBgContainer: isDark ? '#1a1a1a' : '#fff',
+                                        colorBorder: isDark ? '#333' : '#d9d9d9',
+                                        colorPrimary: isDark ? '#fff' : '#000',
+                                        colorPrimaryHover: isDark ? '#ccc' : '#333',
+                                        colorPrimaryActive: isDark ? '#fff' : '#000',
+                                        colorPrimaryText: isDark ? '#000' : '#fff',
+                                    },
+                                    components: {
+                                        Pagination: {
+                                            colorBgContainer: 'transparent',
+                                            colorBgTextHover: isDark ? '#333' : '#f5f5f5',
+                                            colorBgTextActive: isDark ? '#fff' : '#000',
+                                            colorText: isDark ? '#fff' : '#000',
+                                            colorPrimary: isDark ? '#fff' : '#000',
+                                            colorTextDisabled: isDark ? '#666' : '#999',
+                                        },
+                                        Select: {
+                                            colorBgContainer: isDark ? '#1a1a1a' : '#fff',
+                                            colorBgElevated: isDark ? '#1a1a1a' : '#fff',
+                                            colorText: isDark ? '#fff' : '#000',
+                                            colorTextPlaceholder: isDark ? '#666' : '#999',
+                                            controlItemBgActive: isDark ? '#333' : '#f5f5f5',
+                                            controlItemBgHover: isDark ? '#333' : '#f5f5f5',
+                                        }
+                                    }
+                                }}
+                            >
+                                <Pagination
+                                    current={page}
+                                    pageSize={pageSize}
+                                    total={total}
+                                    showSizeChanger
+                                    pageSizeOptions={[10, 20, 50]}
+                                    onChange={(page, size) => {
+                                        setPage(page)
+                                        setPageSize(size)
+                                    }}
+                                />
+                            </ConfigProvider>
+                        </div>
                     </div>
                 </Card>
             </main>
