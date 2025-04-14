@@ -10,6 +10,28 @@ import { Cron, CronExpression } from "@nestjs/schedule";
 import { DatabaseTransactionConnection } from "slonik";
 import { SQL } from "@saito/common";
 
+interface GatewayResponse<T> {
+  data?: T[];
+  code: number;
+  message: string;
+}
+
+type GatewayTaskStatus = 'completed' | 'failed' | 'active';
+type SchemaTaskStatus = 'succeed' | 'failed' | 'in-progress';
+
+const mapTaskStatus = (gatewayStatus: GatewayTaskStatus): SchemaTaskStatus => {
+  switch (gatewayStatus) {
+    case 'completed':
+      return 'succeed';
+    case 'failed':
+      return 'failed';
+    case 'active':
+      return 'in-progress';
+    default:
+      return 'failed'; // Default to failed for unknown statuses
+  }
+};
+
 @Injectable()
 export class DefaultTaskSyncService implements TaskSyncService {
   private readonly logger = new Logger(DefaultTaskSyncService.name);
@@ -30,6 +52,9 @@ export class DefaultTaskSyncService implements TaskSyncService {
     }
 
     return this.repository.transaction(async (conn) => {
+      // First update any existing tasks with incorrect status
+      await this.repository.updateExistingTaskStatuses(conn);
+
       const deviceId = await this.repository.getCurrentDeviceId(conn);
       const gatewayAddress = await this.deviceStatusService.getGatewayAddress();
       const key = await this.deviceStatusService.getKey();
@@ -45,11 +70,23 @@ export class DefaultTaskSyncService implements TaskSyncService {
             'X-Device-ID': deviceId,
             'Authorization': `Bearer ${key}`
           }
-        }).json();
+        }).json() as GatewayResponse<any> | any[];
 
-        const gatewayTasks = Array.isArray(response) ? response : [];
-        if (!Array.isArray(response)) {
-          this.logger.warn('Unexpected response format from gateway tasks endpoint:', response);
+        this.logger.debug('Raw tasks response from gateway:', response);
+        
+        // Check if response is null or undefined
+        if (!response) {
+          this.logger.warn('Gateway tasks response is null or undefined');
+          return;
+        }
+
+        const gatewayTasks = Array.isArray(response) ? response : 
+                            (response.data && Array.isArray(response.data)) ? response.data : [];
+
+        if (!Array.isArray(gatewayTasks)) {
+          this.logger.warn('Unexpected response format from gateway tasks endpoint. Expected array, got:', 
+            typeof gatewayTasks, 'Response structure:', JSON.stringify(response));
+          return;
         }
         
         for (const task of gatewayTasks) {
@@ -89,11 +126,24 @@ export class DefaultTaskSyncService implements TaskSyncService {
             'X-Device-ID': deviceId,
             'Authorization': `Bearer ${key}`
           }
-        }).json();
+        }).json() as GatewayResponse<any> | any[];
 
-        const gatewayEarnings = Array.isArray(response) ? response : [];
-        if (!Array.isArray(response)) {
-          this.logger.warn('Unexpected response format from gateway earnings endpoint:', response);
+        this.logger.debug('Raw earnings response from gateway:', response);
+
+        // Check if response is null or undefined
+        if (!response) {
+          this.logger.warn('Gateway earnings response is null or undefined');
+          return;
+        }
+
+        // Check if response has a data property that might contain the array
+        const gatewayEarnings = Array.isArray(response) ? response :
+                               (response.data && Array.isArray(response.data)) ? response.data : [];
+
+        if (!Array.isArray(gatewayEarnings)) {
+          this.logger.warn('Unexpected response format from gateway earnings endpoint. Expected array, got:', 
+            typeof gatewayEarnings, 'Response structure:', JSON.stringify(response));
+          return;
         }
         
         for (const earning of gatewayEarnings) {

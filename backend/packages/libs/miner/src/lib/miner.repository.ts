@@ -39,7 +39,7 @@ export class MinerRepository {
       select 
         coalesce(sum(block_rewards::float), 0) as total_block_rewards,
         coalesce(sum(job_rewards::float), 0) as total_job_rewards
-      from saito_miner.earnings;
+      from saito_miner.earnings where source = 'gateway';
     `);
 
     // 获取设备状态
@@ -63,7 +63,7 @@ export class MinerRepository {
       select 
         count(distinct date_trunc('day', created_at))::float / 30.0 * 100 as uptime_percentage
       from saito_miner.tasks
-      where created_at >= now() - interval '30 days';
+      where created_at >= now() - interval '30 days' and source = 'gateway';
     `);
 
     // 获取收益数据
@@ -81,7 +81,7 @@ export class MinerRepository {
         coalesce(sum(block_rewards::float + job_rewards::float), 0) as daily_earning
       from dates d
       left join saito_miner.earnings e
-        on date_trunc('day', e.created_at) = d.day
+        on date_trunc('day', e.created_at) = d.day and e.source = 'gateway'
       group by d.day
       order by d.day;
     `);

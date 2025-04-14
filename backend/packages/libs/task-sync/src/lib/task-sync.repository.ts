@@ -3,6 +3,22 @@ import { PersistentService } from "@saito/persistent";
 import { DatabaseTransactionConnection } from "slonik";
 import { SQL } from "@saito/common";
 
+type TaskStatus = 'in-progress' | 'failed' | 'succeed';
+
+const mapTaskStatus = (status: string): TaskStatus => {
+  console.log('status', status);
+  switch (status) {
+    case 'completed':
+      return 'succeed';
+    case 'failed':
+      return 'failed';
+    case 'active':
+      return 'in-progress';
+    default:
+      return 'failed';
+  }
+};
+
 export class TaskSyncRepository {
   constructor(
     @Inject(PersistentService)
@@ -27,10 +43,30 @@ export class TaskSyncRepository {
 
   async findExistingTask(conn: DatabaseTransactionConnection, taskId: string): Promise<boolean> {
     const result = await conn.maybeOne(SQL.unsafe`
-      SELECT id FROM saito_miner.tasks 
+      SELECT id, status FROM saito_miner.tasks 
       WHERE id = ${taskId} AND source = 'gateway'
     `);
-    return !!result;
+
+    if (result) {
+      // Update the status if it's not in the correct format
+      if (result.status === 'completed') {
+        await conn.query(SQL.unsafe`
+          UPDATE saito_miner.tasks 
+          SET status = ${mapTaskStatus(result.status)}
+          WHERE id = ${taskId}
+        `);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  async updateExistingTaskStatuses(conn: DatabaseTransactionConnection): Promise<void> {
+    await conn.query(SQL.unsafe`
+      UPDATE saito_miner.tasks 
+      SET status = 'succeed'
+      WHERE status = 'completed' AND source = 'gateway'
+    `);
   }
 
   async createTask(conn: DatabaseTransactionConnection, task: {
@@ -46,13 +82,14 @@ export class TaskSyncRepository {
     eval_duration: number;
     updated_at: string;
   }): Promise<void> {
+    const mappedStatus = mapTaskStatus(task.status);
     await conn.query(SQL.unsafe`
       INSERT INTO saito_miner.tasks (
         id, model, created_at, status, total_duration,
         load_duration, prompt_eval_count, prompt_eval_duration,
         eval_count, eval_duration, updated_at, source
       ) VALUES (
-        ${task.id}, ${task.model}, ${task.created_at}, ${task.status},
+        ${task.id}, ${task.model}, ${task.created_at}, ${mappedStatus},
         ${task.total_duration}, ${task.load_duration}, ${task.prompt_eval_count},
         ${task.prompt_eval_duration}, ${task.eval_count}, ${task.eval_duration},
         ${task.updated_at}, 'gateway'
