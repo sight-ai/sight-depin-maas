@@ -30,6 +30,7 @@ export const Task = z.object({
   eval_count: z.coerce.number().optional(),
   eval_duration: z.coerce.number().optional(),
   updated_at: z.coerce.date().transform((date) => date.toISOString()),
+  source: z.enum(['local', 'gateway']),
 });
 
 export const CreateTaskRequest = z.object({

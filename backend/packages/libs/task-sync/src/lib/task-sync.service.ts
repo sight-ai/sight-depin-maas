@@ -47,7 +47,10 @@ export class DefaultTaskSyncService implements TaskSyncService {
           }
         }).json();
 
-        const gatewayTasks = response as any[];
+        const gatewayTasks = Array.isArray(response) ? response : [];
+        if (!Array.isArray(response)) {
+          this.logger.warn('Unexpected response format from gateway tasks endpoint:', response);
+        }
         
         for (const task of gatewayTasks) {
           const exists = await this.repository.findExistingTask(conn, task.id);
@@ -88,7 +91,10 @@ export class DefaultTaskSyncService implements TaskSyncService {
           }
         }).json();
 
-        const gatewayEarnings = response as any[];
+        const gatewayEarnings = Array.isArray(response) ? response : [];
+        if (!Array.isArray(response)) {
+          this.logger.warn('Unexpected response format from gateway earnings endpoint:', response);
+        }
         
         for (const earning of gatewayEarnings) {
           const exists = await this.repository.findExistingEarning(conn, earning.id);
