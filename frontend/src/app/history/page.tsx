@@ -66,8 +66,9 @@ export default function HistoryPage() {
                                                 <Tooltip 
                                                     title={
                                                         <div>
-                                                            <p style={{ color: '#ff4d4f' }}>Device not registered with gateway</p>
-                                                            <a href="https://sightai.io/model/gateway" target="_blank" style={{ color: '#1890ff' }}>Click here to register</a>
+                                                            <p style={{ color: '#ff4d4f' }}>This is an estimate reward. 
+                                                           </p>
+                                                            <a href="https://sightai.io/model/gateway" target="_blank" style={{ color: '#1890ff' }}> Connect gateway to see actual rewards!</a>
                                                         </div>
                                                     }
                                                     color={isDark ? '#1a1a1a' : '#fff'}
