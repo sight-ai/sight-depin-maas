@@ -2,21 +2,24 @@ version: '3'
 
 services:
   sight-miner-backend:
-    image: ghcr.io/sight-ai/sight-miner-backend:0.0.5-SNAPSHOT
+    platform: linux/amd64
+    image: ghcr.io/sight-ai/sight-miner-backend:0.0.7-SNAPSHOT
     ports:
       - "8716:8716"
     networks:
       - app-network
 
   sight-miner-frontend:
-    image: ghcr.io/sight-ai/sight-miner-frontend:0.0.2-SNAPSHOT
+    platform: linux/amd64
+    image: ghcr.io/sight-ai/sight-miner-frontend:0.0.4-SNAPSHOT
     ports:
       - "3000:3000"
     networks:
       - app-network
 
   sight-miner-postgres:
-    image: ghcr.io/sight-ai/sight-miner-postgres:0.0.1-SNAPSHOT
+    platform: linux/amd64
+    image: ghcr.io/sight-ai/sight-miner-postgres:0.0.3-SNAPSHOT
     container_name: postgres-db
     ports:
       - "7543:5432"
@@ -25,12 +28,11 @@ services:
     networks:
       - app-network
 
-networks:
+networks: 
   app-network:
     driver: bridge
 
 volumes:
   postgres-data:
     driver: local
-
 

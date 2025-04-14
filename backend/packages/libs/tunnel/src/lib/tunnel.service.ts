@@ -6,13 +6,12 @@ import { OllamaService } from "@saito/ollama";
 import got from "got-cjs";
 import { OllamaChatRequest, OllamaGenerateRequest } from '@saito/models'
 export class DefaultTunnelService implements TunnelService {
-  private readonly gatewayPath = '/api/model/socket.io';
   private readonly logger = new Logger(DefaultTunnelService.name);
   socket: Socket;
   node_id: string = '';
   private reconnectAttempts: number = 0;
   private readonly maxReconnectAttempts: number = 5;
-  private readonly reconnectDelay: number = 5000; // 5秒
+  private readonly reconnectDelay: number = 1000; // 1秒，与测试一致
   gatewayUrl: string = '';
 
   constructor(
@@ -21,14 +20,18 @@ export class DefaultTunnelService implements TunnelService {
     this.socket = io();
   }
   async createSocket(gatewayAddress: string, key: string, code: string): Promise<void> {
-    this.gatewayUrl = gatewayAddress;
-    // 解析基础URL和路径
-    const baseUrl = this.gatewayUrl.endsWith('/api/model')
-      ? this.gatewayUrl.slice(0, -'/api/model'.length)
-      : this.gatewayUrl;
+    // 从完整地址中提取基础URL和路径
+    const url = new URL(gatewayAddress);
+    this.gatewayUrl = `${url.protocol}//${url.host}`;
+    const basePath = '/api/model';  // 代理转发的基础路径
+    const socketPath = `${basePath}/socket.io`;  // 完整的socket.io路径
 
-    this.socket = io(baseUrl, {
-      path: env().NODE_ENV === 'development' ? '/socket.io' : this.gatewayPath,
+    this.logger.debug(`Connecting to Socket.IO server:`);
+    this.logger.debug(`Base URL: ${this.gatewayUrl}`);
+    this.logger.debug(`Socket.IO Path: ${socketPath}`);
+
+    this.socket = io(this.gatewayUrl, {
+      path: socketPath,
       reconnection: true,
       reconnectionAttempts: this.maxReconnectAttempts,
       reconnectionDelay: this.reconnectDelay,
@@ -38,7 +41,7 @@ export class DefaultTunnelService implements TunnelService {
       secure: true,
       rejectUnauthorized: false,
       extraHeaders: {
-        'Origin': baseUrl,
+        'Origin': this.gatewayUrl,
         'Authorization': `Bearer ${key}`
       }
     });
@@ -49,6 +52,8 @@ export class DefaultTunnelService implements TunnelService {
     this.socket.on('connect', () => {
       this.logger.log('Socket connected successfully');
       this.logger.log(`Socket ID: ${this.socket.id}`);
+      this.logger.debug(`Socket Path: ${this.socket.io.opts.path}`);
+      this.logger.debug(`Using URL: ${this.gatewayUrl}`);
       this.reconnectAttempts = 0;
     });
 
@@ -59,6 +64,8 @@ export class DefaultTunnelService implements TunnelService {
     this.socket.on('connect_error', (error: Error) => {
       this.logger.error(`Socket connection error: ${error.message}`);
       this.logger.error('Detailed error:', error);
+      this.logger.debug(`Socket Path: ${this.socket.io.opts.path}`);
+      this.logger.debug(`Attempted URL: ${this.gatewayUrl}`);
     });
 
     this.socket.on('reconnect_attempt', (attemptNumber: number) => {
