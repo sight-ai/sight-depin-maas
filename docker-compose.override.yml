@@ -2,10 +2,10 @@ version: '3'
 services:
   sight-miner-backend:
     environment:
-      - NODE_CODE=default
-      - GATEWAY_API_URL=https://sightai.io
-      - GATEWAY_API_KEY=default
-      - REWARD_ADDRESS=default
+      - NODE_CODE=e9fvxz9e8
+      - GATEWAY_API_URL=http://host.docker.internal:8718
+      - GATEWAY_API_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIweGJhZmY4MkIyNjQ2NGVmNTBDZGNDODEwZDE1ODhEQTU2MTM3MzNCRjQiLCJpc3MiOiJodHRwczovL3NpZ2h0YWkuaW8iLCJhdWQiOiJodHRwczovL3NpZ2h0YWkuaW8iLCJhZGRyZXNzIjoiMHhiYWZmODJCMjY0NjRlZjUwQ2RjQzgxMGQxNTg4REE1NjEzNzMzQkY0IiwiaWF0IjoxNzQ0NjA1MTYzLCJleHAiOjE3NDcxOTcxNjN9.YC9pE1hcr7TrDFphEGUMkLVF9tOJdWwNcHN_p0rrq5g
       - GPU_BRAND="NVIDIA"
       - DEVICE_TYPE="Linux"
       - GPU_MODEL="NVIDIA GeForce RTX 4060 Laptop GPU"
+      - REWARD_ADDRESS=0xbaff82B26464ef50CdcC810d1588DA5613733BF4

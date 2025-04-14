@@ -16,7 +16,10 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
   private isRegistered = false; // 新增注册状态标志
   private deviceId: string = 'local_device_id';
   private deviceName: string = 'local_device_name';
-  private rewardAddress: string = 'local_reward_address';
+  private rewardAddress: string = '';
+  private gatewayAddress: string = '';
+  private key: string = '';
+  private code: string = '';
   constructor(
     private readonly deviceStatusRepository: DeviceStatusRepository,
     @Inject(forwardRef(() => OllamaService))
@@ -24,7 +27,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     private readonly tunnelService: TunnelService
   ) {
   }
-  async register(): Promise<{
+  async register(body: { code: string, gateway_address: string, reward_address: string, key: string }): Promise<{
     success: boolean,
     error: string
   }> {
@@ -34,19 +37,19 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         this.getDeviceType(),
         this.getDeviceModel(),
       ]);
- 
-      this.logger.debug(`Registering device with gateway: ${env().GATEWAY_API_URL}`);
-      
-      const { data, code } = await got.post(`${env().GATEWAY_API_URL}/node/register`, {
+
+      this.logger.debug(`Registering device with gateway: ${body.gateway_address}`);
+
+      const { data, code } = await got.post(`${body.gateway_address}/node/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${env().GATEWAY_API_KEY}`
+          'Authorization': `Bearer ${body.key}`
         },
         json: {
-          code: env().NODE_CODE,
-          gateway_address: env().GATEWAY_API_URL,
-          reward_address: env().REWARD_ADDRESS,
+          code: body.code,
+          gateway_address: body.gateway_address,
+          reward_address: body.reward_address,
           device_type: deviceType,
           gpu_type: deviceModel,
           ip: ipAddress,
@@ -66,7 +69,11 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         this.heartbeat()
         this.deviceId = data.node_id;
         this.deviceName = data.name;
-        this.rewardAddress = env().REWARD_ADDRESS;
+        this.rewardAddress = body.reward_address;
+        this.gatewayAddress = body.gateway_address
+        this.key = body.key;
+        this.code = body.code;
+        await this.tunnelService.createSocket(this.gatewayAddress, this.key, this.code)
         await this.tunnelService.connectSocket(data.node_id)
         this.logger.log('Device registration successful');
         return data;
@@ -132,7 +139,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       ]);
 
       const heartbeatData = {
-        code: env().NODE_CODE,
+        code: this.code,
         cpu_usage: Number(cpuLoad.currentLoad.toFixed(2)),
         memory_usage: Number(
           ((memoryInfo.used / memoryInfo.total) * 100).toFixed(2)
@@ -145,14 +152,14 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         type: deviceType,
         model: deviceModel,
         device_info: deviceInfo,
-        gateway_url: env().GATEWAY_API_URL
+        gateway_url: this.gatewayAddress
       };
 
-      await got.post(`${env().GATEWAY_API_URL}/node/heartbeat`, {
+      await got.post(`${this.gatewayAddress}/node/heartbeat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${env().GATEWAY_API_KEY}`
+          'Authorization': `Bearer ${this.key}`
         },
         json: heartbeatData,
       });
@@ -167,7 +174,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
   }
   async updateDeviceStatus(deviceId: string, name: string, status: "online" | "offline", rewardAddress: string) {
     return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
-      return this.deviceStatusRepository.updateDeviceStatus(conn, deviceId, name, status, rewardAddress);
+      return this.deviceStatusRepository.updateDeviceStatus(conn, deviceId, name, status, rewardAddress, this.gatewayAddress, this.key, this.code);
     });
   }
 
@@ -258,8 +265,15 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
   async getRewardAddress(): Promise<string> {
     return this.rewardAddress;
   }
-}
 
+  async getGatewayAddress(): Promise<string> {
+    return this.gatewayAddress;
+  }
+
+  async getKey(): Promise<string> {
+    return this.key;
+  }
+}
 
 
 const DeviceStatusServiceProvider = {
