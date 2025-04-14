@@ -185,7 +185,7 @@ run() {
   # Check Ollama service first
   check_ollama_service
   # Pull deepseek model
-  # pull_deepseek_model
+  pull_deepseek_model
 
   echo "GATEWAY_API_URL: $GATEWAY_API_URL"
   echo "NODE_CODE: $NODE_CODE"
@@ -210,17 +210,17 @@ run() {
   # Replace newline characters in GPU_MODEL
   GPU_MODEL=$(echo "$GPU_MODEL" | sed ':a;N;$!ba;s/\n/ /g')
 
-   # Download docker-compose.yml file
-  #  DOCKER_COMPOSE_URL="https://sightai.io/model/local/docker-compose.yml"
-  #  DOCKER_COMPOSE_FILE="docker-compose.yml"
+  #  Download docker-compose.yml file
+   DOCKER_COMPOSE_URL="https://sightai.io/model/local/docker-compose.yml"
+   DOCKER_COMPOSE_FILE="docker-compose.yml"
 
-  #  echo "Downloading $DOCKER_COMPOSE_FILE..."
-  #  if curl -fsSL -o "$DOCKER_COMPOSE_FILE" "$DOCKER_COMPOSE_URL"; then
-  #   echo "$DOCKER_COMPOSE_FILE downloaded successfully."
-  #  else
-  #    echo "Failed to download $DOCKER_COMPOSE_FILE, please check network connection."
-  #    exit 1
-  #  fi
+   echo "Downloading $DOCKER_COMPOSE_FILE..."
+   if curl -fsSL -o "$DOCKER_COMPOSE_FILE" "$DOCKER_COMPOSE_URL"; then
+    echo "$DOCKER_COMPOSE_FILE downloaded successfully."
+   else
+     echo "Failed to download $DOCKER_COMPOSE_FILE, please check network connection."
+     exit 1
+   fi
 
   sleep 2
 
@@ -303,7 +303,7 @@ EOF
     echo "Starting Open WebUI..."
     if docker run -d \
       -p 8080:8080 \
-      -e OLLAMA_BASE_URL=http://127.0.0.1:8718/ \
+      -e OLLAMA_BASE_URL=$GATEWAY_API_URL \
       --add-host=host.docker.internal:host-gateway \
       -v ollama:/root/.ollama \
       -v open-webui:/app/backend/data \
