@@ -4,6 +4,7 @@ export interface HistoryItem {
     tokenUsage: string;
     reward: string;
     model: string;
+    source: string;
 }
 
 export interface Task {
@@ -17,6 +18,8 @@ export interface Task {
     prompt_eval_duration: number;
     eval_count: number;
     eval_duration: number;
+    updated_at: string;
+    source: 'local' | 'gateway';
 }
 
 export interface HistoryResponse {

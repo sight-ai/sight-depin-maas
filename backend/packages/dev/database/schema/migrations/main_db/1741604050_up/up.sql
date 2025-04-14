@@ -30,7 +30,8 @@ CREATE TABLE saito_miner.tasks (
     prompt_eval_duration double precision,
     eval_count           integer,
     eval_duration        double precision,
-    updated_at           timestamp NOT NULL DEFAULT now()
+    updated_at           timestamp NOT NULL DEFAULT now(),
+    source               text NOT NULL DEFAULT 'local' CHECK (source IN ('local', 'gateway'))
 );
 
 CREATE TABLE saito_miner.earnings ( 
@@ -38,7 +39,8 @@ CREATE TABLE saito_miner.earnings (
     block_rewards double precision NOT NULL DEFAULT 0,
     job_rewards double precision NOT NULL DEFAULT 0,
     created_at timestamp NOT NULL DEFAULT now(),
-    updated_at timestamp NOT NULL DEFAULT now()
+    updated_at timestamp NOT NULL DEFAULT now(),
+    source text NOT NULL DEFAULT 'local' CHECK (source IN ('local', 'gateway'))
 );
 
 CREATE TABLE saito_miner.device_status (

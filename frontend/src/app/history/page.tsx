@@ -83,6 +83,11 @@ export default function HistoryPage() {
                                     </th>
                                     <th className="flex-1 px-6 py-3 flex justify-center" style={{ minWidth: '120px' }}>
                                         <div className='text-center text-base font-bold text-white bg-black rounded-lg' style={{ width: 100, padding: 10, borderRadius: 30, backgroundColor: '#000', color: '#fff' }}>
+                                            Source
+                                        </div>
+                                    </th>
+                                    <th className="flex-1 px-6 py-3 flex justify-center" style={{ minWidth: '120px' }}>
+                                        <div className='text-center text-base font-bold text-white bg-black rounded-lg' style={{ width: 100, padding: 10, borderRadius: 30, backgroundColor: '#000', color: '#fff' }}>
                                             Time
                                         </div>
                                     </th>
@@ -146,6 +151,19 @@ export default function HistoryPage() {
                                         </td>
                                         <td className="flex-1 px-6 py-4 text-center text-base" style={{ minWidth: '120px', color: isDark ? '#fff' : '#000' }}>
                                             {item.reward}
+                                        </td>
+                                        <td className="flex-1 px-6 py-4 text-center text-base" style={{ minWidth: '120px' }}>
+                                            <div style={{
+                                                display: 'inline-block',
+                                                padding: '4px 12px',
+                                                borderRadius: '4px',
+                                                backgroundColor: item.source === 'local' ? (isDark ? '#2d2d2d' : '#f0f0f0') : (isDark ? '#1a3a1a' : '#e6f7e6'),
+                                                color: item.source === 'local' ? (isDark ? '#fff' : '#000') : (isDark ? '#4caf50' : '#2e7d32'),
+                                                fontSize: '14px',
+                                                fontWeight: '500'
+                                            }}>
+                                                {item.source === 'local' ? 'Local' : 'Gateway'}
+                                            </div>
                                         </td>
                                         <td className="flex-1 px-6 py-4 text-center text-base" style={{ minWidth: '120px', color: isDark ? '#fff' : '#000' }}>
                                             {new Date().toLocaleString('en-US', {

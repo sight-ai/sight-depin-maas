@@ -302,7 +302,8 @@ export class MinerRepository {
       prompt_eval_duration,
       eval_count,
       eval_duration,
-      updated_at
+      updated_at,
+      source
     from saito_miner.tasks
     order by created_at desc
     limit ${limit} offset ${offset};

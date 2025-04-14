@@ -24,7 +24,8 @@ export function useHistory() {
                 requestId: task.id,
                 tokenUsage: `${task.prompt_eval_count + task.eval_count}`,
                 reward: `$${((task.total_duration || 0) * 0.1).toFixed(2)}`,
-                model: task.model
+                model: task.model,
+                source: task.source
             }));
             setHistoryItems(items);
             setTotal(response.total);
@@ -47,7 +48,8 @@ export function useHistory() {
                 requestId: task.id,
                 tokenUsage: `${task.prompt_eval_count + task.eval_count}`,
                 reward: `$${((task.total_duration || 0) * 0.1).toFixed(2)}`,
-                model: task.model
+                model: task.model,
+                source: task.source
             })));
             setTotal(response.total);
         } catch (err) {

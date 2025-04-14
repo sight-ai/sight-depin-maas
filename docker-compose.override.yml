@@ -2,7 +2,7 @@ version: '3'
 services:
   sight-miner-backend:
     environment:
-      - NODE_CODE=e9fvxz9e8
+      - NODE_CODE=v5kaymrzd
       - GATEWAY_API_URL=http://host.docker.internal:8718
       - GATEWAY_API_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIweGJhZmY4MkIyNjQ2NGVmNTBDZGNDODEwZDE1ODhEQTU2MTM3MzNCRjQiLCJpc3MiOiJodHRwczovL3NpZ2h0YWkuaW8iLCJhdWQiOiJodHRwczovL3NpZ2h0YWkuaW8iLCJhZGRyZXNzIjoiMHhiYWZmODJCMjY0NjRlZjUwQ2RjQzgxMGQxNTg4REE1NjEzNzMzQkY0IiwiaWF0IjoxNzQ0NjA1MTYzLCJleHAiOjE3NDcxOTcxNjN9.YC9pE1hcr7TrDFphEGUMkLVF9tOJdWwNcHN_p0rrq5g
       - GPU_BRAND="NVIDIA"

@@ -266,21 +266,49 @@ export class DefaultTunnelService implements TunnelService {
     }
   }
 
-  async proxyRequest(serverData: { taskId: string, data: typeof OllamaGenerateRequest }): Promise<void> {
+  async proxyRequest(serverData: { taskId: string, data: { method: string, url: string, headers: Record<string, string>, body: Record<string, string> } }): Promise<void> {
     try {
       this.logger.debug(`Processing proxy request: ${serverData.taskId}`);
-      const data = await got.post('http://localhost:8716/api/proxy', {
-        json: serverData.data,
-        timeout: { request: 30000 }
-      }).json();
+      console.log(serverData.data, serverData.data.method.toLowerCase(), `http://localhost:8716${serverData.data.url}`);
+      let data;
+      const baseOptions = {
+        timeout: { request: 30000 },
+        headers: serverData.data.headers
+      };
 
-      this.socket.emit('proxy_stream', {
+      switch (serverData.data.method.toLowerCase()) {
+        case 'get':
+          data = await got.get(`http://localhost:8716${serverData.data.url}`, baseOptions).json();
+          break;
+        case 'post':
+          data = await got.post(`http://localhost:8716${serverData.data.url}`, {
+            ...baseOptions,
+            json: serverData.data.body
+          }).json();
+          break;
+        case 'put':
+          data = await got.put(`http://localhost:8716${serverData.data.url}`, {
+            ...baseOptions,
+            json: serverData.data.body
+          }).json();
+          break;
+        case 'delete':
+          data = await got.delete(`http://localhost:8716${serverData.data.url}`, {
+            ...baseOptions,
+            json: serverData.data.body
+          }).json();
+          break;
+        default:
+          throw new Error(`Unsupported HTTP method: ${serverData.data.method}`);
+      }
+
+      this.socket.emit('proxy_response', {
         taskId: serverData.taskId,
         content: JSON.stringify(data)
       });
     } catch (error) {
       this.logger.error(`Error in proxyRequest: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      this.socket.emit('proxy_stream', {
+      this.socket.emit('proxy_response', {
         taskId: serverData.taskId,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
