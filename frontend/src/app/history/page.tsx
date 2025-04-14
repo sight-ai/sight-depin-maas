@@ -35,8 +35,7 @@ export default function HistoryPage() {
                     backgroundColor: isDark ? '#1a1a1a' : '#f6f6f6'
                 }}>
                     <div className="overflow-x-auto pt-3">
-                        {loading && <div className="p-4 text-center">loading...</div>}
-                        {error && <div className="p-4 text-center text-red-500">{error}</div>}
+                      
                         <table className="min-w-full">
                             <thead>
                                 <tr className="flex gap-4" style={{ width: '100%' }}>
@@ -89,6 +88,8 @@ export default function HistoryPage() {
                                     </th>
                                 </tr>
                             </thead>
+                            {loading && <div className="p-4 text-center">loading...</div>}
+                            {error && <div className="p-4 text-center text-red-500">{error}</div>}
                             <tbody>
                                 {historyItems.map((item, index) => (
                                     <tr key={index} className="flex gap-4" style={{ width: '100%' }}>
