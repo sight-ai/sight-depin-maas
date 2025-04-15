@@ -80,7 +80,8 @@ export class MinerRepository {
         coalesce(sum(block_rewards::float + job_rewards::float), 0) as daily_earning
       from dates d
       left join saito_miner.earnings e
-        on date_trunc('day', e.created_at) = d.day and e.source = 'gateway'
+        on date_trunc('day', e.created_at) = d.day
+      where e.source = 'gateway'
       group by d.day
       order by d.day;
     `);
@@ -254,6 +255,25 @@ export class MinerRepository {
       returning *;
     `);
     return task;
+  }
+
+  async updateStaleInProgressTasks(
+    conn: DatabaseTransactionConnection,
+    timeoutMinutes: number = 5
+  ) {
+    const staleTasksResult = await conn.query(SQL.type(
+      m.miner('task')
+    )`
+      update saito_miner.tasks
+      set 
+        status = 'failed',
+        updated_at = now()
+      where status = 'in-progress'
+        and created_at < now() - interval '${timeoutMinutes} minutes'
+      returning *;
+    `);
+    
+    return staleTasksResult.rows;
   }
 
   async createEarnings(

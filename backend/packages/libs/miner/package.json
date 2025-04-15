@@ -6,6 +6,7 @@
     "@saito/models": "*",
     "@saito/persistent": "*",
     "@nestjs/common": "^10.0.0",
+    "@nestjs/schedule": "^5.0.1",
     "@t3-oss/env-core": "^0.7.1",
     "memoizee": "^0.4.15",
     "slonik": "^37.2.0",
