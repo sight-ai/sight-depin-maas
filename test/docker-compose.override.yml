@@ -2,7 +2,7 @@ version: '3'
 services:
   sight-miner-backend:
     environment:
-      - NODE_CODE=gcuzbeisk
+      - NODE_CODE=ho4eypq7s
       - GATEWAY_API_URL=https://sightai.io/api/model
       - GATEWAY_API_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIweGJhZmY4MkIyNjQ2NGVmNTBDZGNDODEwZDE1ODhEQTU2MTM3MzNCRjQiLCJpc3MiOiJodHRwczovL3NpZ2h0YWkuaW8iLCJhdWQiOiJodHRwczovL3NpZ2h0YWkuaW8iLCJhZGRyZXNzIjoiMHhiYWZmODJCMjY0NjRlZjUwQ2RjQzgxMGQxNTg4REE1NjEzNzMzQkY0IiwiaWF0IjoxNzQ0NjI4NzUwLCJleHAiOjE3NDcyMjA3NTB9.g7ABHpxK-YT76c-UIFRVliyEKC3bZ_alX3McHPqaBn0
       - GPU_BRAND="NVIDIA"

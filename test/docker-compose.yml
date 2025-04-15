@@ -3,7 +3,7 @@ version: '3'
 services:
   sight-miner-backend:
     platform: linux/amd64
-    image: ghcr.io/sight-ai/sight-miner-backend:0.0.7-SNAPSHOT
+    image: ghcr.io/sight-ai/sight-miner-backend:0.0.9-SNAPSHOT
     ports:
       - "8716:8716"
     networks:
@@ -35,4 +35,5 @@ networks:
 volumes:
   postgres-data:
     driver: local
+
 
