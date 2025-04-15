@@ -5,6 +5,7 @@ export interface HistoryItem {
     reward: string;
     model: string;
     source: string;
+    updated_at: string;
 }
 
 export interface Task {

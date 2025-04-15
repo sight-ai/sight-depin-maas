@@ -16,21 +16,6 @@ interface GatewayResponse<T> {
   message: string;
 }
 
-type GatewayTaskStatus = 'completed' | 'failed' | 'active';
-type SchemaTaskStatus = 'succeed' | 'failed' | 'in-progress';
-
-const mapTaskStatus = (gatewayStatus: GatewayTaskStatus): SchemaTaskStatus => {
-  switch (gatewayStatus) {
-    case 'completed':
-      return 'succeed';
-    case 'failed':
-      return 'failed';
-    case 'active':
-      return 'in-progress';
-    default:
-      return 'failed'; // Default to failed for unknown statuses
-  }
-};
 
 @Injectable()
 export class DefaultTaskSyncService implements TaskSyncService {

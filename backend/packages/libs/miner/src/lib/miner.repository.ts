@@ -3,7 +3,6 @@ import { PersistentService } from "@saito/persistent";
 import { DatabaseTransactionConnection } from "slonik";
 import { SQL } from "@saito/common";
 import { m, ModelOfMiner } from "@saito/models";
-import { z } from "zod";
 
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -104,7 +103,7 @@ export class MinerRepository {
         coalesce(count(t.id), 0) as request_count
       from dates d
       left join saito_miner.tasks t
-        on date_trunc(${groupByUnit}, t.created_at) = d.time_point
+        on date_trunc(${groupByUnit}, t.created_at) = d.time_point and t.source = 'gateway'
       group by d.time_point
       order by d.time_point;
     `);

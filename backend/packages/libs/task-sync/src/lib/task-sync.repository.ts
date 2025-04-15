@@ -8,11 +8,11 @@ type TaskStatus = 'in-progress' | 'failed' | 'succeed';
 const mapTaskStatus = (status: string): TaskStatus => {
   console.log('status', status);
   switch (status) {
-    case 'completed':
+    case 'succeed':
       return 'succeed';
     case 'failed':
       return 'failed';
-    case 'active':
+    case 'in-progress':
       return 'in-progress';
     default:
       return 'failed';
@@ -112,6 +112,7 @@ export class TaskSyncRepository {
     created_at: string;
     updated_at: string;
   }): Promise<void> {
+    console.log('earning', earning);
     await conn.query(SQL.unsafe`
       INSERT INTO saito_miner.earnings (
         id, block_rewards, job_rewards, created_at, updated_at, source

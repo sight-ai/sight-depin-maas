@@ -167,13 +167,13 @@ export default function HistoryPage() {
                                             </div>
                                         </td>
                                         <td className="flex-1 px-6 py-4 text-center text-base" style={{ minWidth: '120px', color: isDark ? '#fff' : '#000' }}>
-                                            {new Date().toLocaleString('en-US', {
+                                            {new Date(item.updated_at).toLocaleString('en-US', {
                                                 hour: '2-digit',
                                                 minute: '2-digit',
                                                 hour12: false,
                                             })}
                                             <br />
-                                            {new Date().toLocaleDateString('en-US', {
+                                            {new Date(item.updated_at).toLocaleDateString('en-US', {
                                                 month: '2-digit',
                                                 day: '2-digit',
                                                 year: 'numeric'
