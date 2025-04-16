@@ -23,8 +23,8 @@ export class DefaultTunnelService implements TunnelService {
     // 从完整地址中提取基础URL和路径
     const url = new URL(gatewayAddress);
     this.gatewayUrl = `${url.protocol}//${url.host}`;
-    const basePath = '/api/model';  // 代理转发的基础路径
-    // const basePath = '';  // 代理转发的基础路径
+    // const basePath = '/api/model';  // 代理转发的基础路径
+    const basePath = '';  // 代理转发的基础路径
     const socketPath = `${basePath}/socket.io`;  // 完整的socket.io路径
 
     this.logger.debug(`Connecting to Socket.IO server:`);
