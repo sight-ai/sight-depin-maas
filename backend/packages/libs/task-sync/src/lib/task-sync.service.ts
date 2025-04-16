@@ -76,8 +76,20 @@ export class DefaultTaskSyncService implements TaskSyncService {
         
         for (const task of gatewayTasks) {
           const exists = await this.repository.findExistingTask(conn, task.id);
-          if (!exists) {
-            await this.repository.createTask(conn, task);
+          
+          // Ensure task has all required fields and proper status mapping
+          const taskWithDevice = {
+            ...task,
+            // Map gateway status to local status format if needed
+            device_id: deviceId // Add device_id to the task object
+          };
+
+          if (exists) {
+            // Update existing task with new data
+            await this.repository.updateExistingTask(conn, taskWithDevice);
+          } else {
+            // Create new task
+            await this.repository.createTask(conn, taskWithDevice);
           }
         }
       } catch (error) {
@@ -133,8 +145,19 @@ export class DefaultTaskSyncService implements TaskSyncService {
         
         for (const earning of gatewayEarnings) {
           const exists = await this.repository.findExistingEarning(conn, earning.id);
-          if (!exists) {
-            await this.repository.createEarning(conn, earning);
+          
+          // Ensure earning has all required fields
+          const earningWithDevice = {
+            ...earning,
+            device_id: deviceId // Add device_id to the earning object
+          };
+
+          if (exists) {
+            // Update existing earning with new data
+            await this.repository.updateExistingEarning(conn, earningWithDevice);
+          } else {
+            // Create new earning
+            await this.repository.createEarning(conn, earningWithDevice);
           }
         }
       } catch (error) {

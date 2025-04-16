@@ -9,6 +9,8 @@ import { OllamaRepository } from './ollama.repository';
 import { DatabaseTransactionConnection } from "slonik";
 import * as R from 'ramda';
 import { v4 as uuid } from 'uuid';
+import { DeviceStatusService } from '@saito/device-status';
+
 interface TaskData {
   total_duration: number;
   load_duration: number;
@@ -28,9 +30,13 @@ export class DefaultOllamaService implements OllamaService {
     private readonly OllamaRepository: OllamaRepository,
     @Inject(MinerService)
     private readonly minerService: MinerService,
+    @Inject('DEVICE_STATUS_SERVICE')
+    private readonly deviceStatusService: DeviceStatusService,
   ) { }
 
   private async createTask(model: string, taskId?: string) {
+    this.logger.log('createTask', model, taskId);
+    const deviceId = await this.deviceStatusService.getDeviceId();
     return this.minerService.createTask({
       id: taskId || uuid(),
       model: model,
@@ -42,11 +48,13 @@ export class DefaultOllamaService implements OllamaService {
       eval_count: 0,
       eval_duration: 0,
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
+      device_id: deviceId
     });
   }
 
   private async updateTask(taskId: string, taskData: Partial<TaskData> & { status: 'succeed' | 'failed' }) {
+    this.logger.log('updateTask', taskId, taskData);
     const { status, ...rest } = taskData;
     const taskDataWithDefaults = R.map(x => x || 0, rest);
     await this.minerService.updateTask(
@@ -86,7 +94,8 @@ export class DefaultOllamaService implements OllamaService {
           // 创建 earnings 记录
           const blockRewards = Math.floor(Math.random() * 100) + 1;
           const jobRewards = (part.prompt_eval_count || 0) + (part.eval_count || 0);
-          await this.minerService.createEarnings(blockRewards, jobRewards);
+          const deviceId = await this.deviceStatusService.getDeviceId();
+          await this.minerService.createEarnings(blockRewards, jobRewards, deviceId);
         }
       } catch (err) {
         // console.error('JSON parsing error:', err);
@@ -129,7 +138,8 @@ export class DefaultOllamaService implements OllamaService {
       // 创建 earnings 记录
       const blockRewards = Math.floor(Math.random() * 100) + 1;
       const jobRewards = (response.prompt_eval_count || 0) + (response.eval_count || 0);
-      await this.minerService.createEarnings(blockRewards, jobRewards);
+      const deviceId = await this.deviceStatusService.getDeviceId();
+      await this.minerService.createEarnings(blockRewards, jobRewards, deviceId);
       
       // Make sure we're setting the correct status code
       res.status(200).json(response);
@@ -216,7 +226,8 @@ export class DefaultOllamaService implements OllamaService {
             // 创建 earnings 记录
             const blockRewards = Math.floor(Math.random() * 100) + 1;
             const jobRewards = (response.prompt_eval_count || 0) + (response.eval_count || 0);
-            await this.minerService.createEarnings(blockRewards, jobRewards);
+            const deviceId = await this.deviceStatusService.getDeviceId();
+            await this.minerService.createEarnings(blockRewards, jobRewards, deviceId);
             
             this.logger.log('Unload model response:', modifiedResponse);
             res.status(200).json(modifiedResponse);

@@ -24,12 +24,10 @@ export class MinerRepository {
       year?: string; 
       month?: string; 
       view?: 'Month' | 'Year' 
-    }
-  }): Promise<ModelOfMiner<'summary'>> {
+    },
+  }, device_id?: string): Promise<ModelOfMiner<'summary'>> {
     // Calculate the interval based on timeRange
     const requestTimeRange = timeRange?.request_serials || 'daily';
-    const interval = requestTimeRange === 'daily' ? '1 day' : requestTimeRange === 'weekly' ? '7 days' : '30 days';
-    const dataPoints = requestTimeRange === 'daily' ? 24 : requestTimeRange === 'weekly' ? 7 : 30;
 
     // 获取收益信息
     const { total_block_rewards, total_job_rewards } = await conn.one(SQL.type(
@@ -38,7 +36,7 @@ export class MinerRepository {
       select 
         coalesce(sum(block_rewards::float), 0) as total_block_rewards,
         coalesce(sum(job_rewards::float), 0) as total_job_rewards
-      from saito_miner.earnings where source = 'gateway';
+      from saito_miner.earnings where source = 'gateway' and device_id = ${device_id || 'default_device'};
     `);
 
     // 获取设备状态
@@ -51,6 +49,7 @@ export class MinerRepository {
         extract(epoch from up_time_start)::bigint as up_time_start,
         extract(epoch from up_time_end)::bigint as up_time_end
       from saito_miner.device_status
+      where device_id = ${device_id || 'default_device'}
       order by updated_at desc
       limit 1;
     `);
@@ -62,7 +61,7 @@ export class MinerRepository {
       select 
         count(distinct date_trunc('day', created_at))::float / 30.0 * 100 as uptime_percentage
       from saito_miner.tasks
-      where created_at >= now() - interval '30 days' and source = 'gateway';
+      where created_at >= now() - interval '30 days' and source = 'gateway' and device_id = ${device_id || 'default_device'};
     `);
 
     // 获取收益数据
@@ -81,7 +80,7 @@ export class MinerRepository {
       from dates d
       left join saito_miner.earnings e
         on date_trunc('day', e.created_at) = d.day
-      where e.source = 'gateway'
+      where e.source = 'gateway' and e.device_id = ${device_id || 'default_device'}
       group by d.day
       order by d.day;
     `);
@@ -104,7 +103,7 @@ export class MinerRepository {
         coalesce(count(t.id), 0) as request_count
       from dates d
       left join saito_miner.tasks t
-        on date_trunc(${groupByUnit}, t.created_at) = d.time_point and t.source = 'gateway'
+        on date_trunc(${groupByUnit}, t.created_at) = d.time_point and t.source = 'gateway' and t.device_id = ${device_id || 'default_device'}
       group by d.time_point
       order by d.time_point;
     `);
@@ -151,7 +150,7 @@ export class MinerRepository {
             extract(month from created_at) as month,
             count(*) as count
           from saito_miner.tasks
-          where extract(year from created_at) = ${year}
+          where extract(year from created_at) = ${year} and device_id = ${device_id || 'default_device'}
           group by extract(month from created_at)
         ) t on d.month = t.month
         order by d.month;
@@ -165,7 +164,7 @@ export class MinerRepository {
           coalesce(count(t.id), 0) as task_count
         from dates d
         left join saito_miner.tasks t
-          on date_trunc('day', t.created_at) = d.day
+          on date_trunc('day', t.created_at) = d.day and t.device_id = ${device_id || 'default_device'}
         ${month 
           ? SQL.fragment`where (t.id is null or (extract(year from t.created_at) = ${year} and extract(month from t.created_at) = ${month}))`
           : SQL.fragment`where (t.id is null or extract(year from t.created_at) = ${year})`}
@@ -197,7 +196,7 @@ export class MinerRepository {
       }
     };
   }
-
+  
   async createTask(conn: DatabaseTransactionConnection, input: ModelOfMiner<'create_task_request'>) {
     const task = await conn.one(SQL.type(
       m.miner('task'),
@@ -213,7 +212,8 @@ export class MinerRepository {
       prompt_eval_count,
       prompt_eval_duration,
       eval_count,
-      eval_duration
+      eval_duration,
+      device_id
     )
     values (
       gen_random_uuid(),
@@ -226,7 +226,8 @@ export class MinerRepository {
       0,
       0,
       0,
-      0
+      0,
+      ${input.device_id || 'default_device'}
     )
     returning *;
   `);
@@ -261,6 +262,7 @@ export class MinerRepository {
     conn: DatabaseTransactionConnection,
     timeoutMinutes: number = 5
   ) {
+    const intervalString = `${timeoutMinutes} minutes`;
     const staleTasksResult = await conn.query(SQL.type(
       m.miner('task')
     )`
@@ -269,7 +271,7 @@ export class MinerRepository {
         status = 'failed',
         updated_at = now()
       where status = 'in-progress'
-        and created_at < now() - interval '${timeoutMinutes} minutes'
+        and created_at < now() - ${SQL.fragment([`interval '${intervalString}'`])}
       returning *;
     `);
     
@@ -279,13 +281,14 @@ export class MinerRepository {
   async createEarnings(
     conn: DatabaseTransactionConnection,
     blockRewards: number,
-    jobRewards: number
+    jobRewards: number,
+    device_id: string = 'default_device'
   ) {
     const earnings = await conn.one(SQL.type(
       m.miner('minerEarning')
     )`
-      INSERT INTO saito_miner.earnings (id, block_rewards, job_rewards)
-      VALUES (gen_random_uuid(), ${blockRewards}, ${jobRewards})
+      INSERT INTO saito_miner.earnings (id, block_rewards, job_rewards, device_id)
+      VALUES (gen_random_uuid(), ${blockRewards}, ${jobRewards}, ${device_id})
       RETURNING block_rewards as total_block_rewards, job_rewards as total_job_rewards;
     `);
     return earnings;
@@ -294,7 +297,8 @@ export class MinerRepository {
   async getTasks(
     conn: DatabaseTransactionConnection,
     page: number,
-    limit: number
+    limit: number,
+    device_id: string = 'default_device'
   ) {
     const offset = (page - 1) * limit;
 
@@ -303,7 +307,7 @@ export class MinerRepository {
       m.miner('taskCount')
     )`
     select count(*) as count
-    from saito_miner.tasks;
+    from saito_miner.tasks where device_id = ${device_id || 'default_device'};
   `);
 
     // Fetch tasks without using to_char for date formatting
@@ -322,8 +326,10 @@ export class MinerRepository {
       eval_count,
       eval_duration,
       updated_at,
-      source
+      source,
+      device_id
     from saito_miner.tasks
+    where device_id = ${device_id || 'default_device'}
     order by created_at desc
     limit ${limit} offset ${offset};
   `);

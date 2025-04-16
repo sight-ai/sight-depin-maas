@@ -31,7 +31,8 @@ CREATE TABLE saito_miner.tasks (
     eval_count           integer,
     eval_duration        double precision,
     updated_at           timestamp NOT NULL DEFAULT now(),
-    source               text NOT NULL DEFAULT 'local' CHECK (source IN ('local', 'gateway'))
+    source               text NOT NULL DEFAULT 'local' CHECK (source IN ('local', 'gateway')),
+    device_id            text NOT NULL
 );
 
 CREATE TABLE saito_miner.earnings ( 
@@ -40,7 +41,8 @@ CREATE TABLE saito_miner.earnings (
     job_rewards double precision NOT NULL DEFAULT 0,
     created_at timestamp NOT NULL DEFAULT now(),
     updated_at timestamp NOT NULL DEFAULT now(),
-    source text NOT NULL DEFAULT 'local' CHECK (source IN ('local', 'gateway'))
+    source text NOT NULL DEFAULT 'local' CHECK (source IN ('local', 'gateway')),
+    device_id text NOT NULL
 );
 
 CREATE TABLE saito_miner.device_status (
@@ -57,22 +59,6 @@ CREATE TABLE saito_miner.device_status (
     updated_at timestamp NOT NULL DEFAULT now()
 );
 
-
-CREATE TABLE saito_miner.chat_records (
-    id                   text PRIMARY KEY,
-    user_id              text NOT NULL,
-    user_input           text NOT NULL,
-    ai_response          text NOT NULL,
-    created_at           timestamp NOT NULL DEFAULT now(),
-    updated_at           timestamp NOT NULL DEFAULT now(),
-    status               text NOT NULL, 
-    conversation_id      text,
-    metadata             jsonb,
-    task_id              text,  -- Add the task_id column for the foreign key relationship
-    FOREIGN KEY (task_id) REFERENCES saito_miner.tasks(id)  -- Define the foreign key relationship
-);
-
-
 CREATE TRIGGER set_timestamp_earnings
     BEFORE UPDATE ON saito_miner.earnings
     FOR EACH ROW
@@ -80,11 +66,5 @@ EXECUTE FUNCTION public.set_current_timestamp_updated_at();
 
 CREATE TRIGGER set_timestamp_device_status
     BEFORE UPDATE ON saito_miner.device_status
-    FOR EACH ROW
-EXECUTE FUNCTION public.set_current_timestamp_updated_at();
-
-
-CREATE TRIGGER set_timestamp_chat_records
-    BEFORE UPDATE ON saito_miner.chat_records
     FOR EACH ROW
 EXECUTE FUNCTION public.set_current_timestamp_updated_at();

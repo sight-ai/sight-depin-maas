@@ -16,7 +16,9 @@ export class MockedMinerService implements MinerService {
       prompt_eval_duration: 0,
       eval_count: 0,
       eval_duration: 0,
-      updated_at: new Date()
+      updated_at: new Date(),
+      source: 'local',
+      device_id: args.device_id || 'mock-device-id'
     }));
   }
 
@@ -78,11 +80,13 @@ export class MockedMinerService implements MinerService {
         prompt_eval_duration: 0,
         eval_count: 0,
         eval_duration: 0,
-        updated_at: new Date()
+        updated_at: new Date(),
+        source: 'local',
+        device_id: 'mock-device-id'
       }));
   }
 
-  createEarnings(blockRewards: number, jobRewards: number): Promise<ModelOfMiner<'minerEarning'>> {
+  createEarnings(blockRewards: number, jobRewards: number, device_id?: string): Promise<ModelOfMiner<'minerEarning'>> {
     return Promise.resolve({
       total_block_rewards: 0,
       total_job_rewards: 0,

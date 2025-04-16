@@ -31,6 +31,7 @@ export const Task = z.object({
   eval_duration: z.coerce.number().optional(),
   updated_at: z.coerce.date().transform((date) => date.toISOString()),
   source: z.enum(['local', 'gateway']),
+  device_id: z.string(),
 });
 
 export const CreateTaskRequest = z.object({
@@ -45,6 +46,7 @@ export const CreateTaskRequest = z.object({
   eval_count: z.coerce.number().optional(),
   eval_duration: z.coerce.number().optional(),
   updated_at: z.coerce.date().transform((date) => date.toISOString()),
+  device_id: z.string().optional(),
 })
 
 export const TaskHistoryResponse = z.object({
@@ -104,6 +106,7 @@ const MinerTaskSchema = z.object({
   prompt_eval_duration: z.number(),
   eval_count: z.number(),
   eval_duration: z.number(),
+  device_id: z.string(),
 });
 
 const TaskCountSchema = z.object({

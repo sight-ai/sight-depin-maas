@@ -3,11 +3,12 @@ import { PersistentModule } from "@saito/persistent";
 import MinerServiceProvider from "./miner.service";
 import { MinerRepository } from "./miner.repository";
 import { ScheduleModule } from '@nestjs/schedule';
-
+import { DeviceStatusModule } from "@saito/device-status";
 @Module({
   imports: [
     PersistentModule,
     ScheduleModule.forRoot(),
+    DeviceStatusModule
   ],
   providers: [
     MinerServiceProvider,
