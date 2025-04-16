@@ -7,11 +7,8 @@ import { MinerService } from '@saito/miner';
 import { Response } from 'express';
 import { OllamaRepository } from './ollama.repository';
 import { DatabaseTransactionConnection } from "slonik";
-import path from 'path';
 import * as R from 'ramda';
-import { SQL } from "@saito/common";
-import { z } from "zod";
-
+import { v4 as uuid } from 'uuid';
 interface TaskData {
   total_duration: number;
   load_duration: number;
@@ -33,8 +30,9 @@ export class DefaultOllamaService implements OllamaService {
     private readonly minerService: MinerService,
   ) { }
 
-  private async createTask(model: string) {
+  private async createTask(model: string, taskId?: string) {
     return this.minerService.createTask({
+      id: taskId || uuid(),
       model: model,
       status: 'in-progress',
       total_duration: 0,
@@ -147,7 +145,7 @@ export class DefaultOllamaService implements OllamaService {
     if (args.stream === undefined || args.stream === null) {
       args.stream = true;
     }
-    const taskId = (await this.createTask(args.model)).id;
+    const taskId = (await this.createTask(args.model, args.taskId)).id;
 
     try {
       if (args.stream) {
@@ -172,7 +170,7 @@ export class DefaultOllamaService implements OllamaService {
     if (args.stream === undefined || args.stream === null) {
       args.stream = true;
     }
-    const taskId = (await this.createTask(args.model)).id;
+    const taskId = (await this.createTask(args.model, args.taskId)).id;
 
     try {
       if (args.stream) {

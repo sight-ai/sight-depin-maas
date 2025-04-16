@@ -106,6 +106,7 @@ export const $ollamaFunction = z.object({
  * - context: (deprecated) conversation context.
  */
 export const OllamaGenerateRequest = z.object({
+  taskId: z.string().optional(),
   model: z.string(),
   prompt: z.string(),
   suffix: z.string().optional(),
@@ -163,6 +164,7 @@ export const ollamaChoice = z.object({
 });
 
 export const OllamaChatRequest = z.object({
+  taskId: z.string().optional(),
   model: z.string(),
   messages: z.array(z.object({
     role: z.string(),

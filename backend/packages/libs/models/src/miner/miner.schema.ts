@@ -34,6 +34,7 @@ export const Task = z.object({
 });
 
 export const CreateTaskRequest = z.object({
+  id: z.string().optional(),
   model: z.string(),
   created_at: z.coerce.date().transform((date) => date.toISOString()),
   status: z.enum(['in-progress', 'failed', 'succeed']),

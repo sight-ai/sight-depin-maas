@@ -164,7 +164,10 @@ export class DefaultTunnelService implements TunnelService {
     try {
       this.logger.debug(`Processing non-stream chat request: ${serverData.taskId}`);
       const data = await got.post('http://localhost:8716/api/chat', {
-        json: serverData.data,
+        json: {
+          ...serverData.data,
+          taskId: serverData.taskId
+        },
         timeout: { request: 30000 }
       }).json();
 
@@ -186,7 +189,10 @@ export class DefaultTunnelService implements TunnelService {
       this.logger.debug(`Processing stream chat request: ${serverData.taskId}`);
       const stream = got.stream('http://localhost:8716/api/chat', {
         method: 'POST',
-        json: serverData.data,
+        json: {
+          ...serverData.data,
+          taskId: serverData.taskId
+        },
         timeout: { request: 30000 }
       });
 
@@ -221,7 +227,10 @@ export class DefaultTunnelService implements TunnelService {
     try {
       this.logger.debug(`Processing non-stream generate request: ${serverData.taskId}`);
       const data = await got.post('http://localhost:8716/api/generate', {
-        json: serverData.data,
+        json: {
+          ...serverData.data,
+          taskId: serverData.taskId
+        },
         timeout: { request: 30000 }
       }).json();
 
@@ -243,7 +252,10 @@ export class DefaultTunnelService implements TunnelService {
       this.logger.debug(`Processing stream generate request: ${serverData.taskId}`);
       const stream = got.stream('http://localhost:8716/api/generate', {
         method: 'POST',
-        json: serverData.data,
+        json: {
+          ...serverData.data,
+          taskId: serverData.taskId
+        },
         timeout: { request: 30000 }
       });
 
