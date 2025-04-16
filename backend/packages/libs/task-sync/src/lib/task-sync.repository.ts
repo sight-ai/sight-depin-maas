@@ -3,22 +3,6 @@ import { PersistentService } from "@saito/persistent";
 import { DatabaseTransactionConnection } from "slonik";
 import { SQL } from "@saito/common";
 
-type TaskStatus = 'in-progress' | 'failed' | 'succeed';
-
-const mapTaskStatus = (status: string): TaskStatus => {
-  console.log('status', status);
-  switch (status) {
-    case 'succeed':
-      return 'succeed';
-    case 'failed':
-      return 'failed';
-    case 'in-progress':
-      return 'in-progress';
-    default:
-      return 'failed';
-  }
-};
-
 export class TaskSyncRepository {
   constructor(
     @Inject(PersistentService)
@@ -52,7 +36,7 @@ export class TaskSyncRepository {
       if (result.status === 'completed') {
         await conn.query(SQL.unsafe`
           UPDATE saito_miner.tasks 
-          SET status = ${mapTaskStatus(result.status)}
+          SET status = ${result.status}
           WHERE id = ${taskId}
         `);
       }
@@ -82,14 +66,13 @@ export class TaskSyncRepository {
     eval_duration: number;
     updated_at: string;
   }): Promise<void> {
-    const mappedStatus = mapTaskStatus(task.status);
     await conn.query(SQL.unsafe`
       INSERT INTO saito_miner.tasks (
         id, model, created_at, status, total_duration,
         load_duration, prompt_eval_count, prompt_eval_duration,
         eval_count, eval_duration, updated_at, source
       ) VALUES (
-        ${task.id}, ${task.model}, ${task.created_at}, ${mappedStatus},
+        ${task.id}, ${task.model}, ${task.created_at}, ${task.status},
         ${task.total_duration}, ${task.load_duration}, ${task.prompt_eval_count},
         ${task.prompt_eval_duration}, ${task.eval_count}, ${task.eval_duration},
         ${task.updated_at}, 'gateway'
