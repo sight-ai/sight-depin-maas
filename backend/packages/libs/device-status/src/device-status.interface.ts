@@ -1,5 +1,5 @@
 export abstract class DeviceStatusService {
-  abstract register(): Promise<{
+  abstract register( body: { code: string, gateway_address: string, reward_address: string, key: string }): Promise<{
     success: boolean,
     error: string
   }>;
@@ -39,4 +39,6 @@ export abstract class DeviceStatusService {
   abstract getDeviceId(): Promise<string>;
   abstract getDeviceName(): Promise<string>;
   abstract getRewardAddress(): Promise<string>;
+  abstract getGatewayAddress(): Promise<string>;
+  abstract getKey(): Promise<string>;
 }

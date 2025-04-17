@@ -3,7 +3,6 @@ import { PersistentService } from "@saito/persistent";
 import { DatabaseTransactionConnection } from "slonik";
 import { SQL } from "@saito/common";
 import { m, ModelOfMiner } from "@saito/models";
-import { z } from "zod";
 
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -39,7 +38,7 @@ export class MinerRepository {
       select 
         coalesce(sum(block_rewards::float), 0) as total_block_rewards,
         coalesce(sum(job_rewards::float), 0) as total_job_rewards
-      from saito_miner.earnings;
+      from saito_miner.earnings where source = 'gateway';
     `);
 
     // 获取设备状态
@@ -63,7 +62,7 @@ export class MinerRepository {
       select 
         count(distinct date_trunc('day', created_at))::float / 30.0 * 100 as uptime_percentage
       from saito_miner.tasks
-      where created_at >= now() - interval '30 days';
+      where created_at >= now() - interval '30 days' and source = 'gateway';
     `);
 
     // 获取收益数据
@@ -82,6 +81,7 @@ export class MinerRepository {
       from dates d
       left join saito_miner.earnings e
         on date_trunc('day', e.created_at) = d.day
+      where e.source = 'gateway'
       group by d.day
       order by d.day;
     `);
@@ -104,7 +104,7 @@ export class MinerRepository {
         coalesce(count(t.id), 0) as request_count
       from dates d
       left join saito_miner.tasks t
-        on date_trunc(${groupByUnit}, t.created_at) = d.time_point
+        on date_trunc(${groupByUnit}, t.created_at) = d.time_point and t.source = 'gateway'
       group by d.time_point
       order by d.time_point;
     `);
@@ -257,6 +257,25 @@ export class MinerRepository {
     return task;
   }
 
+  async updateStaleInProgressTasks(
+    conn: DatabaseTransactionConnection,
+    timeoutMinutes: number = 5
+  ) {
+    const staleTasksResult = await conn.query(SQL.type(
+      m.miner('task')
+    )`
+      update saito_miner.tasks
+      set 
+        status = 'failed',
+        updated_at = now()
+      where status = 'in-progress'
+        and created_at < now() - interval '${timeoutMinutes} minutes'
+      returning *;
+    `);
+    
+    return staleTasksResult.rows;
+  }
+
   async createEarnings(
     conn: DatabaseTransactionConnection,
     blockRewards: number,
@@ -302,7 +321,8 @@ export class MinerRepository {
       prompt_eval_duration,
       eval_count,
       eval_duration,
-      updated_at
+      updated_at,
+      source
     from saito_miner.tasks
     order by created_at desc
     limit ${limit} offset ${offset};

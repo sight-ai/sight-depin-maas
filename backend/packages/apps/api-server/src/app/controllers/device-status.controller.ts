@@ -9,12 +9,12 @@ export class DeviceStatusController {
   ) { }
 
   @Post('/register')
-  async register(@Res() res: Response) {
+  async register(@Res() res: Response, @Body() body: { code: string, gateway_address: string, reward_address: string, key: string }) {
     try {
       const data: {
         success: boolean,
         error: string
-      } = await this.deviceStatusService.register();
+      } = await this.deviceStatusService.register(body);
       if (data.success) {
         res.status(200).send('Registration successful, starting heartbeat');
       } else {

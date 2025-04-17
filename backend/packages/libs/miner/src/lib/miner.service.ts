@@ -1,9 +1,12 @@
 import { DeviceInfo, EarningInfo, JSONType, ModelOfMiner, Statistics, Task } from "@saito/models";
 import { MinerService } from "./miner.interface";
 import { MinerRepository } from "./miner.repository";
-import { Inject } from "@nestjs/common";
+import { Inject, Logger } from "@nestjs/common";
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 export class DefaultMinerService implements MinerService {
+  private readonly logger = new Logger(DefaultMinerService.name);
+
   constructor(
     @Inject(MinerRepository) private readonly repository: MinerRepository,
   ) {}
@@ -43,6 +46,21 @@ export class DefaultMinerService implements MinerService {
     return this.repository.transaction(async conn => {
       return this.repository.createEarnings(conn, blockRewards, jobRewards);
     })
+  }
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  async handleStaleInProgressTasks() {
+    try {
+      const updatedTasks = await this.repository.transaction(async conn => {
+        return this.repository.updateStaleInProgressTasks(conn, 5);
+      });
+      
+      if (updatedTasks.length > 0) {
+        this.logger.log(`Updated ${updatedTasks.length} stale in-progress tasks to failed status`);
+      }
+    } catch (error) {
+      this.logger.error('Failed to update stale tasks', error);
+    }
   }
 }
 

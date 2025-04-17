@@ -23,7 +23,10 @@ export class DeviceStatusRepository {
     deviceId: string,
     name: string,
     status: "online" | "offline",
-    rewardAddress: string
+    rewardAddress: string,
+    gatewayAddress: string,
+    key: string,
+    code: string
   ) {
     console.log('deviceId', deviceId);
     const now = toISOString(new Date()); // Convert date to ISO string for SQL compatibility
@@ -37,15 +40,15 @@ export class DeviceStatusRepository {
 ),
 updated AS (
     UPDATE saito_miner.device_status
-    SET status = ${status}, updated_at = ${now}, reward_address = ${rewardAddress}
+    SET status = ${status}, updated_at = ${now}, reward_address = ${rewardAddress}, gateway_address = ${gatewayAddress}, key = ${key}, code = ${code}
     WHERE device_id = ${deviceId}
     RETURNING * -- Return the updated row
 )
-INSERT INTO saito_miner.device_status (device_id, name, status, up_time_start, created_at, updated_at, reward_address)
+INSERT INTO saito_miner.device_status (device_id, name, status, up_time_start, created_at, updated_at, reward_address, gateway_address, key, code)
 SELECT COALESCE(${deviceId}, 'default_id'), 
        COALESCE(${name}, 'default_name'), 
        COALESCE(${status}, 'unknown_status'), 
-       ${now}, ${now}, ${now}, ${rewardAddress}
+       ${now}, ${now}, ${now}, ${rewardAddress}, ${gatewayAddress}, ${key}, ${code}
 WHERE NOT EXISTS (SELECT 1 FROM updated);
     `);
   }

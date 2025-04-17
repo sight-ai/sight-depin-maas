@@ -23,21 +23,21 @@ export default function ({summary, type = 'earnings', timeRange}: {summary: Summ
     xAxis: [{
       type: 'category',
       boundaryGap: false,
-      data: Array.from({length: type === 'requests' ? (timeRange === 'daily' ? 24 : timeRange === 'weekly' ? 7 : 30) : 30}, (_, i) => {
+      data: Array.from({length: type === 'requests' ? (timeRange === 'daily' ? 24 : timeRange === 'weekly' ? 8 : 31) : 31}, (_, i) => {
         const date = new Date();
         if (type === 'requests') {
           if (timeRange === 'daily') {
             date.setHours(date.getHours() - (23 - i));
             return `${date.getHours()}:00`;
           } else if (timeRange === 'weekly') {
-            date.setDate(date.getDate() - (6 - i));
+            date.setDate(date.getDate() - (7 - i));
             return `${date.getDate()}\n${date.toLocaleString('default', { month: 'short' })}`;
           } else {
-            date.setDate(date.getDate() - (29 - i));
+            date.setDate(date.getDate() - (30 - i));
             return `${date.getDate()}\n${date.toLocaleString('default', { month: 'short' })}`;
           }
         } else {
-          date.setDate(date.getDate() - (29 - i));
+          date.setDate(date.getDate() - (30 - i));
           return `${date.getDate()}\n${date.toLocaleString('default', { month: 'short' })}`;
         }
       }),

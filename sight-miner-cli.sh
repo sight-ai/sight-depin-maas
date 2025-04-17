@@ -164,6 +164,22 @@ get_gpu_info() {
   esac
 }
 
+# Function to open URL in default browser
+open_browser() {
+  local url=$1
+  case "$(uname -s)" in
+    Linux*)
+      if command -v xdg-open > /dev/null; then
+        xdg-open "$url" > /dev/null 2>&1
+      elif command -v wslview > /dev/null; then
+        wslview "$url" > /dev/null 2>&1
+      fi
+      ;;
+    Darwin*)  open "$url" ;;
+    CYGWIN*|MINGW*|MSYS*) cmd.exe /c start "$url" ;;
+  esac
+}
+
 # Main execution function
 run() {
   # Check Ollama service first
@@ -194,7 +210,7 @@ run() {
   # Replace newline characters in GPU_MODEL
   GPU_MODEL=$(echo "$GPU_MODEL" | sed ':a;N;$!ba;s/\n/ /g')
 
-   # Download docker-compose.yml file
+  #  Download docker-compose.yml file
    DOCKER_COMPOSE_URL="https://sightai.io/model/local/docker-compose.yml"
    DOCKER_COMPOSE_FILE="docker-compose.yml"
 
@@ -245,13 +261,76 @@ EOL
   # Register device status
   echo "Calling API: $REGISTER_URL"
 
-  RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$REGISTER_URL")
-  if [ "$RESPONSE" -eq 200 ]; then
-    echo "API call successful, status code: $RESPONSE"
+  # Create JSON data with proper variable expansion
+  JSON_DATA=$(cat <<EOF
+{
+  "code": "$NODE_CODE",
+  "gateway_address": "$GATEWAY_API_URL",
+  "reward_address": "$REWARD_ADDRESS",
+  "key": "$GATEWAY_API_KEY",
+  "device_type": "$os",
+  "gpu_type": "$GPU_MODEL"
+}
+EOF
+)
+
+  echo "Sending registration data: $JSON_DATA"
+
+  # Make the API call and capture both response code and response body
+  RESPONSE=$(curl -s -X POST "$REGISTER_URL" \
+    -H "Content-Type: application/json" \
+    -d "$JSON_DATA" \
+    -w "\n%{http_code}")
+
+  # Extract the response body and status code
+  RESPONSE_BODY=$(echo "$RESPONSE" | head -n -1)
+  STATUS_CODE=$(echo "$RESPONSE" | tail -n 1)
+
+  echo "Response body: $RESPONSE_BODY"
+  echo "Status code: $STATUS_CODE"
+
+  if [ "$STATUS_CODE" -eq 200 ]; then
+    echo "API call successful, status code: $STATUS_CODE"
     sleep 5
-    echo "Please open link: http://localhost:3000/"
+    
+    # Install and start Open WebUI
+    echo "Installing Open WebUI..."
+    if docker ps -a | grep -q open-webui; then
+      echo "Removing existing Open WebUI container..."
+      docker rm -f open-webui
+    fi
+
+    echo "Starting Open WebUI..."
+    if docker run -d \
+      -p 8080:8080 \
+      -e OLLAMA_BASE_URL=$GATEWAY_API_URL \
+      --add-host=host.docker.internal:host-gateway \
+      -v ollama:/root/.ollama \
+      -v open-webui:/app/backend/data \
+      --name open-webui \
+      --restart always \
+      ghcr.io/open-webui/open-webui:ollama; then
+      echo "Open WebUI started successfully"
+    else
+      echo "Failed to start Open WebUI"
+      exit 1
+    fi
+
+    # Wait for services to start
+    echo "Waiting for services to start..."
+    sleep 5
+
+    # Open browsers
+    echo "Opening web interfaces..."
+    open_browser "http://localhost:3000"
+    sleep 2
+    open_browser "http://localhost:8080"
+
+    echo "Setup complete! You can access:"
+    echo "- Sight AI Miner at: http://localhost:3000"
+    echo "- Open WebUI at: http://localhost:8080"
   else
-    echo "API call failed, status code: $RESPONSE"
+    echo "API call failed, status code: $STATUS_CODE"
     exit 1
   fi
 }

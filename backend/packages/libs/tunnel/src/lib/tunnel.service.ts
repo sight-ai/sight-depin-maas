@@ -5,27 +5,34 @@ import { io, Socket } from "socket.io-client";
 import { OllamaService } from "@saito/ollama";
 import got from "got-cjs";
 import { OllamaChatRequest, OllamaGenerateRequest } from '@saito/models'
-
 export class DefaultTunnelService implements TunnelService {
-  private readonly gatewayUrl = env().GATEWAY_API_URL || 'https://sightai.io';
-  private readonly gatewayPath = '/api/model/socket.io';
   private readonly logger = new Logger(DefaultTunnelService.name);
-  private readonly socket: Socket;
+  socket: Socket;
   node_id: string = '';
   private reconnectAttempts: number = 0;
   private readonly maxReconnectAttempts: number = 5;
-  private readonly reconnectDelay: number = 5000; // 5秒
+  private readonly reconnectDelay: number = 1000; // 1秒，与测试一致
+  gatewayUrl: string = '';
 
   constructor(
     private readonly ollamaService: OllamaService,
   ) {
-    // 解析基础URL和路径
-    const baseUrl = this.gatewayUrl.endsWith('/api/model') 
-      ? this.gatewayUrl.slice(0, -'/api/model'.length)
-      : this.gatewayUrl;
+    this.socket = io();
+  }
+  async createSocket(gatewayAddress: string, key: string, code: string): Promise<void> {
+    // 从完整地址中提取基础URL和路径
+    const url = new URL(gatewayAddress);
+    this.gatewayUrl = `${url.protocol}//${url.host}`;
+    // const basePath = '/api/model';  // 代理转发的基础路径
+    const basePath = '';  // 代理转发的基础路径
+    const socketPath = `${basePath}/socket.io`;  // 完整的socket.io路径
 
-    this.socket = io(baseUrl, {
-      path: env().NODE_ENV === 'development' ? '/socket.io' : this.gatewayPath,
+    this.logger.debug(`Connecting to Socket.IO server:`);
+    this.logger.debug(`Base URL: ${this.gatewayUrl}`);
+    this.logger.debug(`Socket.IO Path: ${socketPath}`);
+
+    this.socket = io(this.gatewayUrl, {
+      path: socketPath,
       reconnection: true,
       reconnectionAttempts: this.maxReconnectAttempts,
       reconnectionDelay: this.reconnectDelay,
@@ -35,17 +42,19 @@ export class DefaultTunnelService implements TunnelService {
       secure: true,
       rejectUnauthorized: false,
       extraHeaders: {
-        'Origin': baseUrl
+        'Origin': this.gatewayUrl,
+        'Authorization': `Bearer ${key}`
       }
     });
-    
+
     this.setupSocketListeners();
   }
-
-  private setupSocketListeners(): void {
+  setupSocketListeners(): void {
     this.socket.on('connect', () => {
       this.logger.log('Socket connected successfully');
       this.logger.log(`Socket ID: ${this.socket.id}`);
+      this.logger.debug(`Socket Path: ${this.socket.io.opts.path}`);
+      this.logger.debug(`Using URL: ${this.gatewayUrl}`);
       this.reconnectAttempts = 0;
     });
 
@@ -56,6 +65,8 @@ export class DefaultTunnelService implements TunnelService {
     this.socket.on('connect_error', (error: Error) => {
       this.logger.error(`Socket connection error: ${error.message}`);
       this.logger.error('Detailed error:', error);
+      this.logger.debug(`Socket Path: ${this.socket.io.opts.path}`);
+      this.logger.debug(`Attempted URL: ${this.gatewayUrl}`);
     });
 
     this.socket.on('reconnect_attempt', (attemptNumber: number) => {
@@ -76,189 +87,41 @@ export class DefaultTunnelService implements TunnelService {
     });
   }
 
-  private async handleServerMessage(message: string): Promise<void> {
+  handleServerMessage(message: string): Promise<void | undefined> {
     try {
       const serverData = JSON.parse(message);
-      
+
       switch (serverData.type) {
         case 'chat_request_stream':
-          await this.chatRequestStream(serverData);
-          break;
+          return this.chatRequestStream(serverData);
         case 'chat_request_no_stream':
-          await this.chatRequestNoStream(serverData);
-          break;
+          return this.chatRequestNoStream(serverData);
         case 'generate_request_stream':
-          await this.generateRequestStream(serverData);
-          break;
+          return this.generateRequestStream(serverData);
         case 'generate_request_no_stream':
-          await this.generateRequestNoStream(serverData);
-          break;
+          return this.generateRequestNoStream(serverData);
         case 'proxy_request':
-          await this.proxyRequest(serverData);
-          break;
+          return this.proxyRequest(serverData);
         default:
           this.logger.warn(`Unknown message type: ${serverData.type}`);
+          return Promise.resolve();
       }
     } catch (error) {
       this.logger.error(`Error processing message: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return Promise.resolve();
     }
   }
 
-  private handleDisconnect(): void {
+  handleDisconnect(): void {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
       this.logger.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
-      
+
       setTimeout(() => {
         this.connectSocket(this.node_id);
       }, this.reconnectDelay);
     } else {
       this.logger.error('Max reconnection attempts reached');
-    }
-  }
-
-  async chatRequestNoStream(serverData: { taskId: string, data: typeof OllamaChatRequest }): Promise<void> {
-    try {
-      this.logger.debug(`Processing non-stream chat request: ${serverData.taskId}`);
-      const data = await got.post('http://localhost:8716/api/chat', {
-        json: serverData.data,
-        timeout: { request: 30000 }
-      }).json();
-
-      this.socket.emit('register_stream_no_handler', {
-        taskId: serverData.taskId,
-        content: JSON.stringify(data)
-      });
-    } catch (error) {
-      this.logger.error(`Error in chatRequestNoStream: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      this.socket.emit('register_stream_no_handler', {
-        taskId: serverData.taskId,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  }
-
-  async chatRequestStream(serverData: { taskId: string, data: typeof OllamaChatRequest }): Promise<void> {
-    try {
-      this.logger.debug(`Processing stream chat request: ${serverData.taskId}`);
-      const stream = got.stream('http://localhost:8716/api/chat', {
-        method: 'POST',
-        json: serverData.data,
-        timeout: { request: 30000 }
-      });
-
-      stream.on('error', (error: Error) => {
-        this.logger.error(`Stream error: ${error.message}`);
-        this.socket.emit('chat_stream', {
-          taskId: serverData.taskId,
-          error: error.message
-        });
-      });
-
-      stream.on('data', (data: Buffer) => {
-        try {
-          this.socket.emit('chat_stream', {
-            taskId: serverData.taskId,
-            content: data.toString()
-          });
-        } catch (error) {
-          this.logger.error(`Error processing stream data: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-      });
-    } catch (error) {
-      this.logger.error(`Error in chatRequestStream: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      this.socket.emit('chat_stream', {
-        taskId: serverData.taskId,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  }
-
-  async generateRequestNoStream(serverData: { taskId: string, data: typeof OllamaGenerateRequest }): Promise<void> {
-    try {
-      this.logger.debug(`Processing non-stream generate request: ${serverData.taskId}`);
-      const data = await got.post('http://localhost:8716/api/generate', {
-        json: serverData.data,
-        timeout: { request: 30000 }
-      }).json();
-
-      this.socket.emit('register_stream_no_handler', {
-        taskId: serverData.taskId,
-        content: JSON.stringify(data)
-      });
-    } catch (error) {
-      this.logger.error(`Error in generateRequestNoStream: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      this.socket.emit('register_stream_no_handler', {
-        taskId: serverData.taskId,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  }
-
-  async generateRequestStream(serverData: { taskId: string, data: typeof OllamaGenerateRequest }): Promise<void> {
-    try {
-      this.logger.debug(`Processing stream generate request: ${serverData.taskId}`);
-      const stream = got.stream('http://localhost:8716/api/generate', {
-        method: 'POST',
-        json: serverData.data,
-        timeout: { request: 30000 }
-      });
-
-      stream.on('error', (error: Error) => {
-        this.logger.error(`Stream error: ${error.message}`);
-        this.socket.emit('generate_stream', {
-          taskId: serverData.taskId,
-          error: error.message
-        });
-      });
-
-      stream.on('data', (data: Buffer) => {
-        try {
-          this.socket.emit('generate_stream', {
-            taskId: serverData.taskId,
-            content: data.toString()
-          });
-        } catch (error) {
-          this.logger.error(`Error processing stream data: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-      });
-    } catch (error) {
-      this.logger.error(`Error in generateRequestStream: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      this.socket.emit('generate_stream', {
-        taskId: serverData.taskId,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  }
-
-  async proxyRequest(serverData: { taskId: string, data: any }): Promise<void> {
-    try {
-      this.logger.debug(`Processing proxy request: ${serverData.taskId}`);
-      const reqData = serverData.data;
-      
-      const response = await got(`http://localhost:8716${reqData.url}`, {
-        method: reqData.method,
-        headers: reqData.headers,
-        timeout: { request: 30000 },
-        responseType: 'json',
-        ...(reqData.method !== 'GET' && reqData.body ? { body: JSON.stringify(reqData.body) } : {})
-      });
-      
-      this.socket.emit('proxy_response', {
-        taskId: serverData.taskId,
-        content: {
-          headers: response.headers,
-          body: response.body,
-          statusCode: response.statusCode
-        },
-        statusCode: response.statusCode
-      });
-    } catch (error) {
-      this.logger.error(`Proxy request error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      this.socket.emit('proxy_response', {
-        taskId: serverData.taskId,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
     }
   }
 
@@ -296,9 +159,184 @@ export class DefaultTunnelService implements TunnelService {
   getOneTimeCode(): string {
     return this.node_id;
   }
+
+  async chatRequestNoStream(serverData: { taskId: string, data: typeof OllamaChatRequest }): Promise<void> {
+    try {
+      this.logger.debug(`Processing non-stream chat request: ${serverData.taskId}`);
+      const data = await got.post('http://localhost:8716/api/chat', {
+        json: {
+          ...serverData.data,
+          taskId: serverData.taskId
+        },
+        timeout: { request: 30000 }
+      }).json();
+
+      this.socket.emit('register_stream_no_handler', {
+        taskId: serverData.taskId,
+        content: JSON.stringify(data)
+      });
+    } catch (error) {
+      this.logger.error(`Error in chatRequestNoStream: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.socket.emit('register_stream_no_handler', {
+        taskId: serverData.taskId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  async chatRequestStream(serverData: { taskId: string, data: typeof OllamaChatRequest }): Promise<void> {
+    try {
+      this.logger.debug(`Processing stream chat request: ${serverData.taskId}`);
+      const stream = got.stream('http://localhost:8716/api/chat', {
+        method: 'POST',
+        json: {
+          ...serverData.data,
+          taskId: serverData.taskId
+        },
+        timeout: { request: 30000 }
+      });
+
+      stream.on('error', (error: Error) => {
+        this.logger.error(`Stream error: ${error.message}`);
+        this.socket.emit('chat_stream', {
+          taskId: serverData.taskId,
+          error: error.message
+        });
+      });
+
+      stream.on('data', (data: Buffer) => {
+        try {
+          this.socket.emit('chat_stream', {
+            taskId: serverData.taskId,
+            content: data.toString()
+          });
+        } catch (error) {
+          this.logger.error(`Error processing stream data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      });
+    } catch (error) {
+      this.logger.error(`Error in chatRequestStream: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.socket.emit('chat_stream', {
+        taskId: serverData.taskId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  async generateRequestNoStream(serverData: { taskId: string, data: typeof OllamaGenerateRequest }): Promise<void> {
+    try {
+      this.logger.debug(`Processing non-stream generate request: ${serverData.taskId}`);
+      const data = await got.post('http://localhost:8716/api/generate', {
+        json: {
+          ...serverData.data,
+          taskId: serverData.taskId
+        },
+        timeout: { request: 30000 }
+      }).json();
+
+      this.socket.emit('register_stream_no_handler', {
+        taskId: serverData.taskId,
+        content: JSON.stringify(data)
+      });
+    } catch (error) {
+      this.logger.error(`Error in generateRequestNoStream: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.socket.emit('register_stream_no_handler', {
+        taskId: serverData.taskId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  async generateRequestStream(serverData: { taskId: string, data: typeof OllamaGenerateRequest }): Promise<void> {
+    try {
+      this.logger.debug(`Processing stream generate request: ${serverData.taskId}`);
+      const stream = got.stream('http://localhost:8716/api/generate', {
+        method: 'POST',
+        json: {
+          ...serverData.data,
+          taskId: serverData.taskId
+        },
+        timeout: { request: 30000 }
+      });
+
+      stream.on('error', (error: Error) => {
+        this.logger.error(`Stream error: ${error.message}`);
+        this.socket.emit('generate_stream', {
+          taskId: serverData.taskId,
+          error: error.message
+        });
+      });
+
+      stream.on('data', (data: Buffer) => {
+        try {
+          this.socket.emit('generate_stream', {
+            taskId: serverData.taskId,
+            content: data.toString()
+          });
+        } catch (error) {
+          this.logger.error(`Error processing stream data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      });
+    } catch (error) {
+      this.logger.error(`Error in generateRequestStream: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.socket.emit('generate_stream', {
+        taskId: serverData.taskId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  async proxyRequest(serverData: { taskId: string, data: { method: string, url: string, headers: Record<string, string>, body: Record<string, string> } }): Promise<void> {
+    try {
+      this.logger.debug(`Processing proxy request: ${serverData.taskId}`);
+      console.log(serverData.data, serverData.data.method.toLowerCase(), `http://localhost:8716${serverData.data.url}`);
+      let data;
+      const baseOptions = {
+        timeout: { request: 30000 },
+        headers: serverData.data.headers
+      };
+
+      switch (serverData.data.method.toLowerCase()) {
+        case 'get':
+          data = await got.get(`http://localhost:8716${serverData.data.url}`, baseOptions).json();
+          break;
+        case 'post':
+          data = await got.post(`http://localhost:8716${serverData.data.url}`, {
+            ...baseOptions,
+            json: serverData.data.body
+          }).json();
+          break;
+        case 'put':
+          data = await got.put(`http://localhost:8716${serverData.data.url}`, {
+            ...baseOptions,
+            json: serverData.data.body
+          }).json();
+          break;
+        case 'delete':
+          data = await got.delete(`http://localhost:8716${serverData.data.url}`, {
+            ...baseOptions,
+            json: serverData.data.body
+          }).json();
+          break;
+        default:
+          throw new Error(`Unsupported HTTP method: ${serverData.data.method}`);
+      }
+
+      this.socket.emit('proxy_response', {
+        taskId: serverData.taskId,
+        content: JSON.stringify(data)
+      });
+    } catch (error) {
+      this.logger.error(`Error in proxyRequest: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.socket.emit('proxy_response', {
+        taskId: serverData.taskId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
 }
 
 export const TunnelServiceProvider = {
   provide: TunnelService,
-  useClass: DefaultTunnelService
+  useClass: DefaultTunnelService,
 };

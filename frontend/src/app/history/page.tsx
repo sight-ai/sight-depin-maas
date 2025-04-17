@@ -66,8 +66,9 @@ export default function HistoryPage() {
                                                 <Tooltip 
                                                     title={
                                                         <div>
-                                                            <p style={{ color: '#ff4d4f' }}>Device not registered with gateway</p>
-                                                            <a href="https://sightai.io/model/gateway" target="_blank" style={{ color: '#1890ff' }}>Click here to register</a>
+                                                            <p style={{ color: '#ff4d4f' }}>This is an estimate reward. 
+                                                           </p>
+                                                            <a href="https://sightai.io/model/gateway" target="_blank" style={{ color: '#1890ff' }}> Connect gateway to see actual rewards!</a>
                                                         </div>
                                                     }
                                                     color={isDark ? '#1a1a1a' : '#fff'}
@@ -79,6 +80,11 @@ export default function HistoryPage() {
                                                     }}>?</span>
                                                 </Tooltip>
                                             )}
+                                        </div>
+                                    </th>
+                                    <th className="flex-1 px-6 py-3 flex justify-center" style={{ minWidth: '120px' }}>
+                                        <div className='text-center text-base font-bold text-white bg-black rounded-lg' style={{ width: 100, padding: 10, borderRadius: 30, backgroundColor: '#000', color: '#fff' }}>
+                                            Source
                                         </div>
                                     </th>
                                     <th className="flex-1 px-6 py-3 flex justify-center" style={{ minWidth: '120px' }}>
@@ -147,14 +153,27 @@ export default function HistoryPage() {
                                         <td className="flex-1 px-6 py-4 text-center text-base" style={{ minWidth: '120px', color: isDark ? '#fff' : '#000' }}>
                                             {item.reward}
                                         </td>
+                                        <td className="flex-1 px-6 py-4 text-center text-base" style={{ minWidth: '120px' }}>
+                                            <div style={{
+                                                display: 'inline-block',
+                                                padding: '4px 12px',
+                                                borderRadius: '4px',
+                                                backgroundColor: item.source === 'local' ? (isDark ? '#2d2d2d' : '#f0f0f0') : (isDark ? '#1a3a1a' : '#e6f7e6'),
+                                                color: item.source === 'local' ? (isDark ? '#fff' : '#000') : (isDark ? '#4caf50' : '#2e7d32'),
+                                                fontSize: '14px',
+                                                fontWeight: '500'
+                                            }}>
+                                                {item.source === 'local' ? 'Local' : 'Gateway'}
+                                            </div>
+                                        </td>
                                         <td className="flex-1 px-6 py-4 text-center text-base" style={{ minWidth: '120px', color: isDark ? '#fff' : '#000' }}>
-                                            {new Date().toLocaleString('en-US', {
+                                            {new Date(item.updated_at).toLocaleString('en-US', {
                                                 hour: '2-digit',
                                                 minute: '2-digit',
                                                 hour12: false,
                                             })}
                                             <br />
-                                            {new Date().toLocaleDateString('en-US', {
+                                            {new Date(item.updated_at).toLocaleDateString('en-US', {
                                                 month: '2-digit',
                                                 day: '2-digit',
                                                 year: 'numeric'

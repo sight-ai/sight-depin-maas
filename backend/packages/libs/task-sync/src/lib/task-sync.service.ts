@@ -1,126 +1,147 @@
-import { Injectable, Inject, forwardRef } from "@nestjs/common";
+import { Injectable, Inject, forwardRef, Logger } from "@nestjs/common";
 import { MinerService } from "@saito/miner";
 import { TaskSyncService, TASK_SYNC_SERVICE } from "./task-sync.interface";
 import { ModelOfMiner } from "@saito/models";
 import got from "got-cjs";
 import { env } from "../../env";
 import { TaskSyncRepository } from "./task-sync.repository";
+import { DeviceStatusService } from "@saito/device-status";
+import { Cron, CronExpression } from "@nestjs/schedule";
+import { DatabaseTransactionConnection } from "slonik";
+import { SQL } from "@saito/common";
+
+interface GatewayResponse<T> {
+  data?: T[];
+  code: number;
+  message: string;
+}
+
 
 @Injectable()
 export class DefaultTaskSyncService implements TaskSyncService {
+  private readonly logger = new Logger(DefaultTaskSyncService.name);
+
   constructor(
     @Inject(forwardRef(() => MinerService))
     private readonly minerService: MinerService,
-    private readonly repository: TaskSyncRepository
+    private readonly repository: TaskSyncRepository,
+    private readonly deviceStatusService: DeviceStatusService
   ) {}
 
-  private convertTaskDates(task: any) {
-    return {
-      ...task,
-      created_at: new Date(task.created_at),
-      updated_at: new Date(task.updated_at)
-    };
-  }
+  @Cron(CronExpression.EVERY_30_SECONDS)
+  async syncTasks(): Promise<void> {
+    const gatewayStatus = await this.deviceStatusService.getGatewayStatus();
+    if (!gatewayStatus.isRegistered) {
+      this.logger.debug('Device not registered, skipping sync');
+      return;
+    }
 
-  private async getDeviceId(): Promise<string> {
-    return this.repository.transaction(conn => this.repository.getCurrentDeviceId(conn));
-  }
+    return this.repository.transaction(async (conn) => {
+      // First update any existing tasks with incorrect status
+      await this.repository.updateExistingTaskStatuses(conn);
 
-  async getTasks(page: number, limit: number) {
-    const deviceId = await this.getDeviceId();
-    try {
-      // Try to get tasks from gateway first
-      const { data } = await got.get(`${env().GATEWAY_API_URL}/tasks?deviceId=${deviceId}`, {
-        headers: {
-          'Authorization': `Bearer ${env().GATEWAY_API_KEY}`
-        },
-        searchParams: {
-          page,
-          limit
-        }
-      }).json() as { data: { tasks: ModelOfMiner<'task'>[]; total: number } };
-
-      const convertedTasks = data.tasks.map(task => this.convertTaskDates(task));
-      // Sync all tasks to local database
-      await Promise.all(
-        convertedTasks.map(task => 
-          this.minerService.updateTask(task.id, task)
-        )
-      );
+      const deviceId = await this.repository.getCurrentDeviceId(conn);
+      const gatewayAddress = await this.deviceStatusService.getGatewayAddress();
+      const key = await this.deviceStatusService.getKey();
       
-      return {
-        page,
-        limit,
-        total: data.total,
-        tasks: convertedTasks
-      };
-    } catch (error) {
-      // If gateway request fails, fallback to local
-      return this.minerService.getTaskHistory(page, limit);
-    }
+      if (!gatewayAddress) {
+        this.logger.warn('Gateway address not available, skipping sync');
+        return;
+      }
+
+      try {
+        const response = await got.get(`${gatewayAddress}/sync/tasks`, {
+          headers: {
+            'X-Device-ID': deviceId,
+            'Authorization': `Bearer ${key}`
+          }
+        }).json() as GatewayResponse<any> | any[];
+
+        this.logger.debug('Raw tasks response from gateway:', response);
+        
+        // Check if response is null or undefined
+        if (!response) {
+          this.logger.warn('Gateway tasks response is null or undefined');
+          return;
+        }
+
+        const gatewayTasks = Array.isArray(response) ? response : 
+                            (response.data && Array.isArray(response.data)) ? response.data : [];
+
+        if (!Array.isArray(gatewayTasks)) {
+          this.logger.warn('Unexpected response format from gateway tasks endpoint. Expected array, got:', 
+            typeof gatewayTasks, 'Response structure:', JSON.stringify(response));
+          return;
+        }
+        
+        for (const task of gatewayTasks) {
+          const exists = await this.repository.findExistingTask(conn, task.id);
+          if (!exists) {
+            await this.repository.createTask(conn, task);
+          }
+        }
+      } catch (error) {
+        this.logger.error('Error syncing tasks:', error);
+        throw error;
+      }
+    });
   }
 
-  async syncTasksFromGateway(): Promise<void> {
-    const deviceId = await this.getDeviceId();
-    try {
-      // Get all tasks from gateway
-      const { data } = await got.get(`${env().GATEWAY_API_URL}/tasks/all?deviceId=${deviceId}`, {
-        headers: {
-          'Authorization': `Bearer ${env().GATEWAY_API_KEY}`
-        }
-      }).json() as { data: ModelOfMiner<'task'>[] };
-
-      const convertedTasks = data.map(task => this.convertTaskDates(task));
-      // Update all tasks in local database
-      await Promise.all(
-        convertedTasks.map(task => 
-          this.minerService.updateTask(task.id, task)
-        )
-      );
-    } catch (error) {
-      console.error('Failed to sync tasks from gateway:', error);
+  @Cron(CronExpression.EVERY_30_SECONDS)
+  async syncEarnings(): Promise<void> {
+    const gatewayStatus = await this.deviceStatusService.getGatewayStatus();
+    if (!gatewayStatus.isRegistered) {
+      this.logger.debug('Device not registered, skipping sync');
+      return;
     }
-  }
 
-  async getSummary(timeRange?: { 
-    request_serials?: 'daily' | 'weekly' | 'monthly',
-    filteredTaskActivity?: { 
-      year?: string; 
-      month?: string; 
-      view?: 'Month' | 'Year' 
-    }
-  }): Promise<ModelOfMiner<'summary'>> {
-    const deviceId = await this.getDeviceId();
-    try {
-      // Try to get summary from gateway first
-      const params = new URLSearchParams();
-      if (timeRange?.request_serials) {
-        params.append('request_serials', timeRange.request_serials);
-      }
-      if (timeRange?.filteredTaskActivity?.year) {
-        params.append('year', timeRange.filteredTaskActivity.year);
-      }
-      if (timeRange?.filteredTaskActivity?.month) {
-        params.append('month', timeRange.filteredTaskActivity.month);
-      }
-      if (timeRange?.filteredTaskActivity?.view) {
-        params.append('view', timeRange.filteredTaskActivity.view);
-      }
-
-      const url = `${env().GATEWAY_API_URL}/summary?deviceId=${deviceId}${params.toString() ? '&' + params.toString() : ''}`;
+    return this.repository.transaction(async (conn) => {
+      const deviceId = await this.repository.getCurrentDeviceId(conn);
+      const gatewayAddress = await this.deviceStatusService.getGatewayAddress();
+      const key = await this.deviceStatusService.getKey();
       
-      const { data } = await got.get(url, {
-        headers: {
-          'Authorization': `Bearer ${env().GATEWAY_API_KEY}`
+      if (!gatewayAddress) {
+        this.logger.warn('Gateway address not available, skipping sync');
+        return;
+      }
+
+      try {
+        const response = await got.get(`${gatewayAddress}/sync/earnings`, {
+          headers: {
+            'X-Device-ID': deviceId,
+            'Authorization': `Bearer ${key}`
+          }
+        }).json() as GatewayResponse<any> | any[];
+
+        this.logger.debug('Raw earnings response from gateway:', response);
+
+        // Check if response is null or undefined
+        if (!response) {
+          this.logger.warn('Gateway earnings response is null or undefined');
+          return;
         }
-      }).json() as { data: ModelOfMiner<'summary'> };
-      
-      return data;
-    } catch (error) {
-      console.error('Failed to get summary from gateway:', error);
-      // If gateway request fails, fallback to local
-      return this.minerService.getSummary(timeRange);
-    }
+
+        // Check if response has a data property that might contain the array
+        const gatewayEarnings = Array.isArray(response) ? response :
+                               (response.data && Array.isArray(response.data)) ? response.data : [];
+
+        if (!Array.isArray(gatewayEarnings)) {
+          this.logger.warn('Unexpected response format from gateway earnings endpoint. Expected array, got:', 
+            typeof gatewayEarnings, 'Response structure:', JSON.stringify(response));
+          return;
+        }
+        
+        for (const earning of gatewayEarnings) {
+          const exists = await this.repository.findExistingEarning(conn, earning.id);
+          if (!exists) {
+            await this.repository.createEarning(conn, earning);
+          }
+        }
+      } catch (error) {
+        this.logger.error('Error syncing earnings:', error);
+        throw error;
+      }
+    });
   }
 }
 
