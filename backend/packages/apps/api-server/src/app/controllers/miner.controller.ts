@@ -49,6 +49,14 @@ export class SummaryQueryDto extends createZodDto(
   })
 ) {}
 
+export class ConnectTaskListQueryDto extends createZodDto(
+  z.object({
+    page: z.coerce.number().min(1).default(1),
+    limit: z.coerce.number().min(1).max(100).default(10),
+    status: z.string().optional()
+  })
+) {}
+
 @Controller('/api/v1/miner')
 export class MinerController {
   private readonly logger = new Logger(MinerController.name);
@@ -126,6 +134,76 @@ export class MinerController {
     } catch (error) {
       this.logger.error(`Error getting current device: ${error}`);
       throw error; // NestJS will convert this to a 500 response
+    }
+  }
+
+  @Get('/connect-task-list')
+  async getConnectTaskList(@Query() query: ConnectTaskListQueryDto) {
+    try {
+      const deviceStatus = await this.deviceStatusService.getCurrentDevice();
+      if (!deviceStatus) {
+        return {
+          code: 400,
+          message: 'Device not found',
+          data: {
+            data: [],
+            total: 0
+          },
+          success: false
+        };
+      }
+
+      const gatewayAddress = await this.deviceStatusService.getGatewayAddress();
+      const key = await this.deviceStatusService.getKey();
+
+      if (!gatewayAddress || !key) {
+        return {
+          code: 400,
+          message: 'Device not properly configured',
+          data: {
+            data: [],
+            total: 0
+          },
+          success: false
+        };
+      }
+
+      const result = await this.minerService.connectTaskList({
+        gateway_address: gatewayAddress,
+        key,
+        page: query.page,
+        limit: query.limit
+      });
+
+      if (result.success && result.data) {
+        return {
+          code: 200,
+          message: 'success',
+          data: result.data,
+          success: true
+        };
+      } else {
+        return {
+          code: 500,
+          message: result.error || 'Failed to fetch connect task list',
+          data: {
+            data: [],
+            total: 0
+          },
+          success: false
+        };
+      }
+    } catch (error) {
+      this.logger.error('Error getting connect task list:', error);
+      return {
+        code: 500,
+        message: error instanceof Error ? error.message : 'An unknown error occurred',
+        data: {
+          data: [],
+          total: 0
+        },
+        success: false
+      };
     }
   }
 }

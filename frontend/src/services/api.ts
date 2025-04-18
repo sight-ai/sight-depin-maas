@@ -1,5 +1,5 @@
 import { request } from '@/utils/request';
-import type { HistoryResponse, PaginationParams, SummaryResponse} from '@/types/api';
+import type { HistoryResponse, PaginationParams, SummaryResponse, NodeResponse } from '@/types/api';
 
 
 export const apiService = {
@@ -52,5 +52,14 @@ export const apiService = {
 
     async getGatewayStatus() {
         return request<{ isRegistered: boolean }>('/device-status/gateway-status', {method: 'GET'});
+    },
+
+    async getNodes(params: PaginationParams & { status: string }): Promise<NodeResponse> {
+        const queryString = new URLSearchParams({
+            page: params.page.toString(),
+            pageSize: params.limit.toString(),
+            status: params.status
+        }).toString();
+        return request<NodeResponse>(`/miner/connect-task-list?${queryString}`);
     }
 };

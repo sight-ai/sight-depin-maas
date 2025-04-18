@@ -5,11 +5,12 @@ import { Header } from '@/components/Header'
 import { MainContent } from '@/components/MainContent'
 import { useHistory } from '@/hooks/useHistory'
 import { useThemeCus } from '@/hooks/useTheme'
-import { Pagination, Select, Tooltip } from 'antd'
+import { Pagination, Select, Tooltip, Button } from 'antd'
 import { useState } from 'react'
 import { ConfigProvider, theme } from 'antd'
 import { useDevice } from '@/hooks/useDevice'
 import { motion, AnimatePresence } from 'framer-motion'
+import { SyncOutlined } from '@ant-design/icons'
 
 const fadeInUp = {
     initial: { opacity: 0, y: 20 },
@@ -30,7 +31,7 @@ const rowAnimation = {
 }
 
 export default function HistoryPage() {
-    const { historyItems, loading, error, page, setPage, pageSize, setPageSize, total } = useHistory()
+    const { historyItems, loading, error, page, setPage, pageSize, setPageSize, total, refreshHistory } = useHistory()
     const { isDark } = useThemeCus()
     const { gatewayStatus } = useDevice()
 
@@ -52,6 +53,7 @@ export default function HistoryPage() {
                 <motion.div variants={fadeInUp}>
                     <Header></Header>
                 </motion.div>
+
                 <motion.div 
                     variants={fadeInUp}
                     style={{
@@ -62,6 +64,23 @@ export default function HistoryPage() {
                 >
                     History
                 </motion.div>
+                <div className="flex justify-between items-center mb-6">
+                    <div className="text-xl font-medium" style={{ color: isDark ? '#fff' : '#000' }}>
+                        History Overview
+                    </div>
+                    <Button 
+                        type="primary"
+                        icon={<SyncOutlined />}
+                        style={{
+                            backgroundColor: isDark ? '#333' : '#f0f0f0',
+                            borderColor: 'transparent',
+                            color: isDark ? '#fff' : '#000'
+                        }}
+                        onClick={refreshHistory}
+                    >
+                        Refresh
+                    </Button>
+                </div>
                 <motion.div
                     variants={fadeInUp}
                 >

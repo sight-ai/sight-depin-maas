@@ -5,6 +5,7 @@ import { Inject, Logger } from "@nestjs/common";
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { DeviceStatusService } from "@saito/device-status";
 import * as R from 'ramda';
+import got from "got-cjs";
 
 // Define request time range types
 type RequestTimeRange = 'daily' | 'weekly' | 'monthly';
@@ -329,6 +330,63 @@ export class DefaultMinerService implements MinerService {
       this.logger.error('Failed to update stale tasks', error);
     }
   }
+
+  async connectTaskList(body: {
+    gateway_address: string;
+    key: string;
+    page: number;
+    limit: number;
+  }): Promise<{
+    success: boolean;
+    error?: string;
+    data?: {
+      data: any[];
+      total: number;
+    };
+  }> {
+      try {
+          const queryString = new URLSearchParams({
+              page: body.page.toString(),
+              limit: body.limit.toString(),
+              status: 'connected'
+          }).toString();
+
+          const response = await got.get(`${body.gateway_address}/node/connect-task-list?${queryString}`, {
+              method: 'GET',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${body.key}`
+              },
+          }).json() as {
+              code: number;
+              message: string;
+              data: {
+                  data: any[];
+                  total: number;
+              };
+              success: boolean;
+          };
+
+          if (response.code === 200 && response.success) {
+              return {
+                  success: true,
+                  data: response.data
+              };
+          } else {
+              return {
+                  success: false,
+                  error: response.message || 'Failed to fetch connect task list'
+              };
+          }
+      } catch (error) {
+          this.logger.error('Failed to fetch connect task list:', error);
+          return {
+              success: false,
+              error: error instanceof Error ? error.message : 'An unknown error occurred'
+          };
+      }
+  }
+
 }
 
 const MinerServiceProvider = {

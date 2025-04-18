@@ -35,8 +35,6 @@ export interface PaginationParams {
     limit: number;
 }
 
-
-
 export interface SummaryResponse {
     earning_info: {
         total_block_rewards: number;
@@ -52,4 +50,33 @@ export interface SummaryResponse {
         task_activity: number[];
         request_serials: number[];
     };
+}
+
+export interface SummaryItem {
+    date: string;
+    value: number;
+}
+
+export interface NodeItem {
+    id: string;
+    task_name: string;
+    owner_address: string;
+    node_id: string;
+    status: string;
+    one_time_code: string;
+    device_type: string | null;
+    gpu_type: string | null;
+    current_ai_model?: string;
+    connected_gateway?: string;
+    total_earnings?: number;
+    pending_earnings?: number;
+    memory_usage?: number;
+}
+
+export interface NodeResponse {
+    data: {
+        data: Array<NodeItem>,
+        total:  number
+    }
+  
 }

@@ -36,4 +36,18 @@ export abstract class MinerService {
     updated_at: string;
     source: "local" | "gateway";
   }[]>;
+
+  abstract connectTaskList(body: {
+    gateway_address: string;
+    key: string;
+    page: number;
+    limit: number;
+  }): Promise<{
+    success: boolean;
+    error?: string;
+    data?: {
+      data: any[];
+      total: number;
+    };
+  }>;
 }
