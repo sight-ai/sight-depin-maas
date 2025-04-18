@@ -32,7 +32,7 @@ export const TaskSchema = z.object({
   id: z.string(),
   model: z.string(),
   created_at: z.coerce.date().transform((date) => date.toISOString()),
-  status: z.enum(['in-progress', 'failed', 'succeed']),
+  status: z.enum(['pending','in-progress', 'running', 'succeed', 'completed', 'failed', 'cancelled']),
   total_duration: z.coerce.number().nullable(),
   load_duration: z.coerce.number().nullable(),
   prompt_eval_count: z.coerce.number().nullable(),

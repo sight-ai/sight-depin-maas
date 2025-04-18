@@ -86,7 +86,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
   async register(body: { code: string, gateway_address: string, reward_address: string, key: string }): Promise<{
     success: boolean,
     error: string
-  }> {
+  } | any> {
     try {
       const [ipAddress, deviceType, deviceModel] = await Promise.all([
         address(),
@@ -120,7 +120,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         code: number
       };
 
-      if (response.data.success && response.code !== 500) {
+      if (response.data && response.data.success && response.code !== 500) {
         this.deviceConfig = {
           ...this.deviceConfig,
           deviceId: response.data.node_id,
@@ -147,8 +147,8 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         this.logger.log('Device registration successful');
         return response.data;
       } else {
-        this.logger.error(`Registration failed: ${response.data.error}`);
-        return response.data;
+        this.logger.error(`Registration failed: ${response}`);
+        return response;
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';

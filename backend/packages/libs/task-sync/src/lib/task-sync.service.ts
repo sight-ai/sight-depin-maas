@@ -108,7 +108,6 @@ export class DefaultTaskSyncService implements TaskSyncService {
         }).json() as GatewayResponse<any> | any[];
 
         this.logger.debug('Raw tasks response from gateway:', response);
-        
         // 解析任务数据
         const gatewayTasks = this.parseGatewayResponse<TaskSyncSchemas.ModelOfTaskSync<'Task'>>(
           response, 
@@ -137,7 +136,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
             this.logger.error(`Error processing task ${task.id}:`, error);
           }
         }));
-        
+        this.syncEarnings()
         this.logger.debug(`Synced ${gatewayTasks.length} tasks from gateway`);
       } catch (error) {
         this.logger.error('Error syncing tasks:', error);
@@ -150,7 +149,6 @@ export class DefaultTaskSyncService implements TaskSyncService {
    * 同步收益记录定时任务
    * 每30秒从网关获取收益记录并同步到本地数据库
    */
-  @Cron(CronExpression.EVERY_30_SECONDS)
   async syncEarnings(): Promise<void> {
     // 检查设备是否已注册
     const gatewayStatus = await this.deviceStatusService.getGatewayStatus();

@@ -1,14 +1,11 @@
 import { Inject } from "@nestjs/common";
-import * as R from 'ramda';
 import { PersistentService } from "@saito/persistent";
 import { DatabaseTransactionConnection } from "slonik";
 import { SQL } from "@saito/common";
-import { 
-  MinerSchema, 
+import {
+  MinerSchema,
   Task,
   Earning,
-  Summary,
-  CreateTaskRequest
 } from "@saito/models";
 
 export class MinerRepository {
@@ -33,7 +30,7 @@ export class MinerRepository {
       where source = 'gateway' and device_id = ${deviceId};
     `);
   }
-  
+
   // 获取设备信息
   async getDeviceInfo(conn: DatabaseTransactionConnection, deviceId: string) {
     return conn.maybeOne(SQL.type(MinerSchema.MinerDeviceStatusSchema)`
@@ -48,7 +45,7 @@ export class MinerRepository {
       limit 1;
     `);
   }
-  
+
   // 获取运行时间百分比
   async getUptimePercentage(conn: DatabaseTransactionConnection, deviceId: string) {
     return conn.one(SQL.type(MinerSchema.MinerUptimeSchema)`
@@ -58,7 +55,7 @@ export class MinerRepository {
       where created_at >= now() - interval '30 days' and source = 'gateway' and device_id = ${deviceId};
     `);
   }
-  
+
   // 获取收益历史数据
   async getEarningsHistory(conn: DatabaseTransactionConnection, deviceId: string, days: number = 30) {
     return conn.any(SQL.type(MinerSchema.MinerEarningsHistorySchema)`
@@ -80,7 +77,7 @@ export class MinerRepository {
       order by d.day;
     `);
   }
-  
+
   // 获取任务请求数据
   async getTaskRequestData(
     conn: DatabaseTransactionConnection,
@@ -90,7 +87,7 @@ export class MinerRepository {
     const timeUnit = period === 'daily' ? 'hour' : 'day';
     const intervalValue = period === 'daily' ? '24 hours' : period === 'weekly' ? '7 days' : '30 days';
     const groupByUnit = period === 'daily' ? 'hour' : 'day';
-    
+
     return conn.any(SQL.type(MinerSchema.MinerDailyRequestsSchema)`
       with dates as (
         select generate_series(
@@ -104,12 +101,12 @@ export class MinerRepository {
         d.time_point::timestamp as date
       from dates d
       left join saito_miner.tasks t
-        on date_trunc(${groupByUnit}, t.created_at) = d.time_point and t.source = 'gateway' and t.device_id = ${deviceId}
+        on date_trunc(${groupByUnit}, t.created_at) = d.time_point and t.device_id = ${deviceId}
       group by d.time_point
       order by d.time_point;
     `);
   }
-  
+
   // 获取按月任务活动数据
   async getMonthlyTaskActivity(
     conn: DatabaseTransactionConnection,
@@ -135,38 +132,32 @@ export class MinerRepository {
       order by d.month;
     `);
   }
-  
+
   // 获取按日任务活动数据
   async getDailyTaskActivity(
     conn: DatabaseTransactionConnection,
-    startDate: string,
-    endDate: string,
-    year: number,
-    month: number | null,
     deviceId: string
   ) {
     return conn.any(SQL.type(MinerSchema.MinerTaskActivitySchema)`
-      with dates as (
+            with hours as (
         select generate_series(
-          date '${SQL.fragment([startDate])}',
-          date '${SQL.fragment([endDate])}',
-          interval '1 day'
-        )::date as day
+          date_trunc('hour', now()) - interval '23 hours',
+          date_trunc('hour', now()),
+          interval '1 hour'
+        ) as hour
       )
       select 
-        to_char(d.day, 'YYYY-MM-DD') as date,
+        to_char(h.hour, 'YYYY-MM-DD HH24:00:00') as datetime,
         coalesce(count(t.id), 0) as task_count
-      from dates d
+      from hours h
       left join saito_miner.tasks t
-        on date_trunc('day', t.created_at) = d.day and t.device_id = ${deviceId}
-      ${month 
-        ? SQL.fragment`where (t.id is null or (extract(year from t.created_at) = ${year} and extract(month from t.created_at) = ${month}))`
-        : SQL.fragment`where (t.id is null or extract(year from t.created_at) = ${year})`}
-      group by d.day
-      order by d.day;
+        on date_trunc('hour', t.created_at) = h.hour and t.device_id = ${deviceId}
+      group by h.hour
+      order by h.hour;
     `);
   }
-  
+
+
   // 创建任务
   async createTask(conn: DatabaseTransactionConnection, model: string, deviceId: string): Promise<Task> {
     const result = await conn.one(SQL.type(MinerSchema.TaskSchema)`
@@ -219,7 +210,7 @@ export class MinerRepository {
     `);
     return result;
   }
-  
+
   // 获取单个任务
   async getTaskById(conn: DatabaseTransactionConnection, id: string): Promise<Task> {
     return conn.one(SQL.type(MinerSchema.TaskSchema)`
@@ -242,7 +233,7 @@ export class MinerRepository {
         and created_at < now() - ${SQL.fragment([`interval '${intervalString}'`])}
       returning *;
     `);
-    
+
     return [...staleTasksResult.rows];
   }
 
@@ -277,7 +268,7 @@ export class MinerRepository {
       )
       RETURNING block_rewards as total_block_rewards, job_rewards as total_job_rewards;
     `);
-    
+
     return result;
   }
 
@@ -296,7 +287,7 @@ export class MinerRepository {
       from saito_miner.tasks 
       where device_id = ${deviceId};
     `);
-    
+
     // 获取分页任务列表
     const tasksResult = await conn.any(SQL.type(MinerSchema.TaskSchema)`
       select *
@@ -305,13 +296,13 @@ export class MinerRepository {
       order by created_at desc
       limit ${limit} offset ${offset};
     `);
-    
+
     return {
       count: countResult.count,
       tasks: [...tasksResult]
     };
   }
-  
+
   // 根据设备ID获取任务
   async getTasksByDeviceId(
     conn: DatabaseTransactionConnection,
@@ -324,13 +315,13 @@ export class MinerRepository {
       ORDER BY created_at DESC
       LIMIT ${limit};
     `);
-    
+
     return [...result];
   }
-  
+
   // 根据设备ID获取收益记录
   async getEarningsByDeviceId(
-    conn: DatabaseTransactionConnection, 
+    conn: DatabaseTransactionConnection,
     deviceId: string,
     limit: number
   ): Promise<Earning[]> {
@@ -340,10 +331,10 @@ export class MinerRepository {
       ORDER BY created_at DESC
       LIMIT ${limit};
     `);
-    
+
     return [...result];
   }
-  
+
   // 根据任务ID获取收益记录
   async getEarningsByTaskId(
     conn: DatabaseTransactionConnection,
@@ -354,7 +345,7 @@ export class MinerRepository {
       WHERE task_id = ${taskId}
       ORDER BY created_at DESC;
     `);
-    
+
     return [...result];
   }
 }
