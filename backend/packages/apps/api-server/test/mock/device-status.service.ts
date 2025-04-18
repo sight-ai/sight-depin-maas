@@ -70,4 +70,16 @@ export class MockedDeviceStatusService implements DeviceStatusService {
   async getRewardAddress(): Promise<string> {
     return 'mock-reward-address';
   }
+
+  async getGatewayAddress(): Promise<string> {
+    return 'mock-gateway-address';
+  }
+
+  async getKey(): Promise<string> {
+    return 'mock-key';
+  }
+
+  async isRegistered(): Promise<boolean> {
+    return true;
+  }
 } 

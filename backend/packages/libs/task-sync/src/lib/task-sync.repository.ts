@@ -1,18 +1,32 @@
-import { Inject } from "@nestjs/common";
+import { Inject, Logger } from "@nestjs/common";
 import { PersistentService } from "@saito/persistent";
 import { DatabaseTransactionConnection } from "slonik";
 import { SQL } from "@saito/common";
+import { TaskSyncSchemas } from "@saito/models";
+import * as R from 'ramda';
 
+/**
+ * 任务同步仓库
+ * 负责与数据库的交互
+ */
 export class TaskSyncRepository {
+  private readonly logger = new Logger(TaskSyncRepository.name);
+
   constructor(
     @Inject(PersistentService)
     private readonly persistentService: PersistentService,
   ) {}
 
+  /**
+   * 创建数据库事务
+   */
   async transaction<T>(handler: (conn: DatabaseTransactionConnection) => Promise<T>) {
     return this.persistentService.pgPool.transaction(handler);
   }
 
+  /**
+   * 获取当前设备ID
+   */
   async getCurrentDeviceId(conn: DatabaseTransactionConnection): Promise<string> {
     const result = await conn.maybeOne(SQL.unsafe`
       SELECT device_id
@@ -22,9 +36,12 @@ export class TaskSyncRepository {
       LIMIT 1;
     `);
     
-    return result?.device_id || 'default_device';
+    return R.propOr('default_device', 'device_id', result);
   }
 
+  /**
+   * 查找是否存在指定任务
+   */
   async findExistingTask(conn: DatabaseTransactionConnection, taskId: string): Promise<boolean> {
     const result = await conn.maybeOne(SQL.unsafe`
       SELECT id, status FROM saito_miner.tasks 
@@ -34,72 +51,75 @@ export class TaskSyncRepository {
     return !!result;
   }
 
-  async updateExistingTask(conn: DatabaseTransactionConnection, task: {
-    id: string;
-    model: string;
-    created_at: string;
-    status: string;
-    total_duration: number;
-    load_duration: number;
-    prompt_eval_count: number;
-    prompt_eval_duration: number;
-    eval_count: number;
-    eval_duration: number;
-    updated_at: string;
-    device_id?: string;
-  }): Promise<void> {
-    await conn.query(SQL.unsafe`
-      UPDATE saito_miner.tasks 
-      SET 
-        model = ${task.model},
-        status = ${task.status},
-        total_duration = ${task.total_duration},
-        load_duration = ${task.load_duration},
-        prompt_eval_count = ${task.prompt_eval_count},
-        prompt_eval_duration = ${task.prompt_eval_duration},
-        eval_count = ${task.eval_count},
-        eval_duration = ${task.eval_duration},
-        updated_at = ${task.updated_at}
-      WHERE id = ${task.id} AND source = 'gateway'
-    `);
+  /**
+   * 更新已存在的任务
+   */
+  async updateExistingTask(conn: DatabaseTransactionConnection, task: TaskSyncSchemas.ModelOfTaskSync<'Task'>): Promise<void> {
+    try {
+      await conn.query(SQL.unsafe`
+        UPDATE saito_miner.tasks 
+        SET 
+          model = ${task.model},
+          status = ${task.status},
+          total_duration = ${task.total_duration},
+          load_duration = ${task.load_duration},
+          prompt_eval_count = ${task.prompt_eval_count},
+          prompt_eval_duration = ${task.prompt_eval_duration},
+          eval_count = ${task.eval_count},
+          eval_duration = ${task.eval_duration},
+          updated_at = ${task.updated_at}
+        WHERE id = ${task.id} AND source = 'gateway'
+      `);
+    } catch (error) {
+      this.logger.error(`更新任务失败: ${task.id}`, error);
+      throw error;
+    }
   }
 
+  /**
+   * 更新现有任务的状态（批量操作）
+   */
   async updateExistingTaskStatuses(conn: DatabaseTransactionConnection): Promise<void> {
-    await conn.query(SQL.unsafe`
-      UPDATE saito_miner.tasks 
-      SET status = 'succeed'
-      WHERE status = 'completed' AND source = 'gateway'
-    `);
+    try {
+      await conn.query(SQL.unsafe`
+        UPDATE saito_miner.tasks 
+        SET status = 'succeed'
+        WHERE status = 'completed' AND source = 'gateway'
+      `);
+    } catch (error) {
+      this.logger.error('批量更新任务状态失败', error);
+      throw error;
+    }
   }
 
-  async createTask(conn: DatabaseTransactionConnection, task: {
-    id: string;
-    model: string;
-    created_at: string;
-    status: string;
-    total_duration: number;
-    load_duration: number;
-    prompt_eval_count: number;
-    prompt_eval_duration: number;
-    eval_count: number;
-    eval_duration: number;
-    updated_at: string;
-    device_id?: string;
-  }): Promise<void> {
-    await conn.query(SQL.unsafe`
-      INSERT INTO saito_miner.tasks (
-        id, model, created_at, status, total_duration,
-        load_duration, prompt_eval_count, prompt_eval_duration,
-        eval_count, eval_duration, updated_at, source, device_id
-      ) VALUES (
-        ${task.id}, ${task.model}, ${task.created_at}, ${task.status},
-        ${task.total_duration}, ${task.load_duration}, ${task.prompt_eval_count},
-        ${task.prompt_eval_duration}, ${task.eval_count}, ${task.eval_duration},
-        ${task.updated_at}, 'gateway', ${task.device_id || 'default_device'}
-      )
-    `);
+  /**
+   * 创建新任务
+   */
+  async createTask(conn: DatabaseTransactionConnection, task: TaskSyncSchemas.ModelOfTaskSync<'Task'>): Promise<void> {
+    try {
+      const deviceId = R.propOr('default_device', 'device_id', task) as string;
+      
+      await conn.query(SQL.unsafe`
+        INSERT INTO saito_miner.tasks (
+          id, model, created_at, status, total_duration,
+          load_duration, prompt_eval_count, prompt_eval_duration,
+          eval_count, eval_duration, updated_at, source, device_id
+        ) VALUES (
+          ${task.id}, ${task.model}, ${task.created_at}, ${task.status},
+          ${task.total_duration}, ${task.load_duration}, ${task.prompt_eval_count},
+          ${task.prompt_eval_duration}, ${task.eval_count}, ${task.eval_duration},
+          ${task.updated_at}, 'gateway', ${deviceId}
+        )
+      `);
+    } catch (error) {
+      this.logger.error(`创建任务失败: ${task.id}`, error);
+      throw error;
+    }
   }
 
+  /**
+   * 查找是否存在指定收益记录
+   */
   async findExistingEarning(conn: DatabaseTransactionConnection, earningId: string): Promise<boolean> {
     const result = await conn.maybeOne(SQL.unsafe`
       SELECT id FROM saito_miner.earnings 
@@ -108,40 +128,43 @@ export class TaskSyncRepository {
     return !!result;
   }
 
-  async updateExistingEarning(conn: DatabaseTransactionConnection, earning: {
-    id: string;
-    block_rewards: number;
-    job_rewards: number;
-    created_at: string;
-    updated_at: string;
-    device_id?: string;
-  }): Promise<void> {
-    await conn.query(SQL.unsafe`
-      UPDATE saito_miner.earnings 
-      SET 
-        block_rewards = ${earning.block_rewards},
-        job_rewards = ${earning.job_rewards},
-        updated_at = ${earning.updated_at}
-      WHERE id = ${earning.id} AND source = 'gateway'
-    `);
+  /**
+   * 更新已存在的收益记录
+   */
+  async updateExistingEarning(conn: DatabaseTransactionConnection, earning: TaskSyncSchemas.ModelOfTaskSync<'Earning'>): Promise<void> {
+    try {
+      await conn.query(SQL.unsafe`
+        UPDATE saito_miner.earnings 
+        SET 
+          block_rewards = ${earning.block_rewards},
+          job_rewards = ${earning.job_rewards},
+          updated_at = ${earning.updated_at}
+        WHERE id = ${earning.id} AND source = 'gateway'
+      `);
+    } catch (error) {
+      this.logger.error(`更新收益记录失败: ${earning.id}`, error);
+      throw error;
+    }
   }
 
-  async createEarning(conn: DatabaseTransactionConnection, earning: {
-    id: string;
-    block_rewards: number;
-    job_rewards: number;
-    created_at: string;
-    updated_at: string;
-    device_id?: string;
-  }): Promise<void> {
-    console.log('earning', earning);
-    await conn.query(SQL.unsafe`
-      INSERT INTO saito_miner.earnings (
-        id, block_rewards, job_rewards, created_at, updated_at, source, device_id
-      ) VALUES (
-        ${earning.id}, ${earning.block_rewards}, ${earning.job_rewards},
-        ${earning.created_at}, ${earning.updated_at}, 'gateway', ${earning.device_id || 'default_device'}
-      )
-    `);
+  /**
+   * 创建新的收益记录
+   */
+  async createEarning(conn: DatabaseTransactionConnection, earning: TaskSyncSchemas.ModelOfTaskSync<'Earning'>): Promise<void> {
+    try {
+      const deviceId = R.propOr('default_device', 'device_id', earning) as string;
+      
+      await conn.query(SQL.unsafe`
+        INSERT INTO saito_miner.earnings (
+          id, block_rewards, job_rewards, created_at, updated_at, source, device_id, task_id
+        ) VALUES (
+          ${earning.id}, ${earning.block_rewards}, ${earning.job_rewards},
+          ${earning.created_at}, ${earning.updated_at}, 'gateway', ${deviceId}, ${earning.task_id}
+        )
+      `);
+    } catch (error) {
+      this.logger.error(`创建收益记录失败: ${earning.id}`, error);
+      throw error;
+    }
   }
 } 

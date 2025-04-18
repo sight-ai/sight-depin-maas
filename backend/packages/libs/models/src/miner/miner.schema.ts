@@ -1,143 +1,161 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { z } from 'zod';
 
-export const DeviceInfo = z.object({
+// 设备信息
+export const DeviceInfoSchema = z.object({
   name: z.string(),
   status: z.enum(['connected', 'disconnected'])
-})
+});
 
-export const EarningInfo = z.object({
+export type DeviceInfo = z.infer<typeof DeviceInfoSchema>;
+
+// 收益信息
+export const EarningInfoSchema = z.object({
   total_block_rewards: z.number(),
   total_job_rewards: z.number(),
-})
+});
 
-export const Statistics = z.object({
+export type EarningInfo = z.infer<typeof EarningInfoSchema>;
+
+// 统计数据
+export const StatisticsSchema = z.object({
   up_time_percentage: z.number(),
   earning_serials: z.array(z.number()),
   task_activity: z.array(z.number()),
   request_serials: z.array(z.number()),
-})
+});
 
-export const Task = z.object({
+export type Statistics = z.infer<typeof StatisticsSchema>;
+
+// 任务模式
+export const TaskSchema = z.object({
   id: z.string(),
   model: z.string(),
   created_at: z.coerce.date().transform((date) => date.toISOString()),
   status: z.enum(['in-progress', 'failed', 'succeed']),
-  total_duration: z.coerce.number().optional(),
-  load_duration: z.coerce.number().optional(),
-  prompt_eval_count: z.coerce.number().optional(),
-  prompt_eval_duration: z.coerce.number().optional(),
-  eval_count: z.coerce.number().optional(),
-  eval_duration: z.coerce.number().optional(),
+  total_duration: z.coerce.number().nullable(),
+  load_duration: z.coerce.number().nullable(),
+  prompt_eval_count: z.coerce.number().nullable(),
+  prompt_eval_duration: z.coerce.number().nullable(),
+  eval_count: z.coerce.number().nullable(),
+  eval_duration: z.coerce.number().nullable(),
   updated_at: z.coerce.date().transform((date) => date.toISOString()),
   source: z.enum(['local', 'gateway']),
   device_id: z.string(),
 });
 
-export const CreateTaskRequest = z.object({
-  id: z.string().optional(),
-  model: z.string(),
-  created_at: z.coerce.date().transform((date) => date.toISOString()),
-  status: z.enum(['in-progress', 'failed', 'succeed']),
-  total_duration: z.coerce.number().optional(),
-  load_duration: z.coerce.number().optional(),
-  prompt_eval_count: z.coerce.number().optional(),
-  prompt_eval_duration: z.coerce.number().optional(),
-  eval_count: z.coerce.number().optional(),
-  eval_duration: z.coerce.number().optional(),
-  updated_at: z.coerce.date().transform((date) => date.toISOString()),
-  device_id: z.string().optional(),
-})
+export type Task = z.infer<typeof TaskSchema>;
 
-export const TaskHistoryResponse = z.object({
-  page: z.number(),
-  limit: z.number(),
-  total: z.number(), // Total number of tasks across all pages
-  tasks: z.array(Task),
+// 创建任务请求
+export const CreateTaskRequestSchema = z.object({
+  model: z.string(),
+  device_id: z.string().optional(),
 });
 
-export const Summary = z.object({
-  earning_info: EarningInfo,
-  device_info: DeviceInfo,
-  statistics: Statistics,
-})
+export type CreateTaskRequest = z.infer<typeof CreateTaskRequestSchema>;
 
+// 任务历史响应
+export const TaskHistoryResponseSchema = z.object({
+  page: z.number(),
+  limit: z.number(),
+  total: z.number(), 
+  tasks: z.array(TaskSchema),
+});
 
-// 定义收益信息类型
-const MinerEarningSchema = z.object({
+export type TaskHistoryResponse = z.infer<typeof TaskHistoryResponseSchema>;
+
+// 收益模式
+export const EarningSchema = z.object({
+  id: z.string(),
+  block_rewards: z.number(),
+  job_rewards: z.number(),
+  device_id: z.string(),
+  task_id: z.string().nullable(),
+  created_at: z.coerce.date().transform(date => date.toISOString()),
+  updated_at: z.coerce.date().transform(date => date.toISOString()),
+  source: z.enum(["local", "gateway"]),
+});
+
+export type Earning = z.infer<typeof EarningSchema>;
+
+// 摘要模式
+export const SummarySchema = z.object({
+  earning_info: EarningInfoSchema,
+  device_info: DeviceInfoSchema,
+  statistics: StatisticsSchema,
+});
+
+export type Summary = z.infer<typeof SummarySchema>;
+
+// 用于数据库查询的模式
+export const MinerEarningSchema = z.object({
   total_block_rewards: z.number(),
   total_job_rewards: z.number(),
 });
 
-// 定义设备状态类型
-const MinerDeviceStatusSchema = z.object({
+export type MinerEarning = z.infer<typeof MinerEarningSchema>;
+
+export const MinerDeviceStatusSchema = z.object({
   name: z.string(),
   status: z.string(),
   up_time_start: z.number().nullable(),
   up_time_end: z.number().nullable(),
 });
 
-// 定义运行时间统计
-const MinerUptimeSchema = z.object({
+export type MinerDeviceStatus = z.infer<typeof MinerDeviceStatusSchema>;
+
+export const MinerUptimeSchema = z.object({
   uptime_percentage: z.number(),
 });
 
-// 定义收益记录
-const MinerEarningsHistorySchema = z.object({
+export type MinerUptime = z.infer<typeof MinerUptimeSchema>;
+
+export const MinerEarningsHistorySchema = z.object({
   daily_earning: z.number(),
 });
 
-// 定义任务活动记录
-const MinerTaskActivitySchema = z.object({
+export type MinerEarningsHistory = z.infer<typeof MinerEarningsHistorySchema>;
+
+export const MinerTaskActivitySchema = z.object({
   date: z.string(),
   task_count: z.number(),
 });
 
-// 定义任务请求
-const MinerTaskSchema = z.object({
-  id: z.string(),
-  model: z.string(),
-  created_at: z.date(),
-  updated_at: z.date(),
-  status: z.string(),
-  total_duration: z.number(),
-  load_duration: z.number(),
-  prompt_eval_count: z.number(),
-  prompt_eval_duration: z.number(),
-  eval_count: z.number(),
-  eval_duration: z.number(),
-  device_id: z.string(),
-});
+export type MinerTaskActivity = z.infer<typeof MinerTaskActivitySchema>;
 
-const TaskCountSchema = z.object({
+export const TaskCountSchema = z.object({
   count: z.number(),
 });
 
-const MinerDailyRequestsSchema = z.object({
+export type TaskCount = z.infer<typeof TaskCountSchema>;
+
+export const MinerDailyRequestsSchema = z.object({
   request_count: z.number(),
 });
 
-export const MinerModel = {
-  earning_info: EarningInfo,
-  device_info: DeviceInfo,
-  statistics: Statistics,
-  task: Task,
-  summary: Summary,
-  minerEarning: MinerEarningSchema,
-  minerDeviceStatus: MinerDeviceStatusSchema,
-  minerUptime: MinerUptimeSchema,
-  minerEarningsHistory: MinerEarningsHistorySchema,
-  minerTaskActivity: MinerTaskActivitySchema,
-  minerTask: MinerTaskSchema,
-  taskCount: TaskCountSchema,
-  minerDailyRequests: MinerDailyRequestsSchema,
-  // API
-  create_task_request: CreateTaskRequest,
-  task_history_response: TaskHistoryResponse
+export type MinerDailyRequests = z.infer<typeof MinerDailyRequestsSchema>;
+
+// 导出所有Schema
+export const MinerSchema = {
+  DeviceInfoSchema,
+  EarningInfoSchema,
+  StatisticsSchema,
+  TaskSchema,
+  CreateTaskRequestSchema,
+  TaskHistoryResponseSchema,
+  EarningSchema,
+  SummarySchema,
+  MinerEarningSchema,
+  MinerDeviceStatusSchema,
+  MinerUptimeSchema,
+  MinerEarningsHistorySchema,
+  MinerTaskActivitySchema,
+  TaskCountSchema,
+  MinerDailyRequestsSchema
 };
 
 /**
- * Utility type to extract the inferred type from the model.
+ * 用于从schema中提取类型的工具类型
  */
-export type ModelOfMiner<T extends keyof typeof MinerModel> =
-  (typeof MinerModel)[T] extends z.ZodType<infer O> ? O : never;
+export type ModelOfMiner<T extends keyof typeof MinerSchema> =
+  (typeof MinerSchema)[T] extends z.ZodType<infer O> ? O : never;

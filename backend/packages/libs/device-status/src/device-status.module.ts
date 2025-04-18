@@ -15,7 +15,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     forwardRef(() => MinerModule),
     ScheduleModule.forRoot(), 
     forwardRef(() => OllamaModule), 
-    TunnelModule
+    forwardRef(() => TunnelModule)
   ],
   providers: [DeviceStatusServiceProvider, DeviceStatusRepository],
   exports: [DeviceStatusServiceProvider, DeviceStatusRepository],
