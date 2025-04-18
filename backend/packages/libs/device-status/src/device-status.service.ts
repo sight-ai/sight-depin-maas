@@ -258,7 +258,8 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         type: deviceType,
         model: deviceModel,
         device_info: deviceInfo,
-        gateway_url: this.deviceConfig.gatewayAddress
+        gateway_url: this.deviceConfig.gatewayAddress,
+        device_id: this.deviceConfig.deviceId
       };
     } catch (error) {
       this.logger.error('Failed to collect heartbeat data');
@@ -305,7 +306,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     });
   }
 
-  @Cron(CronExpression.EVERY_30_SECONDS)
+  @Cron(CronExpression.EVERY_10_SECONDS)
   async checkOllamaStatus() {
     this.heartbeat();
     

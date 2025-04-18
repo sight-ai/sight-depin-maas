@@ -54,8 +54,8 @@ export default function HistoryPage() {
                                             Model
                                         </div>
                                     </th>
-                                    <th className="flex-1 px-6 py-3 flex justify-center" style={{ minWidth: '150px' }}>
-                                        <div className='text-center text-base font-bold text-white bg-black rounded-lg' style={{ width: 130, padding: 10, borderRadius: 30, backgroundColor: '#000', color: '#fff' }}>
+                                    <th className="flex-1 px-6 py-3 flex justify-center" style={{ minWidth: '200px' }}>
+                                        <div className='text-center text-base font-bold text-white bg-black rounded-lg' style={{ width: 200, padding: 10, borderRadius: 30, backgroundColor: '#000', color: '#fff' }}>
                                             Token Usage
                                         </div>
                                     </th>

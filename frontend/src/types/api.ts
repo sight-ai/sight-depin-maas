@@ -12,7 +12,7 @@ export interface Task {
     id: string;
     model: string;
     created_at: string;
-    status: 'in-progress' | 'succeed' | 'failed';
+    status: 'in-progress' | 'succeed' | 'failed' | 'running' | 'completed';
     total_duration: number;
     load_duration: number;
     prompt_eval_count: number;
