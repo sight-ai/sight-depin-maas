@@ -123,7 +123,7 @@ export default function NodePage() {
                                             { title: 'Connected Gateway', width: 230 },
                                             { title: 'Total Earning', width: 120 },
                                             { title: 'Pending Earnings', width: 150 },
-                                            { title: 'Memory Usage', width: 150 }
+                                            // { title: 'Memory Usage', width: 150 }
                                         ].map((header) => (
                                             <th key={header.title} className="flex-1 px-6 py-3 flex justify-center" style={{ minWidth: `${header.width}px` }}>
                                                 <div className='text-center text-base font-bold text-white bg-black rounded-lg' 
@@ -266,7 +266,7 @@ export default function NodePage() {
                                                             ${device.pending_earnings?.toFixed(2) || '0.00'}
                                                         </motion.div>
                                                     </td>
-                                                    <td className="flex-1 px-6 py-4 text-center text-base" style={{ minWidth: '150px' }}>
+                                                    {/* <td className="flex-1 px-6 py-4 text-center text-base" style={{ minWidth: '150px' }}>
                                                         <motion.div 
                                                             whileHover={{ scale: 1.05 }}
                                                             style={{
@@ -288,7 +288,7 @@ export default function NodePage() {
                                                                 }}
                                                             />
                                                         </motion.div>
-                                                    </td>
+                                                    </td> */}
                                                 </motion.tr>
                                             ))}
                                         </AnimatePresence>
