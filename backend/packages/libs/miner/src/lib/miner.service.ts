@@ -90,7 +90,7 @@ export class DefaultMinerService implements MinerService {
     return this.withRetry(async () => {
       return this.repository.transaction(async conn => {
         const deviceId = await this.deviceStatusService.getDeviceId();
-        
+        const isRegistered = await this.deviceStatusService.isRegistered();
         // Generate query parameters
         const requestTimeRange = R.propOr('daily', 'request_serials', timeRange || {}) as RequestTimeRange;
         
@@ -115,32 +115,32 @@ export class DefaultMinerService implements MinerService {
         try {
           // Query all data in parallel
           const [earningData, deviceData, uptimeData, earningsHistory, dailyRequests, taskActivity] = await Promise.all([
-            this.repository.getEarningInfo(conn, deviceId).catch(err => {
+            this.repository.getEarningInfo(conn, deviceId, isRegistered).catch(err => {
               this.logger.warn(`Failed to get earning info: ${err}`);
               return null;
             }),
-            this.repository.getDeviceInfo(conn, deviceId).catch(err => {
+            this.repository.getDeviceInfo(conn, deviceId, isRegistered).catch(err => {
               this.logger.warn(`Failed to get device info: ${err}`);
               return null;
             }),
-            this.repository.getUptimePercentage(conn, deviceId).catch(err => {
+            this.repository.getUptimePercentage(conn, deviceId, isRegistered).catch(err => {
               this.logger.warn(`Failed to get uptime percentage: ${err}`);
               return null;
             }),
-            this.repository.getEarningsHistory(conn, deviceId).catch(err => {
+            this.repository.getEarningsHistory(conn, deviceId,30, isRegistered).catch(err => {
               this.logger.warn(`Failed to get earnings history: ${err}`);
               return [];
             }),
-            this.repository.getTaskRequestData(conn, deviceId, requestTimeRange).catch(err => {
+            this.repository.getTaskRequestData(conn, deviceId, requestTimeRange, isRegistered).catch(err => {
               this.logger.warn(`Failed to get task request data: ${err}`);
               return [];
             }),
             view === 'Year' 
-              ? this.repository.getMonthlyTaskActivity(conn, year, deviceId).catch(err => {
+              ? this.repository.getMonthlyTaskActivity(conn, year, deviceId, isRegistered).catch(err => {
                   this.logger.warn(`Failed to get monthly task activity: ${err}`);
                   return [];
                 })
-              : this.repository.getDailyTaskActivity(conn, deviceId).catch(err => {
+              : this.repository.getDailyTaskActivity(conn, deviceId, isRegistered).catch(err => {
                   this.logger.warn(`Failed to get daily task activity: ${err}`);
                   return [];
                 })
@@ -196,7 +196,8 @@ export class DefaultMinerService implements MinerService {
       return this.repository.transaction(async conn => {
         try {
           const deviceId = await this.deviceStatusService.getDeviceId();
-          const { count, tasks } = await this.repository.getTasks(conn, page, limit, deviceId);
+          const isRegistered = await this.deviceStatusService.isRegistered();
+          const { count, tasks } = await this.repository.getTasks(conn, page, limit, deviceId, isRegistered);
           
           return {
             page,
@@ -277,11 +278,11 @@ export class DefaultMinerService implements MinerService {
    */
   async getDeviceTasks(deviceId: string, limit: number = 10): Promise<Task[]> {
     this.logger.log(`Getting tasks for device ${deviceId}, limit: ${limit}`);
-    
+    const isRegistered = await this.deviceStatusService.isRegistered();
     return this.withRetry(async () => {
       return this.repository.transaction(async conn => {
         try {
-          return this.repository.getTasksByDeviceId(conn, deviceId, limit);
+          return this.repository.getTasksByDeviceId(conn, deviceId, limit, isRegistered);
         } catch (error) {
           this.logger.error(`Failed to get tasks for device ${deviceId}:`, error);
           return [];
@@ -295,11 +296,11 @@ export class DefaultMinerService implements MinerService {
    */
   async getDeviceEarnings(deviceId: string, limit: number = 10) {
     this.logger.log(`Getting earnings for device ${deviceId}, limit: ${limit}`);
-    
+    const isRegistered = await this.deviceStatusService.isRegistered();
     return this.withRetry(async () => {
       return this.repository.transaction(async conn => {
         try {
-          return this.repository.getEarningsByDeviceId(conn, deviceId, limit);
+          return this.repository.getEarningsByDeviceId(conn, deviceId, limit, isRegistered);
         } catch (error) {
           this.logger.error(`Failed to get earnings for device ${deviceId}:`, error);
           return [];

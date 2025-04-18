@@ -21,18 +21,26 @@ export class MinerRepository {
   }
 
   // 获取收益信息
-  async getEarningInfo(conn: DatabaseTransactionConnection, deviceId: string) {
+  async getEarningInfo(conn: DatabaseTransactionConnection, deviceId: string, isRegistered: boolean) {
+    let source = 'local';
+    if(isRegistered) {
+      source = 'gateway';
+    }
     return conn.one(SQL.type(MinerSchema.MinerEarningSchema)`
       select 
         coalesce(sum(block_rewards::float), 0) as total_block_rewards,
         coalesce(sum(job_rewards::float), 0) as total_job_rewards
       from saito_miner.earnings 
-      where source = 'gateway' and device_id = ${deviceId};
+      where source = ${source} and device_id = ${deviceId};
     `);
   }
 
   // 获取设备信息
-  async getDeviceInfo(conn: DatabaseTransactionConnection, deviceId: string) {
+  async getDeviceInfo(conn: DatabaseTransactionConnection, deviceId: string, isRegistered: boolean) {
+    let source = 'local';
+    if(isRegistered) {
+      source = 'gateway';
+    }
     return conn.maybeOne(SQL.type(MinerSchema.MinerDeviceStatusSchema)`
       select 
         name, 
@@ -40,24 +48,32 @@ export class MinerRepository {
         extract(epoch from up_time_start)::bigint as up_time_start,
         extract(epoch from up_time_end)::bigint as up_time_end
       from saito_miner.device_status
-      where device_id = ${deviceId}
+      where device_id = ${deviceId} and source = ${source}
       order by updated_at desc
       limit 1;
     `);
   }
 
   // 获取运行时间百分比
-  async getUptimePercentage(conn: DatabaseTransactionConnection, deviceId: string) {
+  async getUptimePercentage(conn: DatabaseTransactionConnection, deviceId: string, isRegistered: boolean) {
+    let source = 'local';
+    if(isRegistered) {
+      source = 'gateway';
+    }
     return conn.one(SQL.type(MinerSchema.MinerUptimeSchema)`
       select 
         count(distinct date_trunc('day', created_at))::float / 30.0 * 100 as uptime_percentage
       from saito_miner.tasks
-      where created_at >= now() - interval '30 days' and source = 'gateway' and device_id = ${deviceId};
+      where created_at >= now() - interval '30 days' and source = ${source} and device_id = ${deviceId};
     `);
   }
 
   // 获取收益历史数据
-  async getEarningsHistory(conn: DatabaseTransactionConnection, deviceId: string, days: number = 30) {
+  async getEarningsHistory(conn: DatabaseTransactionConnection, deviceId: string, days: number = 30, isRegistered: boolean) {
+    let source = 'local';
+    if(isRegistered) {
+      source = 'gateway';
+    }
     return conn.any(SQL.type(MinerSchema.MinerEarningsHistorySchema)`
       with dates as (
         select generate_series(
@@ -72,7 +88,7 @@ export class MinerRepository {
       from dates d
       left join saito_miner.earnings e
         on date_trunc('day', e.created_at) = d.day
-      where (e.id is null or (e.source = 'gateway' and e.device_id = ${deviceId}))
+      where (e.id is null or (e.source = ${source} and e.device_id = ${deviceId}))
       group by d.day
       order by d.day;
     `);
@@ -82,8 +98,13 @@ export class MinerRepository {
   async getTaskRequestData(
     conn: DatabaseTransactionConnection,
     deviceId: string,
-    period: string = 'daily'
+    period: string = 'daily',
+    isRegistered: boolean
   ) {
+    let source = 'local';
+    if(isRegistered) {
+      source = 'gateway';
+    }
     const timeUnit = period === 'daily' ? 'hour' : 'day';
     const intervalValue = period === 'daily' ? '24 hours' : period === 'weekly' ? '7 days' : '30 days';
     const groupByUnit = period === 'daily' ? 'hour' : 'day';
@@ -101,7 +122,7 @@ export class MinerRepository {
         d.time_point::timestamp as date
       from dates d
       left join saito_miner.tasks t
-        on date_trunc(${groupByUnit}, t.created_at) = d.time_point and t.device_id = ${deviceId}
+        on date_trunc(${groupByUnit}, t.created_at) = d.time_point and t.device_id = ${deviceId} and t.source = ${source}
       group by d.time_point
       order by d.time_point;
     `);
@@ -111,8 +132,13 @@ export class MinerRepository {
   async getMonthlyTaskActivity(
     conn: DatabaseTransactionConnection,
     year: number,
-    deviceId: string
+    deviceId: string,
+    isRegistered: boolean
   ) {
+    let source = 'local';
+    if(isRegistered) {
+      source = 'gateway';
+    }
     return conn.any(SQL.type(MinerSchema.MinerTaskActivitySchema)`
       with dates as (
         select generate_series(1, 12) as month
@@ -126,7 +152,7 @@ export class MinerRepository {
           extract(month from created_at) as month,
           count(*) as count
         from saito_miner.tasks
-        where extract(year from created_at) = ${year} and device_id = ${deviceId}
+        where extract(year from created_at) = ${year} and device_id = ${deviceId} and source = ${source}
         group by extract(month from created_at)
       ) t on d.month = t.month
       order by d.month;
@@ -136,8 +162,13 @@ export class MinerRepository {
   // 获取按日任务活动数据
   async getDailyTaskActivity(
     conn: DatabaseTransactionConnection,
-    deviceId: string
+    deviceId: string,
+    isRegistered: boolean
   ) {
+    let source = 'local';
+    if(isRegistered) {
+      source = 'gateway';
+    }
     return conn.any(SQL.type(MinerSchema.MinerTaskActivitySchema)`
             with hours as (
         select generate_series(
@@ -277,22 +308,26 @@ export class MinerRepository {
     conn: DatabaseTransactionConnection,
     page: number,
     limit: number,
-    deviceId: string
+    deviceId: string,
+    isRegistered: boolean
   ) {
     const offset = (page - 1) * limit;
-
+    let source = 'local';
+    if(isRegistered) {
+      source = 'gateway';
+    }
     // 获取任务总数
     const countResult = await conn.one(SQL.type(MinerSchema.TaskCountSchema)`
       select count(*) as count
       from saito_miner.tasks 
-      where device_id = ${deviceId};
+      where device_id = ${deviceId} and source = ${source};
     `);
 
     // 获取分页任务列表
     const tasksResult = await conn.any(SQL.type(MinerSchema.TaskSchema)`
       select *
       from saito_miner.tasks
-      where device_id = ${deviceId}
+      where device_id = ${deviceId} and source = ${source}
       order by created_at desc
       limit ${limit} offset ${offset};
     `);
@@ -307,11 +342,16 @@ export class MinerRepository {
   async getTasksByDeviceId(
     conn: DatabaseTransactionConnection,
     deviceId: string,
-    limit: number
+    limit: number,
+    isRegistered: boolean
   ): Promise<Task[]> {
+    let source = 'local';
+    if(isRegistered) {
+      source = 'gateway';
+    }
     const result = await conn.any(SQL.type(MinerSchema.TaskSchema)`
       SELECT * FROM saito_miner.tasks
-      WHERE device_id = ${deviceId}
+      WHERE device_id = ${deviceId} and source = ${source}
       ORDER BY created_at DESC
       LIMIT ${limit};
     `);
@@ -323,11 +363,16 @@ export class MinerRepository {
   async getEarningsByDeviceId(
     conn: DatabaseTransactionConnection,
     deviceId: string,
-    limit: number
+    limit: number,
+    isRegistered: boolean
   ): Promise<Earning[]> {
+    let source = 'local';
+    if(isRegistered) {
+      source = 'gateway';
+    }
     const result = await conn.any(SQL.type(MinerSchema.EarningSchema)`
       SELECT * FROM saito_miner.earnings
-      WHERE device_id = ${deviceId}
+      WHERE device_id = ${deviceId} and source = ${source}
       ORDER BY created_at DESC
       LIMIT ${limit};
     `);

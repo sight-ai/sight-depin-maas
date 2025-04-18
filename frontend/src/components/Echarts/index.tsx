@@ -1,11 +1,12 @@
 import { useThemeCus } from '@/hooks/useTheme';
 import ReactECharts, { EChartsOption } from 'echarts-for-react';
 import { SummaryResponse } from '@/types/api';
+import { useState, useEffect } from 'react';
 
 export default function ({summary, type = 'earnings', timeRange}: {summary: SummaryResponse | null, type?: 'earnings' | 'requests', timeRange?: 'daily' | 'weekly' | 'monthly'}) {
   const { isDark } = useThemeCus()
   const statistics = summary?.statistics
-
+  const [option, setOption] = useState<EChartsOption>({})
   const getTopViewOption = (): EChartsOption => ({
     tooltip: {
       trigger: 'axis',
@@ -94,9 +95,13 @@ export default function ({summary, type = 'earnings', timeRange}: {summary: Summ
     }]
   });
 
+  useEffect(() => {
+    setOption(getTopViewOption())
+  }, [isDark])
+
   return (
     <div style={{ width: '100%' }}>
-      <ReactECharts option={getTopViewOption()} />
+      <ReactECharts option={option} />
     </div>
   );
 }
