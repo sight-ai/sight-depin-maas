@@ -47,7 +47,6 @@ export class ModelController {
   @Post('/chat')
   async generateChatResponse(@Body() args: ModelOfOllama<'chat_request'>, @Res() res: Response) {
     try {
-      // Forward directly to ollama service, let the service handle all error cases
       await this.ollamaService.chat(args, res);
     } catch (error) {
       this.logger.error('Error during chat response:', error);

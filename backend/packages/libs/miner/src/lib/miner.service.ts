@@ -141,7 +141,7 @@ export class DefaultMinerService implements MinerService {
                   this.logger.warn(`Failed to get monthly task activity: ${err}`);
                   return [];
                 })
-              : this.repository.getDailyTaskActivity(conn, deviceId, isRegistered).catch(err => {
+              : this.repository.getDailyTaskActivity(conn,month, deviceId, isRegistered).catch(err => {
                   this.logger.warn(`Failed to get daily task activity: ${err}`);
                   return [];
                 })

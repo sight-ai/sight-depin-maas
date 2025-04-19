@@ -78,24 +78,24 @@ export class MinerController {
     }
   }
 
-  @Post('/chat')
-  async generateChatResponse(@Body() args: any, @Res() res: Response) {
-    try {
-      await this.ollamaService.chat(args, res);
-    } catch (error) {
-      this.logger.error('Error during chat response in miner controller:', error);
-      if (!res.headersSent) {
-        // Using 400 status code for errors
-        res.status(400).json({ 
-          error: 'Error during chat response',
-          details: error instanceof Error ? error.message : 'Unknown error',
-          model: args.model || 'unknown',
-          created_at: new Date().toISOString(),
-          done: true
-        });
-      }
-    }
-  }
+  // @Post('/chat')
+  // async generateChatResponse(@Body() args: any, @Res() res: Response) {
+  //   try {
+  //     await this.ollamaService.chat(args, res);
+  //   } catch (error) {
+  //     this.logger.error('Error during chat response in miner controller:', error);
+  //     if (!res.headersSent) {
+  //       // Using 400 status code for errors
+  //       res.status(400).json({ 
+  //         error: 'Error during chat response',
+  //         details: error instanceof Error ? error.message : 'Unknown error',
+  //         model: args.model || 'unknown',
+  //         created_at: new Date().toISOString(),
+  //         done: true
+  //       });
+  //     }
+  //   }
+  // }
 
   @Get('/history')
   async getHistory(@Query() query: HistoryQueryDto) {

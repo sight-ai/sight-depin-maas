@@ -242,7 +242,7 @@ export class DefaultOllamaService implements OllamaService {
         }
         return;
       }
-      
+      this.logger.error('createTask1')
       const task = await this.createTask(processedArgs.model, processedArgs.task_id, processedArgs.device_id);
       const taskId = task.id;
 
@@ -313,16 +313,12 @@ export class DefaultOllamaService implements OllamaService {
         }
         return;
       }
-      
+      this.logger.error('createTask2', args)
       const task = await this.createTask(processedArgs.model, processedArgs.task_id, processedArgs.device_id);
       const taskId = task.id;
 
       try {
-        const isUnloadRequest = this.isModelUnloadRequest(processedArgs);
-        
-        if (isUnloadRequest) {
-          await this.handleModelUnload(processedArgs, res, taskId);
-        } else if (processedArgs.stream && !isUnloadRequest) {
+        if (processedArgs.stream) {
           const url = new URL(`api/chat`, this.baseUrl);
           
           // Start with 200 status code for streaming
