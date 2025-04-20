@@ -3,7 +3,7 @@ import * as R from 'ramda';
 import { DeviceStatusRepository } from "./device-status.repository";
 import { DatabaseTransactionConnection } from "slonik";
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { OllamaService } from "@saito/ollama";
+// import { OllamaService } from "@saito/ollama";
 import got from "got-cjs";
 import si from 'systeminformation';
 import { address } from 'ip';
@@ -21,6 +21,7 @@ type DeviceConfig = {
   code: string;
   isRegistered: boolean;
 }
+const STATUS_CHECK_TIMEOUT = 2000; // 2 seconds
 
 @Injectable()
 export class DefaultDeviceStatusService implements DeviceStatusService {
@@ -34,17 +35,34 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     code: '',
     isRegistered: false
   };
-
+  private readonly baseUrl = env().OLLAMA_API_URL;
   constructor(
     private readonly deviceStatusRepository: DeviceStatusRepository,
-    @Inject(forwardRef(() => OllamaService))
-    private readonly ollamaService: OllamaService,
+    // @Inject(forwardRef(() => OllamaService))
+    // private readonly ollamaService: OllamaService,
     private readonly tunnelService: TunnelService
   ) {
     // Initialize from database if available
     this.initFromDatabase();
   }
-
+  async checkStatus(): Promise<boolean> {
+    try {
+      const url = new URL(`api/version`, this.baseUrl);
+      const response = await got.get(url.toString(), {
+        timeout: {
+          request: STATUS_CHECK_TIMEOUT,
+        },
+        retry: {
+          limit: 0
+        }
+      });
+      
+      return response.statusCode === 200;
+    } catch (error: any) {
+      this.logger.warn(`Ollama service unavailable: ${error.message}`);
+      return false;
+    }
+  }
   private async initFromDatabase() {
     try {
       const currentDevice = await this.getCurrentDevice();
@@ -334,7 +352,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
 
   async isOllamaOnline(): Promise<boolean> {
     try {
-      return await this.ollamaService.checkStatus();
+      return await this.checkStatus();
     } catch (error) {
       return false;
     }

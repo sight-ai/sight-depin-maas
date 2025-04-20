@@ -1,9 +1,7 @@
-version: '3'
-
 services:
   sight-miner-backend:
     platform: linux/amd64
-    image: ghcr.io/sight-ai/sight-miner-backend:0.0.10-SNAPSHOT
+    image: ghcr.io/sight-ai/sight-miner-backend:0.0.12-SNAPSHOT
     ports:
       - "8716:8716"
     networks:
@@ -11,29 +9,130 @@ services:
 
   sight-miner-frontend:
     platform: linux/amd64
-    image: ghcr.io/sight-ai/sight-miner-frontend:0.0.5-SNAPSHOT
+    image: ghcr.io/sight-ai/sight-miner-frontend:0.0.6-SNAPSHOT
     ports:
       - "3000:3000"
     networks:
       - app-network
 
   sight-miner-postgres:
-    platform: linux/amd64
-    image: ghcr.io/sight-ai/sight-miner-postgres:0.0.3-SNAPSHOT
+    image: postgres:15.5-alpine
     container_name: postgres-db
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-saito_db}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
     ports:
-      - "7543:5432"
+      - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    command: >
+      bash -c '
+      docker-entrypoint.sh postgres &
+      until pg_isready; do sleep 1; done;
+      psql -U postgres -d saito_db -c "
+        CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-networks: 
+        CREATE OR REPLACE FUNCTION public.set_current_timestamp_updated_at()
+        RETURNS TRIGGER AS
+        \$\$
+        DECLARE
+            _new record;
+        BEGIN
+            _new := NEW;
+            _new.updated_at = NOW();
+            RETURN _new;
+        END;
+        \$\$
+        LANGUAGE plpgsql;
+
+        CREATE SCHEMA IF NOT EXISTS saito_miner;
+      "
+
+      psql -U postgres -d saito_db -c "
+        CREATE TABLE saito_miner.device_status (
+            device_id text PRIMARY KEY,
+            name text NOT NULL,
+            status text NOT NULL,
+            up_time_start timestamp,
+            up_time_end timestamp,
+            reward_address text,
+            gateway_address text,
+            key text,
+            code text,
+            created_at timestamp NOT NULL DEFAULT now(),
+            updated_at timestamp NOT NULL DEFAULT now()
+        );
+      "
+
+      psql -U postgres -d saito_db -c "
+        CREATE TABLE saito_miner.tasks (
+            id text PRIMARY KEY,
+            model text NOT NULL,
+            created_at timestamp NOT NULL DEFAULT now(),
+            status text NOT NULL,
+            total_duration double precision,
+            load_duration double precision,
+            prompt_eval_count integer,
+            prompt_eval_duration double precision,
+            eval_count integer,
+            eval_duration double precision,
+            updated_at timestamp NOT NULL DEFAULT now(),
+            source text NOT NULL DEFAULT '\''local'\'' CHECK (source IN ('\''local'\'', '\''gateway'\'')),
+            device_id text NOT NULL,
+            FOREIGN KEY (device_id) REFERENCES saito_miner.device_status(device_id)
+        );
+      "
+
+      psql -U postgres -d saito_db -c "
+        CREATE TABLE saito_miner.earnings ( 
+            id text PRIMARY KEY,
+            block_rewards double precision NOT NULL DEFAULT 0,
+            job_rewards double precision NOT NULL DEFAULT 0,
+            created_at timestamp NOT NULL DEFAULT now(),
+            updated_at timestamp NOT NULL DEFAULT now(),
+            source text NOT NULL DEFAULT '\''local'\'' CHECK (source IN ('\''local'\'', '\''gateway'\'')),
+            device_id text NOT NULL,
+            task_id text,
+            FOREIGN KEY (device_id) REFERENCES saito_miner.device_status(device_id),
+            FOREIGN KEY (task_id) REFERENCES saito_miner.tasks(id)
+        );
+      "
+
+      psql -U postgres -d saito_db -c "
+        CREATE TRIGGER set_timestamp_tasks
+            BEFORE UPDATE ON saito_miner.tasks
+            FOR EACH ROW
+        EXECUTE FUNCTION public.set_current_timestamp_updated_at();
+
+        CREATE TRIGGER set_timestamp_earnings
+            BEFORE UPDATE ON saito_miner.earnings
+            FOR EACH ROW
+        EXECUTE FUNCTION public.set_current_timestamp_updated_at();
+
+        CREATE TRIGGER set_timestamp_device_status
+            BEFORE UPDATE ON saito_miner.device_status
+            FOR EACH ROW
+        EXECUTE FUNCTION public.set_current_timestamp_updated_at();
+      "
+
+      tail -f /dev/null
+      '
+
+networks:
   app-network:
     driver: bridge
 
 volumes:
   postgres-data:
     driver: local
-
+  ollama_data:
+    driver: local
 

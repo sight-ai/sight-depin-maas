@@ -5,9 +5,6 @@ RUN apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # RUN curl -fsSL https://ollama.com/install.sh | sh
-RUN apt-get update && apt-get install -y supervisor
-
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 EXPOSE 8716
 WORKDIR /
@@ -30,7 +27,7 @@ RUN npm i --legacy-peer-deps
 #     ollama pull deepscaler
 
 
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+CMD ["node", "/dist/packages/apps/api-server/main.js"]
 
 
 
