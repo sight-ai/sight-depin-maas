@@ -1,7 +1,7 @@
 services:
   sight-miner-backend:
     platform: linux/amd64
-    image: ghcr.io/sight-ai/sight-miner-backend:0.0.12-SNAPSHOT
+    image: ghcr.io/sight-ai/sight-miner-backend:0.0.13-SNAPSHOT
     ports:
       - "8716:8716"
     networks:

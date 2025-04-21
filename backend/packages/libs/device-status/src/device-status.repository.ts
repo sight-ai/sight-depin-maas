@@ -5,7 +5,7 @@ const toISOString = R.curry((date: Date) => date.toISOString());
 import { PersistentService } from "@saito/persistent";
 import { DatabaseTransactionConnection } from "slonik";
 import { SQL } from "@saito/common";
-import { DeviceStatus, DeviceStatusSchema, m, DeviceListItem, TaskResult, EarningResult, FindDeviceStatusSchema, FindDeviceListSchema, TaskResultSchema, EarningResultSchema } from "@saito/models";
+import { DeviceStatus, DeviceStatusSchema, m, DeviceListItem, TaskResult, EarningResult, FindDeviceStatusSchema, FindDeviceListSchema, TaskResultSchema, EarningResultSchema, FindCurrentDeviceSchema } from "@saito/models";
 
 export class DeviceStatusRepository {
   constructor(
@@ -94,7 +94,7 @@ export class DeviceStatusRepository {
     rewardAddress: string | null,
     gatewayAddress: string | null
   }> {  
-    const result = await conn.query(SQL.type(m.deviceStatus('FindCurrentDeviceSchema'))`
+    const result = await conn.query(SQL.type(FindCurrentDeviceSchema)`
       SELECT 
         device_id as "deviceId", 
         name, 
