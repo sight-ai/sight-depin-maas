@@ -1,102 +1,175 @@
 import { useThemeCus } from '@/hooks/useTheme';
 import ReactECharts, { EChartsOption } from 'echarts-for-react';
 import { SummaryResponse } from '@/types/api';
+import { useState, useEffect } from 'react';
 
 export default function ({summary, type = 'earnings', timeRange}: {summary: SummaryResponse | null, type?: 'earnings' | 'requests', timeRange?: 'daily' | 'weekly' | 'monthly'}) {
   const { isDark } = useThemeCus()
   const statistics = summary?.statistics
 
-  const getTopViewOption = (): EChartsOption => ({
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: {
-        type: 'line'
+  const formatDate = (date: Date, range: 'daily' | 'weekly' | 'monthly' = 'daily') => {
+    if (range === 'daily') {
+      return `${date.getHours().toString().padStart(2, '0')}:00`;
+    } else if (range === 'weekly') {
+      return `${date.getDate().toString().padStart(2, '0')} ${date.toLocaleString('default', { month: 'short' })}`;
+    } else {
+      return `${date.getDate().toString().padStart(2, '0')} ${date.toLocaleString('default', { month: 'short' })}`;
+    }
+  };
+
+  const generateTimePoints = () => {
+    const points = [];
+    const now = new Date();
+    let count: number;
+    
+    // Determine the number of points based on type and timeRange
+    if (type === 'earnings') {
+      count = 31; // Always show 31 days for earnings
+    } else {
+      count = timeRange === 'daily' ? 24 : timeRange === 'weekly' ? 8 : 31;
+    }
+
+    for (let i = count - 1; i >= 0; i--) {
+      const date = new Date(now);
+      if (type === 'earnings' || timeRange === 'monthly') {
+        // For earnings or monthly view, always show days
+        // Start from current date and go backwards
+        date.setHours(0, 0, 0, 0); // Reset time to start of day
+        date.setDate(date.getDate() - i);
+      } else if (timeRange === 'daily') {
+        // For daily view, show hours
+        date.setHours(date.getHours() - i);
+        date.setMinutes(0, 0, 0); // Reset minutes, seconds, and milliseconds
+      } else if (timeRange === 'weekly') {
+        // For weekly view, show days
+        date.setHours(0, 0, 0, 0); // Reset time to start of day
+        date.setDate(date.getDate() - i);
       }
-    },
-    grid: {
-      top: 0,
-      left: '2%',
-      right: '2%',
-      bottom: '3%',
-      containLabel: true
-    },
-    xAxis: [{
-      type: 'category',
-      boundaryGap: false,
-      data: Array.from({length: type === 'requests' ? (timeRange === 'daily' ? 24 : timeRange === 'weekly' ? 8 : 31) : 31}, (_, i) => {
-        const date = new Date();
-        if (type === 'requests') {
-          if (timeRange === 'daily') {
-            date.setHours(date.getHours() - (23 - i));
-            return `${date.getHours()}:00`;
-          } else if (timeRange === 'weekly') {
-            date.setDate(date.getDate() - (7 - i));
-            return `${date.getDate()}\n${date.toLocaleString('default', { month: 'short' })}`;
-          } else {
-            date.setDate(date.getDate() - (30 - i));
-            return `${date.getDate()}\n${date.toLocaleString('default', { month: 'short' })}`;
+      points.push(formatDate(date, type === 'earnings' ? 'monthly' : timeRange));
+    }
+    return points;
+  };
+
+  const getChartOption = (): EChartsOption => {
+    let data: number[];
+    if (type === 'earnings') {
+      // For earnings, always use earning_serials (31 days)
+      data = statistics?.earning_serials || Array(31).fill(0);
+    } else {
+      // For requests, use request_serials with appropriate length
+      const length = timeRange === 'daily' ? 24 : timeRange === 'weekly' ? 8 : 31;
+      data = statistics?.request_serials || Array(length).fill(0);
+    }
+
+    const maxValue = Math.max(...data.map(v => Number(v)));
+    const interval = maxValue > 0 ? maxValue / 5 : 1;
+
+    const timePoints = generateTimePoints();
+
+    return {
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: {
+          type: 'line'
+        },
+        formatter: (params: any) => {
+          const value = params[0].value;
+          const date = params[0].axisValue;
+          return `${date}<br />${type === 'earnings' ? '$' : ''}${value}${type === 'requests' ? ' requests' : ''}`;
+        }
+      },
+      grid: {
+        top: '10%',
+        left: '3%',
+        right: '3%',
+        bottom: '3%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        boundaryGap: false,
+        data: timePoints,
+        axisLabel: {
+          color: isDark ? '#fff' : '#000',
+          fontSize: 12,
+          lineHeight: 16,
+          formatter: (value: string) => value
+        },
+        axisLine: {
+          lineStyle: {
+            color: isDark ? '#333' : '#E5E7EB'
           }
-        } else {
-          date.setDate(date.getDate() - (30 - i));
-          return `${date.getDate()}\n${date.toLocaleString('default', { month: 'short' })}`;
         }
-      }),
-      axisLabel: {
-        color: isDark ? '#fff' :'#000',
-        fontSize: 12,
-        lineHeight: 16
       },
-      axisLine: {
+      yAxis: {
+        type: 'value',
+        min: 0,
+        max: maxValue * 1.2,
+        interval: interval,
+        axisLabel: {
+          show: true,
+          color: isDark ? '#fff' : '#000',
+          formatter: (value: number) => type === 'earnings' ? `$${value.toFixed(2)}` : value.toFixed(0)
+        },
+        axisLine: {
+          show: false
+        },
+        splitLine: {
+          lineStyle: {
+            color: isDark ? '#333' : '#E5E7EB',
+            type: 'dashed'
+          }
+        }
+      },
+      series: [{
+        name: type === 'earnings' ? 'Earnings' : 'Requests',
+        data: data.map(value => type === 'earnings' ? Number(value).toFixed(2) : Number(value).toFixed(0)),
+        type: 'line',
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 6,
         lineStyle: {
-          color: '#E5E7EB'
+          color: isDark ? '#fff' : '#000',
+          width: 2
+        },
+        itemStyle: {
+          color: isDark ? '#fff' : '#000',
+          borderWidth: 2,
+          borderColor: isDark ? '#333' : '#fff'
+        },
+        areaStyle: {
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [{
+              offset: 0,
+              color: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)'
+            }, {
+              offset: 1,
+              color: isDark ? 'rgba(255, 255, 255, 0)' : 'rgba(0, 0, 0, 0)'
+            }]
+          }
         }
-      }
-    }],
-    yAxis: {
-      type: 'value',
-      min: 0,
-      max: type === 'earnings' 
-        ? Math.max(...(statistics?.earning_serials || [0])) * 1.2
-        : Math.max(...(statistics?.request_serials || [0])) * 1.2,
-      interval: type === 'earnings'
-        ? Math.max(...(statistics?.earning_serials || [0])) * 0.2
-        : Math.max(...(statistics?.request_serials || [0])) * 0.2,
-      axisLabel: {
-        show: false
-      },
-      axisLine: {
-        show: false
-      },
-      splitLine: {
-        lineStyle: {
-          color: '#E5E7EB',
-          type: 'dashed'
-        }
-      }
-    },
-    series: [{
-      data: type === 'earnings'
-        ? statistics?.earning_serials ? statistics.earning_serials.map(value => Number(value).toFixed(2)) : Array(30).fill(0)
-        : statistics?.request_serials ? statistics.request_serials.map(value => Number(value).toFixed(0)) : Array(30).fill(0),
-      type: 'line',
-      smooth: false,
-      symbol: 'circle',
-      symbolSize: 6,
-      lineStyle: {
-        color: isDark ? '#fff' :'#000',
-        width: 2
-      },
-      itemStyle: {
-        color: '#000',
-        borderWidth: 2,
-        borderColor: '#fff'
-      },
-    }]
-  });
+      }]
+    };
+  };
+
+  const [option, setOption] = useState<EChartsOption>(getChartOption());
+
+  useEffect(() => {
+    setOption(getChartOption());
+  }, [isDark, type, timeRange, statistics]);
 
   return (
-    <div style={{ width: '100%' }}>
-      <ReactECharts option={getTopViewOption()} />
+    <div style={{ width: '100%', height: '100%' }}>
+      <ReactECharts 
+        option={option}
+        style={{ height: '100%' }}
+        opts={{ renderer: 'svg' }}
+      />
     </div>
   );
 }

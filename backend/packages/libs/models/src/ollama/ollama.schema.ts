@@ -3,6 +3,18 @@ import { z } from 'zod';
 import { JSONSchema } from '../utils/json.schema';
 
 /**
+ * TaskData interface for Ollama task execution metrics
+ */
+export interface TaskData {
+  total_duration: number;
+  load_duration: number;
+  prompt_eval_count: number;
+  prompt_eval_duration: number;
+  eval_count: number;
+  eval_duration: number;
+}
+
+/**
  * Utility: JSON string validator similar to the OpenAI version.
  */
 export const JSONStringSchema = z.preprocess((arg, ctx) => {
@@ -106,7 +118,6 @@ export const $ollamaFunction = z.object({
  * - context: (deprecated) conversation context.
  */
 export const OllamaGenerateRequest = z.object({
-  taskId: z.string().optional(),
   model: z.string(),
   prompt: z.string(),
   suffix: z.string().optional(),
@@ -119,6 +130,8 @@ export const OllamaGenerateRequest = z.object({
   raw: z.boolean().optional(),
   keep_alive: z.string().optional(),
   context: z.array(z.number()).optional(),
+  device_id: z.string(),
+  task_id: z.string(),
 });
 
 /**
@@ -164,8 +177,9 @@ export const ollamaChoice = z.object({
 });
 
 export const OllamaChatRequest = z.object({
-  taskId: z.string().optional(),
   model: z.string(),
+  device_id: z.string(),
+  task_id: z.string(),
   messages: z.array(z.object({
     role: z.string(),
     content: z.string()
@@ -222,43 +236,6 @@ export const OllamaCreateRequest = z.object({
   quantize: z.string().optional()
 });
 
-export const OllamaCreateResponse = z.object({
-  status: z.string()
-});
-
-export const OllamaCopyRequest = z.object({
-  source: z.string(),
-  destination: z.string()
-});
-
-export const OllamaDeleteRequest = z.object({
-  model: z.string()
-});
-
-export const OllamaPullRequest = z.object({
-  model: z.string(),
-  insecure: z.boolean().optional(),
-  stream: z.boolean().optional()
-});
-
-export const OllamaPullResponse = z.object({
-  status: z.string(),
-  digest: z.string().optional(),
-  total: z.number().optional(),
-  completed: z.number().optional()
-});
-
-export const OllamaPushRequest = z.object({
-  model: z.string(),
-  insecure: z.boolean().optional(),
-  stream: z.boolean().optional()
-});
-
-export const OllamaPushResponse = z.object({
-  status: z.string(),
-  digest: z.string().optional(),
-  total: z.number().optional()
-});
 
 export const OllamaEmbedRequest = z.object({
   model: z.string(),
@@ -313,26 +290,6 @@ export const OllamaAPISchema = {
     request: OllamaChatRequest,
     response: OllamaGenerateResponse,
   },
-  create: {
-    request: OllamaCreateRequest,
-    response: OllamaCreateResponse,
-  },
-  copy: {
-    request: OllamaCopyRequest,
-    response: z.void(),
-  },
-  delete: {
-    request: OllamaDeleteRequest,
-    response: z.void(),
-  },
-  pull: {
-    request: OllamaPullRequest,
-    response: OllamaPullResponse,
-  },
-  push: {
-    request: OllamaPushRequest,
-    response: OllamaPushResponse,
-  },
   embed: {
     request: OllamaEmbedRequest,
     response: OllamaEmbedResponse,
@@ -355,36 +312,7 @@ export const OllamaAPISchema = {
   }
 };
 
-export const ChatRecordSchema = z.object({
-  chatId: z.string().min(1),
-  userId: z.string().min(1),
-  userInput: z.string(),
-  aiResponse: z.string(),
-  status: z.enum(["active", "archived"]),
-  createdAt: z.string().optional(),
-  updatedAt: z.string().optional(),
-  task_id: z.string().optional()
-});
 
-export const FindChatRecordSchema = z.object({
-  chatId: z.string().min(1),
-  userId: z.string().min(1),
-  userInput: z.string(),
-  aiResponse: z.string(),
-  status: z.enum(["active", "archived"]),
-  createdAt: z.string().optional(),
-  updatedAt: z.string().optional(),
-  task_id: z.string().optional()
-});
-
-export const UpdateChatRecordSchema = z.object({
-  chatId: z.string().min(1),
-  userId: z.string().min(1),
-  userInput: z.string(),
-  aiResponse: z.string(),
-  status: z.enum(["active", "archived"]),
-  task_id: z.string().optional()
-});
 
 /**
  * The final Ollama model definitions.
@@ -411,20 +339,12 @@ export const OllamaModel = {
   generate_request: OllamaGenerateRequest,
   generate_response: OllamaGenerateResponse,
   JSONStringSchema,
-  ChatRecordSchema,
-  FindChatRecordSchema,
-  UpdateChatRecordSchema,
   chat_request: OllamaChatRequest,
   show_model_request: OllamaShowModelRequest,
   model_tag: ollamaModelTag,
   list_model_response: ollamaListModelsResponse,
   version_response: OllamaVersionResponse,
   create_request: OllamaCreateRequest,
-  create_response: OllamaCreateResponse,
-  copy_request: OllamaCopyRequest,
-  delete_request: OllamaDeleteRequest,
-  pull_request: OllamaPullRequest,
-  push_request: OllamaPushRequest,
   embed_request: OllamaEmbedRequest,
   embed_response: OllamaEmbedResponse,
   list_running_models_response: OllamaListRunningModelsResponse
@@ -435,4 +355,16 @@ export const OllamaModel = {
  */
 export type ModelOfOllama<T extends keyof typeof OllamaModel> =
   (typeof OllamaModel)[T] extends z.ZodType<infer O> ? O : never;
+
+/**
+ * Schema for Ollama task execution metrics
+ */
+export const OllamaTaskDataSchema = z.object({
+  total_duration: z.number(),
+  load_duration: z.number(),
+  prompt_eval_count: z.number(),
+  prompt_eval_duration: z.number(),
+  eval_count: z.number(),
+  eval_duration: z.number()
+});
 

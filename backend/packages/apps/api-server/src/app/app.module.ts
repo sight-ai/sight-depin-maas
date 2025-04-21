@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { APP_PIPE } from '@nestjs/core';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { IndexController } from './controllers/index.controller';
@@ -9,10 +9,16 @@ import { MinerController } from "./controllers/miner.controller";
 import { MinerModule } from "@saito/miner";
 import { DeviceStatusController } from "./controllers/device-status.controller";
 import { TunnelModule } from "@saito/tunnel";
-import { DefaultTaskSyncService, TaskSyncModule } from '@saito/task-sync';
+import { TaskSyncModule } from '@saito/task-sync';
 
 @Module({
-  imports: [OllamaModule, MinerModule, DeviceStatusModule, TunnelModule, TaskSyncModule],
+  imports: [
+    forwardRef(() => OllamaModule), 
+    forwardRef(() => MinerModule), 
+    DeviceStatusModule, 
+    forwardRef(() => TunnelModule), 
+    TaskSyncModule
+  ],
   controllers: [IndexController, ModelController, MinerController, DeviceStatusController],
   providers: [
     {

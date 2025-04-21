@@ -40,3 +40,5 @@ next-env.d.ts
 .history
 ./frontend/.history
 ./backend/.history
+
+.env

@@ -3,7 +3,7 @@
 import { useThemeCus } from '@/hooks/useTheme'
 
 export function ThemeSwitch() {
-    const { theme, setTheme } = useThemeCus()
+    const { theme, toggleTheme } = useThemeCus()
 
     return (
         <div className="p-5 ">
@@ -14,7 +14,7 @@ export function ThemeSwitch() {
                 </div>
                 <div
                     className={`switch-wrapper ${theme === 'dark' ? 'dark' : 'light'}`}
-                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                    onClick={toggleTheme}
                 >
                     <div className="switch-bg"></div>
                     <div className="switch-thumb"></div>

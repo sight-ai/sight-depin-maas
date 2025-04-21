@@ -1,57 +1,59 @@
 'use client'
 
+import { useDevice } from '@/hooks/useDevice'
 import { useThemeCus } from '@/hooks/useTheme'
 import { Button } from '@nextui-org/button'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-const navigation = [
-    {
-        name: 'Dashboard', href: '/dashboard',
-        dark: {
-            active: '/Dashboard Layout.svg', icon: '/Dashboard Layout a.svg'
-        },
-        light: {
-            icon: '/Dashboard Layout.svg', active: '/Dashboard Layout a.svg'
-        }
-    },
-    {
-        name: 'History', href: '/history',
-        dark: {
-            active: '/Activity History.svg', icon: '/Activity History a.svg'
-        },
-        light: {
-            icon: '/Activity History.svg', active: '/Activity History a.svg'
-        }
-    },
-    {
-        name: 'Referral Program', href: '/referral',
-
-        dark: {
-            active: '/Bookmark.svg', icon: '/Bookmark (1).svg'
-        },
-        light: {
-            icon: '/Bookmark.svg', active: '/Bookmark (1).svg'
-        }
-    },
-    {
-        name: 'Node', href: '/node',
-
-        dark: {
-            active: '/Connect.svg', icon: '/Connect (1).svg'
-
-        },
-        light: {
-            icon: '/Connect.svg', active: '/Connect (1).svg'
-        }
-    }
-]
 
 export function Navigation() {
     const pathname = usePathname()
     const { isDark } = useThemeCus()
-
+    const { data, gatewayStatus } = useDevice()
+    const navigation = [
+        {
+            name: 'Dashboard', href: '/dashboard',
+            dark: {
+                active: '/Dashboard Layout.svg', icon: '/Dashboard Layout a.svg'
+            },
+            light: {
+                icon: '/Dashboard Layout.svg', active: '/Dashboard Layout a.svg'
+            }
+        },
+        {
+            name: 'History', href: '/history',
+            dark: {
+                active: '/Activity History.svg', icon: '/Activity History a.svg'
+            },
+            light: {
+                icon: '/Activity History.svg', active: '/Activity History a.svg'
+            }
+        },
+        // {
+        //     name: 'Referral Program', href: '/referral',
+    
+        //     dark: {
+        //         active: '/Bookmark.svg', icon: '/Bookmark (1).svg'
+        //     },
+        //     light: {
+        //         icon: '/Bookmark.svg', active: '/Bookmark (1).svg'
+        //     }
+        // },
+        ...(gatewayStatus.isRegistered ? [{
+            name: 'Node Management', href: '/node',
+    
+            dark: {
+                active: '/Connect.svg', icon: '/Connect (1).svg'
+    
+            },
+            light: {
+                icon: '/Connect.svg', active: '/Connect (1).svg'
+            }
+        }] : [])
+    ]
+    
     return (
         <nav className='flex flex-col items-center w-full'>
             {navigation.map((item) => {

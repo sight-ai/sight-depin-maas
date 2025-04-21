@@ -1,10 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
-import {TunnelServiceProvider} from "./tunnel.service";
-import {OllamaModule} from "@saito/ollama"
-
+import { TunnelServiceProvider } from "./tunnel.service";
 @Module({
-  imports: [forwardRef(() => OllamaModule)],
-  providers: [TunnelServiceProvider],
+  providers: [TunnelServiceProvider ],
   exports: [TunnelServiceProvider],
 })
 export class TunnelModule {}

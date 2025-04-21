@@ -8,7 +8,8 @@ export const env = memoizee(() =>
       GPU_BRAND: z.string().default('unknown'),
       DEVICE_TYPE: z.string().default('unknown'),
       GPU_MODEL: z.string().default('unknown'),
-      REWARD_ADDRESS: z.string().default('unknown')
+      REWARD_ADDRESS: z.string().default('unknown'),
+      OLLAMA_API_URL: z.string().default('http://localhost:11434')
     },
     runtimeEnv: process.env,
   }),

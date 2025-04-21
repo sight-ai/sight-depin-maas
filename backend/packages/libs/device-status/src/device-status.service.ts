@@ -3,34 +3,108 @@ import * as R from 'ramda';
 import { DeviceStatusRepository } from "./device-status.repository";
 import { DatabaseTransactionConnection } from "slonik";
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { OllamaService } from "@saito/ollama";
+// import { OllamaService } from "@saito/ollama";
 import got from "got-cjs";
 import si from 'systeminformation';
 import { address } from 'ip';
 import { env } from '../env'
 import { DeviceStatusService } from "./device-status.interface";
 import { TunnelService } from "@saito/tunnel";
+import { DeviceListItem, TaskResult, EarningResult, DeviceCredentials } from "@saito/models";
+
+type DeviceConfig = {
+  deviceId: string;
+  deviceName: string;
+  rewardAddress: string;
+  gatewayAddress: string;
+  key: string;
+  code: string;
+  isRegistered: boolean;
+}
+const STATUS_CHECK_TIMEOUT = 2000; // 2 seconds
+
 @Injectable()
 export class DefaultDeviceStatusService implements DeviceStatusService {
   private readonly logger = new Logger(DefaultDeviceStatusService.name);
-  private isRegistered = false; // 新增注册状态标志
-  private deviceId: string = 'local_device_id';
-  private deviceName: string = 'local_device_name';
-  private rewardAddress: string = '';
-  private gatewayAddress: string = '';
-  private key: string = '';
-  private code: string = '';
+  private deviceConfig: DeviceConfig = {
+    deviceId: 'local_device_id',
+    deviceName: 'local_device_name',
+    rewardAddress: '',
+    gatewayAddress: '',
+    key: '',
+    code: '',
+    isRegistered: false
+  };
+  private readonly baseUrl = env().OLLAMA_API_URL;
   constructor(
     private readonly deviceStatusRepository: DeviceStatusRepository,
-    @Inject(forwardRef(() => OllamaService))
-    private readonly ollamaService: OllamaService,
+    // @Inject(forwardRef(() => OllamaService))
+    // private readonly ollamaService: OllamaService,
     private readonly tunnelService: TunnelService
   ) {
+    // Initialize from database if available
+    this.initFromDatabase();
   }
+  async checkStatus(): Promise<boolean> {
+    try {
+      const url = new URL(`api/version`, this.baseUrl);
+      const response = await got.get(url.toString(), {
+        timeout: {
+          request: STATUS_CHECK_TIMEOUT,
+        },
+        retry: {
+          limit: 0
+        }
+      });
+      
+      return response.statusCode === 200;
+    } catch (error: any) {
+      this.logger.warn(`Ollama service unavailable: ${error.message}`);
+      return false;
+    }
+  }
+  private async initFromDatabase() {
+    try {
+      const currentDevice = await this.getCurrentDevice();
+      if (currentDevice && currentDevice.status === 'online') {
+        this.deviceConfig = {
+          deviceId: currentDevice.deviceId,
+          deviceName: currentDevice.name,
+          rewardAddress: currentDevice.rewardAddress || '',
+          gatewayAddress: '', // Will be retrieved separately
+          key: '',
+          code: '',
+          isRegistered: true
+        };
+        
+        // Attempt to get gateway key and code
+        await this.retrieveGatewayCredentials();
+      }
+    } catch (error) {
+      this.logger.error('Failed to initialize device from database');
+    }
+  }
+
+  private async retrieveGatewayCredentials() {
+    try {
+      await this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
+        const deviceStatus = await this.deviceStatusRepository.findDeviceStatus(conn, this.deviceConfig.deviceId);
+        
+        if (deviceStatus) {
+          this.deviceConfig.gatewayAddress = deviceStatus.gatewayAddress;
+          // Retrieve key and code from deviceStatus if needed
+          // This might require extending the findDeviceStatus method to include these fields
+        }
+      });
+    } catch (error) {
+      this.logger.error('Failed to retrieve gateway credentials');
+    }
+  }
+
   async register(body: { code: string, gateway_address: string, reward_address: string, key: string }): Promise<{
     success: boolean,
     error: string
-  }> {
+  } | any> {
     try {
       const [ipAddress, deviceType, deviceModel] = await Promise.all([
         address(),
@@ -40,7 +114,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
 
       this.logger.debug(`Registering device with gateway: ${body.gateway_address}`);
 
-      const { data, code } = await got.post(`${body.gateway_address}/node/register`, {
+      const response = await got.post(`${body.gateway_address}/node/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -62,24 +136,37 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
           name: string,
         },
         code: number
-      }
+      };
 
-      if (data.success && code !== 500) {
-        this.isRegistered = true;
-        this.heartbeat()
-        this.deviceId = data.node_id;
-        this.deviceName = data.name;
-        this.rewardAddress = body.reward_address;
-        this.gatewayAddress = body.gateway_address
-        this.key = body.key;
-        this.code = body.code;
-        await this.tunnelService.createSocket(this.gatewayAddress, this.key, this.code)
-        await this.tunnelService.connectSocket(data.node_id)
+      if (response.data && response.data.success && response.code !== 500) {
+        this.deviceConfig = {
+          ...this.deviceConfig,
+          deviceId: response.data.node_id,
+          deviceName: response.data.name,
+          rewardAddress: body.reward_address,
+          gatewayAddress: body.gateway_address,
+          key: body.key,
+          code: body.code,
+          isRegistered: true
+        };
+        
+        await this.updateDeviceStatus(
+          this.deviceConfig.deviceId, 
+          this.deviceConfig.deviceName, 
+          'online', 
+          this.deviceConfig.rewardAddress
+        );
+        
+        await this.tunnelService.createSocket(this.deviceConfig.gatewayAddress, this.deviceConfig.key, this.deviceConfig.code);
+        await this.tunnelService.connectSocket(response.data.node_id);
+        
+        this.heartbeat();
+        
         this.logger.log('Device registration successful');
-        return data;
+        return response.data;
       } else {
-        this.logger.error(`Registration failed: ${data.error}`);
-        return data;
+        this.logger.error(`Registration failed: ${response}`);
+        return response;
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -92,11 +179,11 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
   }
 
   async getDeviceType(): Promise<string> {
-    return env().DEVICE_TYPE
+    return env().DEVICE_TYPE;
   }
 
   async getDeviceModel(): Promise<string> {
-    return env().GPU_MODEL
+    return env().GPU_MODEL;
   }
 
   async getDeviceInfo(): Promise<string> {
@@ -112,21 +199,60 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         os: `${os.distro} ${os.release} (${os.arch})`,
         cpu: `${cpu.manufacturer} ${cpu.brand} ${cpu.speed}GHz`,
         memory: `${(mem.total / 1024 / 1024 / 1024).toFixed(1)}GB`,
-        graphics: R.map(R.applySpec({
-          model: R.prop('model'),
-          vram: R.ifElse(R.both(R.has('vram'), R.pipe(R.prop('vram'), R.is(Number))), R.pipe(R.prop('vram'), R.divide(R.__, 1024), Math.round, R.toString, R.concat(R.__, 'GB')), R.always('Unknown'))
-        }), graphics.controllers)
+        graphics: R.map(
+          R.applySpec({
+            model: R.prop('model'),
+            vram: R.ifElse(
+              R.both(
+                R.has('vram'), 
+                R.pipe(R.prop('vram'), R.is(Number))
+              ), 
+              R.pipe(
+                R.prop('vram'), 
+                R.divide(R.__, 1024), 
+                Math.round, 
+                R.toString, 
+                R.concat(R.__, 'GB')
+              ), 
+              R.always('Unknown')
+            )
+          }), 
+          graphics.controllers
+        )
       });
     } catch {
       return '{}';
     }
   }
+
   async heartbeat() {
-    if (!this.isRegistered) {
+    if (!this.deviceConfig.isRegistered) {
       this.logger.debug('Skipping heartbeat - device not registered');
       return;
     }
 
+    try {
+      const heartbeatData = await this.collectHeartbeatData();
+
+      await got.post(`${this.deviceConfig.gatewayAddress}/node/heartbeat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.deviceConfig.key}`
+        },
+        json: heartbeatData,
+      });
+
+      this.logger.debug('Heartbeat sent successfully');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      this.logger.error(`Heartbeat failed: ${errorMessage}`);
+      // Mark as not registered if heartbeat fails
+      this.deviceConfig.isRegistered = false;
+    }
+  }
+
+  private async collectHeartbeatData() {
     try {
       const [cpuLoad, memoryInfo, gpuInfo, ipAddress, deviceType, deviceModel, deviceInfo] = await Promise.all([
         si.currentLoad().catch(() => ({ currentLoad: 0 })),
@@ -138,43 +264,50 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         this.getDeviceInfo()
       ]);
 
-      const heartbeatData = {
-        code: this.code,
-        cpu_usage: Number(cpuLoad.currentLoad.toFixed(2)),
-        memory_usage: Number(
-          ((memoryInfo.used / memoryInfo.total) * 100).toFixed(2)
-        ),
-        gpu_usage: Number(
-          (gpuInfo.controllers[0]?.utilizationGpu || 0).toFixed(2)
-        ),
+      const getPercentage = (value: number) => Number(value.toFixed(2));
+
+      return {
+        code: this.deviceConfig.code,
+        cpu_usage: getPercentage(cpuLoad.currentLoad),
+        memory_usage: getPercentage((memoryInfo.used / memoryInfo.total) * 100),
+        gpu_usage: getPercentage(gpuInfo.controllers[0]?.utilizationGpu || 0),
         ip: ipAddress,
         timestamp: new Date().toISOString(),
         type: deviceType,
         model: deviceModel,
         device_info: deviceInfo,
-        gateway_url: this.gatewayAddress
+        gateway_url: this.deviceConfig.gatewayAddress,
+        device_id: this.deviceConfig.deviceId
       };
-
-      await got.post(`${this.gatewayAddress}/node/heartbeat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.key}`
-        },
-        json: heartbeatData,
-      });
-
-      this.logger.debug('Heartbeat sent successfully');
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      this.logger.error(`Heartbeat failed: ${errorMessage}`);
-      // 如果心跳失败，可能需要重新注册
-      this.isRegistered = false;
+    } catch (error) {
+      this.logger.error('Failed to collect heartbeat data');
+      return {
+        code: this.deviceConfig.code,
+        cpu_usage: 0,
+        memory_usage: 0,
+        gpu_usage: 0,
+        ip: '127.0.0.1',
+        timestamp: new Date().toISOString(),
+        type: 'unknown',
+        model: 'unknown',
+        device_info: '{}',
+        gateway_url: this.deviceConfig.gatewayAddress
+      };
     }
   }
+
   async updateDeviceStatus(deviceId: string, name: string, status: "online" | "offline", rewardAddress: string) {
     return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
-      return this.deviceStatusRepository.updateDeviceStatus(conn, deviceId, name, status, rewardAddress, this.gatewayAddress, this.key, this.code);
+      return this.deviceStatusRepository.updateDeviceStatus(
+        conn, 
+        deviceId, 
+        name, 
+        status, 
+        rewardAddress, 
+        this.deviceConfig.gatewayAddress, 
+        this.deviceConfig.key, 
+        this.deviceConfig.code
+      );
     });
   }
 
@@ -191,12 +324,11 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     });
   }
 
-  @Cron(CronExpression.EVERY_30_SECONDS)
+  @Cron(CronExpression.EVERY_10_SECONDS)
   async checkOllamaStatus() {
-    this.heartbeat()
-    const deviceId = this.deviceId;
-    const deviceName = this.deviceName
-    const rewardAddress = this.rewardAddress
+    this.heartbeat();
+    
+    const { deviceId, deviceName, rewardAddress } = this.deviceConfig;
 
     if (!deviceId || !deviceName) {
       return;
@@ -205,12 +337,13 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     try {
       const isOnline = await this.isOllamaOnline();
       const status: "online" | "offline" = isOnline ? "online" : "offline";
-      R.ifElse(R.equals(true), async () => {
+      
+      if (isOnline) {
         await this.updateDeviceStatus(deviceId, deviceName, status, rewardAddress);
-      }, async () => {
+      } else {
         const inactiveDuration = 1000 * 60;
         await this.markInactiveDevicesOffline(inactiveDuration);
-      })(isOnline);
+      }
     } catch (error) {
       const inactiveDuration = 1000 * 60;
       await this.markInactiveDevicesOffline(inactiveDuration);
@@ -219,17 +352,13 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
 
   async isOllamaOnline(): Promise<boolean> {
     try {
-      return await this.ollamaService.checkStatus();
+      return await this.checkStatus();
     } catch (error) {
       return false;
     }
   }
 
-  async getDeviceList(): Promise<{
-    deviceId: string,
-    name: string,
-    status: "online" | "offline"
-  }[]> {
+  async getDeviceList(): Promise<DeviceListItem[]> {
     return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
       return this.deviceStatusRepository.findDeviceList(conn);
     });
@@ -242,39 +371,63 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     rewardAddress: string | null
   }> {
     return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
-      return this.deviceStatusRepository.findCurrentDevice(conn);
+      const device = await this.deviceStatusRepository.findCurrentDevice(conn);
+      // Map back to the interface format
+      return {
+        deviceId: device.deviceId,
+        name: device.name,
+        status: device.status,
+        rewardAddress: device.rewardAddress
+      };
     });
   }
+
+  // async getDeviceTasks(deviceId: string): Promise<TaskResult[]> {
+  //   return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
+  //     const tasks = await this.deviceStatusRepository.findDevicesTasks(conn, deviceId);
+  //     return tasks;
+  //   });
+  // }
+
+  // async getDeviceEarnings(deviceId: string): Promise<EarningResult[]> {
+  //   return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
+  //     const earnings = await this.deviceStatusRepository.findDeviceEarnings(conn, deviceId);
+  //     return earnings;
+  //   });
+  // }
 
   async getGatewayStatus(): Promise<{
     isRegistered: boolean
   }> {
     return {
-      isRegistered: this.isRegistered
+      isRegistered: this.deviceConfig.isRegistered
     };
   }
 
   async getDeviceId(): Promise<string> {
-    return this.deviceId;
+    return this.deviceConfig.deviceId;
   }
 
   async getDeviceName(): Promise<string> {
-    return this.deviceName;
+    return this.deviceConfig.deviceName;
   }
 
   async getRewardAddress(): Promise<string> {
-    return this.rewardAddress;
+    return this.deviceConfig.rewardAddress;
   }
 
   async getGatewayAddress(): Promise<string> {
-    return this.gatewayAddress;
+    return this.deviceConfig.gatewayAddress;
   }
 
   async getKey(): Promise<string> {
-    return this.key;
+    return this.deviceConfig.key;
+  }
+
+  async isRegistered(): Promise<boolean> {
+    return this.deviceConfig.isRegistered;
   }
 }
-
 
 const DeviceStatusServiceProvider = {
   provide: DeviceStatusService,

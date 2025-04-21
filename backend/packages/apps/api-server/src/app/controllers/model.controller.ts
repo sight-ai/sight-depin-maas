@@ -8,16 +8,8 @@ import { Response } from 'express';
 export class OllamaGenerateRequestMessage extends createZodDto(m.ollama('generate_request')) { }
 export class OllamaChatRequestMessage extends createZodDto(m.ollama('chat_request')) { }
 export class OllamaCreateRequestMessage extends createZodDto(m.ollama('create_request')) { }
-export class OllamaCopyRequestMessage extends createZodDto(m.ollama('copy_request')) { }
-export class OllamaDeleteRequestMessage extends createZodDto(m.ollama('delete_request')) { }
-export class OllamaPullRequestMessage extends createZodDto(m.ollama('pull_request')) { }
-export class OllamaPushRequestMessage extends createZodDto(m.ollama('push_request')) { }
 export class OllamaEmbedRequestMessage extends createZodDto(m.ollama('embed_request')) { }
 
-interface ErrorResponse {
-  error: string;
-  details?: string;
-}
 
 @Controller('/api/')
 export class ModelController {
@@ -27,28 +19,20 @@ export class ModelController {
   ) { }
 
   @Post('/generate')
-  async generateResponse(@Body() req: OllamaGenerateRequestMessage, @Res() res: Response) {
+  async generateResponse(@Body() args: ModelOfOllama<'generate_request'>, @Res() res: Response) {
     try {
-      // 检查本地 Ollama 服务是否可用
-      const isAvailable = await this.ollamaService.checkStatus();
-      if (!isAvailable) {
-        this.logger.error('Ollama service is not available');
-        if (!res.headersSent) {
-          res.status(503).json({ 
-            error: 'Ollama service is not available',
-            details: 'Please ensure Ollama service is running at http://127.0.0.1:11434/'
-          });
-        }
-        return;
-      }
-
-      await this.ollamaService.complete(req, res);
+      // Forward directly to ollama service, let the service handle all error cases
+      await this.ollamaService.complete(args, res);
     } catch (error) {
       this.logger.error('Error during generate response:', error);
       if (!res.headersSent) {
-        res.status(500).json({ 
+        // Use 400 status code for errors
+        res.status(400).json({ 
           error: 'Error during generate response',
-          details: error instanceof Error ? error.message : 'Unknown error'
+          details: error instanceof Error ? error.message : 'Unknown error',
+          model: args.model || 'unknown',
+          created_at: new Date().toISOString(),
+          done: true
         });
       }
     }
@@ -63,26 +47,17 @@ export class ModelController {
   @Post('/chat')
   async generateChatResponse(@Body() args: ModelOfOllama<'chat_request'>, @Res() res: Response) {
     try {
-      // 检查本地 Ollama 服务是否可用
-      const isAvailable = await this.ollamaService.checkStatus();
-      if (!isAvailable) {
-        this.logger.error('Ollama service is not available');
-        if (!res.headersSent) {
-          res.status(503).json({ 
-            error: 'Ollama service is not available',
-            details: 'Please ensure Ollama service is running at http://127.0.0.1:11434/'
-          });
-        }
-        return;
-      }
-
       await this.ollamaService.chat(args, res);
     } catch (error) {
       this.logger.error('Error during chat response:', error);
       if (!res.headersSent) {
-        res.status(500).json({ 
+        // Use 400 status code for errors
+        res.status(400).json({ 
           error: 'Error during chat response',
-          details: error instanceof Error ? error.message : 'Unknown error'
+          details: error instanceof Error ? error.message : 'Unknown error',
+          model: args.model || 'unknown',
+          created_at: new Date().toISOString(),
+          done: true
         });
       }
     }
@@ -90,60 +65,51 @@ export class ModelController {
 
   @Get('/tags')
   async listModelTags() {
-    return this.ollamaService.listModelTags();
+    try {
+      return await this.ollamaService.listModelTags();
+    } catch (error) {
+      this.logger.error('Error listing model tags:', error);
+      throw error; // NestJS will convert this to a 500 response
+    }
   }
 
   @Get('/show')
   async showModelInformation(@Body() args: ModelOfOllama<'show_model_request'>) {
-    return this.ollamaService.showModelInformation(args);
+    try {
+      return await this.ollamaService.showModelInformation(args);
+    } catch (error) {
+      this.logger.error('Error showing model information:', error);
+      throw error; // NestJS will convert this to a 500 response
+    }
   }
+  
   @Get('/version')
   async showModelVersion() {
-    return this.ollamaService.showModelVersion();
+    try {
+      return await this.ollamaService.showModelVersion();
+    } catch (error) {
+      this.logger.error('Error showing model version:', error);
+      throw error; // NestJS will convert this to a 500 response
+    }
   }
-
-  // @Post('/create')
-  // async createModel(@Body() args: OllamaCreateRequestMessage) {
-  //   return this.ollamaService.createModel(args);
-  // }
-
-  // @Post('/copy')
-  // async copyModel(@Body() args: OllamaCopyRequestMessage) {
-  //   return this.ollamaService.copyModel(args);
-  // }
-
-  // @Delete('/delete')
-  // async deleteModel(@Body() args: OllamaDeleteRequestMessage) {
-  //   return this.ollamaService.deleteModel(args);
-  // }
-
-  // @Post('/pull')
-  // async pullModel(@Body() args: OllamaPullRequestMessage, @Res() res: Response) {
-  //   try {
-  //     await this.ollamaService.pullModel(args, res);
-  //   } catch (error) {
-  //     this.logger.error('Error during model pull:', error);
-  //     res.status(500).send('Error during model pull');
-  //   }
-  // }
-
-  // @Post('/push')
-  // async pushModel(@Body() args: OllamaPushRequestMessage, @Res() res: Response) {
-  //   try {
-  //     await this.ollamaService.pushModel(args, res);
-  //   } catch (error) {
-  //     this.logger.error('Error during model push:', error);
-  //     res.status(500).send('Error during model push');
-  //   }
-  // }
 
   @Post('/embed')
   async generateEmbeddings(@Body() args: OllamaEmbedRequestMessage) {
-    return this.ollamaService.generateEmbeddings(args);
+    try {
+      return await this.ollamaService.generateEmbeddings(args);
+    } catch (error) {
+      this.logger.error('Error generating embeddings:', error);
+      throw error; // NestJS will convert this to a 500 response
+    }
   }
 
   @Get('/ps')
   async listRunningModels() {
-    return this.ollamaService.listRunningModels();
+    try {
+      return await this.ollamaService.listRunningModels();
+    } catch (error) {
+      this.logger.error('Error listing running models:', error);
+      throw error; // NestJS will convert this to a 500 response
+    }
   }
 }

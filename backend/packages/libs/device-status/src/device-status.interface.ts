@@ -1,3 +1,5 @@
+import { DeviceListItem, TaskResult, EarningResult } from "@saito/models";
+
 export abstract class DeviceStatusService {
   abstract register( body: { code: string, gateway_address: string, reward_address: string, key: string }): Promise<{
     success: boolean,
@@ -19,11 +21,7 @@ export abstract class DeviceStatusService {
 
   abstract isOllamaOnline(): Promise<boolean>;
 
-  abstract getDeviceList(): Promise<{
-    deviceId: string,
-    name: string,
-    status: "online" | "offline"
-  }[]>;
+  abstract getDeviceList(): Promise<DeviceListItem[]>;
 
   abstract getCurrentDevice(): Promise<{
     deviceId: string,
@@ -41,4 +39,9 @@ export abstract class DeviceStatusService {
   abstract getRewardAddress(): Promise<string>;
   abstract getGatewayAddress(): Promise<string>;
   abstract getKey(): Promise<string>;
+  abstract isRegistered(): Promise<boolean>;
+  // // New methods for relational data
+  // abstract getDeviceTasks(deviceId: string): Promise<TaskResult[]>;
+  
+  // abstract getDeviceEarnings(deviceId: string): Promise<EarningResult[]>;
 }

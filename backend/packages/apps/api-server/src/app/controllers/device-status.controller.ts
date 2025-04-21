@@ -4,6 +4,7 @@ import { Response } from 'express';
 
 @Controller('/api/v1/device-status')
 export class DeviceStatusController {
+  private readonly logger = new Logger(DeviceStatusController.name);
   constructor(
     @Inject(DeviceStatusService) private readonly deviceStatusService: DeviceStatusService
   ) { }
@@ -15,13 +16,14 @@ export class DeviceStatusController {
         success: boolean,
         error: string
       } = await this.deviceStatusService.register(body);
+      this.logger.debug('register', data)
       if (data.success) {
         res.status(200).send('Registration successful, starting heartbeat');
       } else {
-        res.status(500).send(data.error);
+        res.status(400).send(data);
       }
     } catch (error) {
-      res.status(500)
+      res.status(500).send('server error')
     }
   }
 

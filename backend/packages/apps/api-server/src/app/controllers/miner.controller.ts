@@ -1,7 +1,9 @@
-import { Body, Controller, Get, Inject, Logger, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Logger, Post, Query, Res } from "@nestjs/common";
 import { MinerService } from "@saito/miner";
 import { DeviceStatusService } from "@saito/device-status";
 import { TaskSyncService, TASK_SYNC_SERVICE } from "@saito/task-sync";
+import { OllamaService } from "@saito/ollama";
+import { Response } from 'express';
 
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
@@ -47,6 +49,14 @@ export class SummaryQueryDto extends createZodDto(
   })
 ) {}
 
+export class ConnectTaskListQueryDto extends createZodDto(
+  z.object({
+    page: z.coerce.number().min(1).default(1),
+    limit: z.coerce.number().min(1).max(100).default(10),
+    status: z.string().optional()
+  })
+) {}
+
 @Controller('/api/v1/miner')
 export class MinerController {
   private readonly logger = new Logger(MinerController.name);
@@ -54,35 +64,146 @@ export class MinerController {
     @Inject(MinerService) private readonly minerService: MinerService,
     @Inject(DeviceStatusService) private readonly deviceStatusService: DeviceStatusService,
     @Inject(TASK_SYNC_SERVICE) private readonly taskSyncService: TaskSyncService,
+    @Inject(OllamaService) private readonly ollamaService: OllamaService,
   ) {}
 
   @Get('/summary')
   async getSummary(@Query() query: SummaryQueryDto = { timeRange: { request_serials: 'daily', filteredTaskActivity: {} } }) {
     this.logger.log(`Getting summary with timeRange: ${JSON.stringify(query.timeRange)}`);
-    return this.minerService.getSummary(query.timeRange);
+    try {
+      return await this.minerService.getSummary(query.timeRange);
+    } catch (error) {
+      this.logger.error(`Error getting summary: ${error}`);
+      throw error; // NestJS will convert this to a 500 response
+    }
   }
 
-  @Post('/chat')
-  async generateChatResponse(@Body() args: any) {
-  }
+  // @Post('/chat')
+  // async generateChatResponse(@Body() args: any, @Res() res: Response) {
+  //   try {
+  //     await this.ollamaService.chat(args, res);
+  //   } catch (error) {
+  //     this.logger.error('Error during chat response in miner controller:', error);
+  //     if (!res.headersSent) {
+  //       // Using 400 status code for errors
+  //       res.status(400).json({ 
+  //         error: 'Error during chat response',
+  //         details: error instanceof Error ? error.message : 'Unknown error',
+  //         model: args.model || 'unknown',
+  //         created_at: new Date().toISOString(),
+  //         done: true
+  //       });
+  //     }
+  //   }
+  // }
 
   @Get('/history')
   async getHistory(@Query() query: HistoryQueryDto) {
-    return this.minerService.getTaskHistory(query.page, query.limit);
+    try {
+      return await this.minerService.getTaskHistory(query.page, query.limit);
+    } catch (error) {
+      this.logger.error(`Error getting task history: ${error}`);
+      throw error; // NestJS will convert this to a 500 response
+    }
   }
   
   @Get('deviceStatus')
-  async getDeviceStatus(@Query() args:QueryDeviceStatusDto ) {
-    return this.deviceStatusService.getDeviceStatus(args.deviceId);
+  async getDeviceStatus(@Query() args: QueryDeviceStatusDto) {
+    try {
+      return await this.deviceStatusService.getDeviceStatus(args.deviceId);
+    } catch (error) {
+      this.logger.error(`Error getting device status: ${error}`);
+      throw error; // NestJS will convert this to a 500 response
+    }
   }
 
   @Get('deviceList')
   async getDeviceList() {
-    return this.deviceStatusService.getDeviceList();
+    try {
+      return await this.deviceStatusService.getDeviceList();
+    } catch (error) {
+      this.logger.error(`Error getting device list: ${error}`);
+      throw error; // NestJS will convert this to a 500 response
+    }
   }
 
   @Get('currentDevice')
   async getCurrentDevice() {
-    return this.deviceStatusService.getCurrentDevice();
+    try {
+      return await this.deviceStatusService.getCurrentDevice();
+    } catch (error) {
+      this.logger.error(`Error getting current device: ${error}`);
+      throw error; // NestJS will convert this to a 500 response
+    }
+  }
+
+  @Get('/connect-task-list')
+  async getConnectTaskList(@Query() query: ConnectTaskListQueryDto) {
+    try {
+      const deviceStatus = await this.deviceStatusService.getCurrentDevice();
+      if (!deviceStatus) {
+        return {
+          code: 400,
+          message: 'Device not found',
+          data: {
+            data: [],
+            total: 0
+          },
+          success: false
+        };
+      }
+
+      const gatewayAddress = await this.deviceStatusService.getGatewayAddress();
+      const key = await this.deviceStatusService.getKey();
+
+      if (!gatewayAddress || !key) {
+        return {
+          code: 400,
+          message: 'Device not properly configured',
+          data: {
+            data: [],
+            total: 0
+          },
+          success: false
+        };
+      }
+
+      const result = await this.minerService.connectTaskList({
+        gateway_address: gatewayAddress,
+        key,
+        page: query.page,
+        limit: query.limit
+      });
+
+      if (result.success && result.data) {
+        return {
+          code: 200,
+          message: 'success',
+          data: result.data,
+          success: true
+        };
+      } else {
+        return {
+          code: 500,
+          message: result.error || 'Failed to fetch connect task list',
+          data: {
+            data: [],
+            total: 0
+          },
+          success: false
+        };
+      }
+    } catch (error) {
+      this.logger.error('Error getting connect task list:', error);
+      return {
+        code: 500,
+        message: error instanceof Error ? error.message : 'An unknown error occurred',
+        data: {
+          data: [],
+          total: 0
+        },
+        success: false
+      };
+    }
   }
 }
