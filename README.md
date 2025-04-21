@@ -1,5 +1,3 @@
----
-
 ## ✨ Introduction
 
 Welcome to **Sight AI** — a decentralized AI compute network where anyone can turn idle hardware into productive AI infrastructure.
@@ -148,7 +146,8 @@ Once logged in:
 - Click the **“Activate New Device”** button
 - A setup prompt will appear, showing a ready-to-run command like this:
 
-![1.png](attachment:3a551aa0-4aed-4715-b8f2-9b9ef26751b4:1.png)
+![1](https://github.com/user-attachments/assets/e6d29f46-1854-434c-98bf-5dbb778502a3)
+
 
 ```bash
 curl -s https://www.sightai.io/model/sight-miner-cli.sh | bash -s -- run --reward-address="0xe9fBEB62238E72d772A3cF06f64b343eFBeF30dd" --gateway-url="https://sightai.io/api/model" --node-code="xrjiio4w5" --gateway-api-key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIweGU5ZkJFQjYyMjM4RTcyZDc3MkEzY0YwNmY2NGIzNDNlRkJlRjMwZGQiLCJpc3MiOiJodHRwczovL3NpZ2h0YWkuaW8iLCJhdWQiOiJodHRwczovL3NpZ2h0YWkuaW8iLCJhZGRyZXNzIjoiMHhlOWZCRUI2MjIzOEU3MmQ3NzJBM2NGMDZmNjRiMzQzZUZCZUYzMGRkIiwiaWF0IjoxNzQ0NzgwMjM
@@ -179,7 +178,8 @@ This script will:
     - **Open WebUI (Chat Interface)**: `http://localhost:8080`
 - Once the setup is complete, return to the Gateway interface and click **"I have completed all steps."** You will then be automatically redirected to the **Gateway Device** page, where you can view the status of currently connected devices.
     
-    ![2.png](attachment:78457c5b-adc5-4679-bae2-0701b4bfc29b:2.png)
+![2](https://github.com/user-attachments/assets/4dbf6285-12e7-4b45-a343-1449b5df30e5)
+
     
 
 > ✅ This setup is now connected to the Gateway, meaning all AI chat requests from users are distributed through the official Sight Gateway and assigned to your local node.
@@ -260,7 +260,8 @@ For local testing, set:
 - `host.docker.internal:11434` → for Ollama
 - `host.docker.internal:8716` → for Sight AI backend
 
-![image.png](attachment:ba493e81-161b-42f6-a4cd-c29f39c9b653:image.png)
+![image](https://github.com/user-attachments/assets/d9e6ff0e-3e05-4558-8d19-6a6ebaee5923)
+
 
 ---
 
@@ -271,4 +272,4 @@ For local testing, set:
 3. Replace the default model with your custom Ollama model
 4. Save and launch!
 
-![image.png](attachment:9e0bbb08-b005-4677-a35f-f1c8ffaf2ea7:image.png)
+![image1](https://github.com/user-attachments/assets/7684ea7a-6a48-41f2-8591-1692d9fafe76)
