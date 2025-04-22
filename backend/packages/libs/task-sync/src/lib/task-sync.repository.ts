@@ -32,7 +32,7 @@ export class TaskSyncRepository {
     const result = await conn.maybeOne(SQL.unsafe`
       SELECT id
       FROM saito_miner.device_status 
-      WHERE status = 'online' 
+      WHERE status = 'connected' 
       ORDER BY created_at DESC 
       LIMIT 1;
     `);

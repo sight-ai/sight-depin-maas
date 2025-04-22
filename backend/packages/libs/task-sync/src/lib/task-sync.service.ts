@@ -70,7 +70,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
    * 同步任务定时任务
    * 每30秒从网关获取任务并同步到本地数据库
    */
-  @Cron(CronExpression.EVERY_30_SECONDS)
+  @Cron(CronExpression.EVERY_5_SECONDS)
   async syncTasks(): Promise<void> {
     const gatewayStatus = await this.deviceStatusService.getGatewayStatus();
     if (!gatewayStatus.isRegistered) {
@@ -128,6 +128,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
    * 同步收益记录定时任务
    * 每30秒从网关获取收益记录并同步到本地数据库
    */
+  @Cron(CronExpression.EVERY_10_SECONDS)
   async syncEarnings(): Promise<void> {
     const gatewayStatus = await this.deviceStatusService.getGatewayStatus();
     if (!gatewayStatus.isRegistered) {

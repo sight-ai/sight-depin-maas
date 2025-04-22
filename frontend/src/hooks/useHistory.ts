@@ -44,7 +44,7 @@ export function useHistory() {
             setError(null);
             const response = await apiService.refreshHistory({ page: 1, limit: pageSize });
             setHistoryItems(response.tasks.map(task => ({
-                status: task.status === 'pending' ? 'In-Progress' :
+                status: (task.status === 'pending' || task.status === 'running') ? 'In-Progress' :
                     (task.status === 'completed') ? 'Done' : 'Failed',
                 requestId: task.id,
                 tokenUsage: `${task.prompt_eval_count + task.eval_count}`,

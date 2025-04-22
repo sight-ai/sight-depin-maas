@@ -96,7 +96,7 @@ export const Header = () => {
                     color: isDark ? '#000' : '#fff'
                 }}>
                     <div className="flex items-center gap-2">
-                        {formatAddress(data?.rewardAddress || '')}
+                        {formatAddress(data?.reward_address || '')}
                     </div>
                 </span>
             </Button>

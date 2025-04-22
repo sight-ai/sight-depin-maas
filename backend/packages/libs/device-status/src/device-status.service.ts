@@ -130,7 +130,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
           code: credentials.code,
           isRegistered: true
         };
-        
+        this.logger.debug(`Device registered: ${JSON.stringify(this.deviceConfig)}`);
         await this.updateDeviceStatus(
           this.deviceConfig.deviceId, 
           this.deviceConfig.deviceName, 

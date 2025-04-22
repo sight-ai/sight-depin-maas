@@ -45,7 +45,7 @@ export const apiService = {
     async getCurrentDevice() {
         return request<{ 
             deviceId: string, 
-            rewardAddress: string | null,
+            reward_address: string | null,
             status: 'waiting' | 'in-progress' | 'connected' | 'disconnected' | 'failed'
         }>('/miner/currentDevice', {method: 'GET'});
     },
