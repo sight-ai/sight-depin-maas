@@ -390,7 +390,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       this.logger.error(`Heartbeat failed: ${errorMessage}`);
-      this.deviceConfig.isRegistered = false;
+      // this.deviceConfig.isRegistered = false;
     }
   }
 
