@@ -1,5 +1,5 @@
 import { DeviceStatusService } from "@saito/device-status";
-import { m } from "@saito/models";
+import { TTask, TEarning } from "@saito/models";
 
 export class MockedDeviceStatusService implements DeviceStatusService {
   async register(): Promise<{ success: boolean; error: string }> {
@@ -18,20 +18,85 @@ export class MockedDeviceStatusService implements DeviceStatusService {
     return 'mock-device-info';
   }
 
-  heartbeat(): void {
+  async heartbeat(): Promise<void> {
     // Mock implementation
   }
 
-  async updateDeviceStatus(deviceId: string, name: string, status: "online" | "offline", rewardAddress: string): Promise<void> {
-    // Mock implementation
+  async updateDeviceStatus(
+    deviceId: string,
+    name: string,
+    status: "connected" | "disconnected" | "failed" | "in-progress" | "waiting",
+    rewardAddress: string
+  ): Promise<{
+    code: string | null;
+    status: "connected" | "disconnected" | "failed" | "in-progress" | "waiting";
+    name: string;
+    id: string;
+    created_at: string;
+    updated_at: string;
+    gateway_address: string | null;
+    reward_address: string | null;
+    key: string | null;
+    up_time_start: string | null;
+    up_time_end: string | null;
+  }> {
+    return {
+      code: null,
+      status: status,
+      name: name,
+      id: deviceId,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      gateway_address: null,
+      reward_address: rewardAddress,
+      key: null,
+      up_time_start: null,
+      up_time_end: null
+    };
   }
 
-  async getDeviceStatus(deviceId: string): Promise<{ name: string; status: "online" | "offline" } | null> {
-    return { name: 'mock-device', status: 'online' };
+  async getDeviceStatus(deviceId: string): Promise<{
+    code: string | null;
+    status: "connected" | "disconnected" | "failed" | "in-progress" | "waiting";
+    name: string;
+    id: string;
+    created_at: string;
+    updated_at: string;
+    gateway_address: string | null;
+    reward_address: string | null;
+    key: string | null;
+    up_time_start: string | null;
+    up_time_end: string | null;
+  } | null> {
+    return {
+      code: null,
+      status: "connected",
+      name: 'mock-device',
+      id: deviceId,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      gateway_address: null,
+      reward_address: null,
+      key: null,
+      up_time_start: null,
+      up_time_end: null
+    };
   }
 
-  markInactiveDevicesOffline(inactiveDuration: number): void {
-    // Mock implementation
+  async markInactiveDevicesOffline(inactiveDuration: number): Promise<{
+    code: string | null;
+    status: "connected" | "disconnected" | "failed" | "in-progress" | "waiting";
+    name: string;
+    id: string;
+    created_at: string;
+    updated_at: string;
+    gateway_address: string | null;
+    reward_address: string | null;
+    key: string | null;
+    up_time_start: string | null;
+    up_time_end: string | null;
+  }[]> {
+    return [];
   }
 
   checkOllamaStatus(): void {
@@ -42,16 +107,43 @@ export class MockedDeviceStatusService implements DeviceStatusService {
     return true;
   }
 
-  async getDeviceList(): Promise<{ deviceId: string; name: string; status: "online" | "offline" }[]> {
-    return [];
+  async getDeviceList(): Promise<{
+    status: "connected" | "disconnected" | "failed" | "in-progress" | "waiting";
+    name: string;
+    id: string;
+  }[]> {
+    return [{
+      status: "connected",
+      name: "mock-device",
+      id: "mock-device-id"
+    }];
   }
 
-  async getCurrentDevice(): Promise<{ deviceId: string; name: string; status: "online" | "offline"; rewardAddress: string | null }> {
+  async getCurrentDevice(): Promise<{
+    code: string | null;
+    status: "connected" | "disconnected" | "failed" | "in-progress" | "waiting";
+    name: string;
+    id: string;
+    created_at: string;
+    updated_at: string;
+    gateway_address: string | null;
+    reward_address: string | null;
+    key: string | null;
+    up_time_start: string | null;
+    up_time_end: string | null;
+  }> {
     return {
-      deviceId: 'mock-device-id',
-      name: 'mock-device',
-      status: 'online',
-      rewardAddress: 'mock-reward-address'
+      code: null,
+      status: "connected",
+      name: "mock-device",
+      id: "mock-device-id",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      gateway_address: null,
+      reward_address: null,
+      key: null,
+      up_time_start: null,
+      up_time_end: null
     };
   }
 
@@ -80,6 +172,18 @@ export class MockedDeviceStatusService implements DeviceStatusService {
   }
 
   async isRegistered(): Promise<boolean> {
+    return true;
+  }
+
+  async getDeviceTasks(deviceId: string, limit: number = 10): Promise<TTask[]> {
+    return [];
+  }
+
+  async getDeviceEarnings(deviceId: string, limit: number = 10): Promise<TEarning[]> {
+    return [];
+  }
+
+  async checkStatus(): Promise<boolean> {
     return true;
   }
 } 
