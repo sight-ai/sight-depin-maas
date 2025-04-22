@@ -1,47 +1,37 @@
-import { DeviceListItem, TaskResult, EarningResult } from "@saito/models";
+import { 
+  TDeviceStatus, 
+  TDeviceListItem, 
+  TTaskResult, 
+  TEarningResult, 
+  TDeviceCredentials,
+  TRegistrationResponse 
+} from "@saito/models";
 
 export abstract class DeviceStatusService {
-  abstract register( body: { code: string, gateway_address: string, reward_address: string, key: string }): Promise<{
-    success: boolean,
-    error: string
-  }>;
-
-  abstract getDeviceType(): Promise<string>;
-  abstract getDeviceModel(): Promise<string>;
-
-  abstract getDeviceInfo(): Promise<string>;
-  abstract heartbeat(): void;
-  abstract updateDeviceStatus(deviceId: string, name: string, status: "online" | "offline", rewardAddress: string): void;
-
-  abstract getDeviceStatus(deviceId: string): void;
-
-  abstract markInactiveDevicesOffline(inactiveDuration: number): void;
-
-  abstract checkOllamaStatus(): void;
-
-  abstract isOllamaOnline(): Promise<boolean>;
-
-  abstract getDeviceList(): Promise<DeviceListItem[]>;
-
-  abstract getCurrentDevice(): Promise<{
-    deviceId: string,
-    name: string,
-    status: "online" | "offline",
-    rewardAddress: string | null
-  }>;
-
-  abstract getGatewayStatus(): Promise<{
-    isRegistered: boolean
-  }>;
-
+  abstract register(credentials: TDeviceCredentials): Promise<TRegistrationResponse>;
+  abstract getDeviceStatus(deviceId: string): Promise<TDeviceStatus | null>;
+  abstract updateDeviceStatus(
+    deviceId: string, 
+    name: string, 
+    status: "waiting" | "in-progress" | "connected" | "disconnected" | "failed", 
+    rewardAddress: string
+  ): Promise<TDeviceStatus>;
+  abstract markInactiveDevicesOffline(inactiveDuration: number): Promise<TDeviceStatus[]>;
+  abstract getDeviceList(): Promise<TDeviceListItem[]>;
+  abstract getCurrentDevice(): Promise<TDeviceStatus>;
+  abstract getDeviceTasks(deviceId: string): Promise<TTaskResult[]>;
+  abstract getDeviceEarnings(deviceId: string): Promise<TEarningResult[]>;
+  abstract getGatewayStatus(): Promise<{ isRegistered: boolean }>;
   abstract getDeviceId(): Promise<string>;
   abstract getDeviceName(): Promise<string>;
   abstract getRewardAddress(): Promise<string>;
   abstract getGatewayAddress(): Promise<string>;
   abstract getKey(): Promise<string>;
   abstract isRegistered(): Promise<boolean>;
-  // // New methods for relational data
-  // abstract getDeviceTasks(deviceId: string): Promise<TaskResult[]>;
-  
-  // abstract getDeviceEarnings(deviceId: string): Promise<EarningResult[]>;
+  abstract getDeviceType(): Promise<string>;
+  abstract getDeviceModel(): Promise<string>;
+  abstract getDeviceInfo(): Promise<string>;
+  abstract checkStatus(): Promise<boolean>;
+  abstract isOllamaOnline(): Promise<boolean>;
+  abstract heartbeat(): Promise<void>;
 }

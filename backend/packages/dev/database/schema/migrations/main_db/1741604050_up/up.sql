@@ -21,9 +21,9 @@ CREATE SCHEMA IF NOT EXISTS saito_miner;
 
 -- First create the device_status table since other tables will reference it
 CREATE TABLE saito_miner.device_status (
-    device_id text PRIMARY KEY,
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     name text NOT NULL,
-    status text NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'waiting' CHECK (status IN ('waiting', 'in-progress', 'connected', 'disconnected', 'failed')),
     up_time_start timestamp,
     up_time_end timestamp,
     reward_address text,
@@ -35,10 +35,10 @@ CREATE TABLE saito_miner.device_status (
 );
 
 CREATE TABLE saito_miner.tasks (
-    id text PRIMARY KEY,
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     model text NOT NULL,
     created_at timestamp NOT NULL DEFAULT now(),
-    status text NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'completed', 'failed', 'cancelled')),
     total_duration double precision,
     load_duration double precision,
     prompt_eval_count integer,
@@ -47,20 +47,20 @@ CREATE TABLE saito_miner.tasks (
     eval_duration double precision,
     updated_at timestamp NOT NULL DEFAULT now(),
     source text NOT NULL DEFAULT 'local' CHECK (source IN ('local', 'gateway')),
-    device_id text NOT NULL,
-    FOREIGN KEY (device_id) REFERENCES saito_miner.device_status(device_id)
+    device_id uuid,
+    FOREIGN KEY (device_id) REFERENCES saito_miner.device_status(id)
 );
 
 CREATE TABLE saito_miner.earnings ( 
-    id text PRIMARY KEY,
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     block_rewards double precision NOT NULL DEFAULT 0,
     job_rewards double precision NOT NULL DEFAULT 0,
     created_at timestamp NOT NULL DEFAULT now(),
     updated_at timestamp NOT NULL DEFAULT now(),
     source text NOT NULL DEFAULT 'local' CHECK (source IN ('local', 'gateway')),
-    device_id text NOT NULL,
-    task_id text,
-    FOREIGN KEY (device_id) REFERENCES saito_miner.device_status(device_id),
+    device_id uuid,
+    task_id uuid,
+    FOREIGN KEY (device_id) REFERENCES saito_miner.device_status(id),
     FOREIGN KEY (task_id) REFERENCES saito_miner.tasks(id)
 );
 
