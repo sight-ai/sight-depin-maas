@@ -1,15 +1,17 @@
 services:
   sight-miner-backend:
     platform: linux/amd64
-    image: ghcr.io/sight-ai/sight-miner-backend:0.0.13-SNAPSHOT
+    image: ghcr.io/sight-ai/sight-miner-backend:0.0.14-SNAPSHOT
     ports:
       - "8716:8716"
     networks:
       - app-network
-
+    depends_on:
+      sight-miner-postgres:
+        condition: service_healthy
   sight-miner-frontend:
     platform: linux/amd64
-    image: ghcr.io/sight-ai/sight-miner-frontend:0.0.6-SNAPSHOT
+    image: ghcr.io/sight-ai/sight-miner-frontend:0.0.7-SNAPSHOT
     ports:
       - "3000:3000"
     networks:
@@ -58,9 +60,9 @@ services:
 
       psql -U postgres -d saito_db -c "
         CREATE TABLE saito_miner.device_status (
-            device_id text PRIMARY KEY,
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             name text NOT NULL,
-            status text NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT '\''waiting'\'' CHECK (status IN ('\''waiting'\'', '\''in-progress'\'', '\''connected'\'', '\''disconnected'\'', '\''failed'\'')),
             up_time_start timestamp,
             up_time_end timestamp,
             reward_address text,
@@ -74,10 +76,10 @@ services:
 
       psql -U postgres -d saito_db -c "
         CREATE TABLE saito_miner.tasks (
-            id text PRIMARY KEY,
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             model text NOT NULL,
             created_at timestamp NOT NULL DEFAULT now(),
-            status text NOT NULL,
+            status TEXT NOT NULL CHECK (status IN ('\''pending'\'', '\''running'\'', '\''completed'\'', '\''failed'\'', '\''cancelled'\'')),
             total_duration double precision,
             load_duration double precision,
             prompt_eval_count integer,
@@ -86,22 +88,22 @@ services:
             eval_duration double precision,
             updated_at timestamp NOT NULL DEFAULT now(),
             source text NOT NULL DEFAULT '\''local'\'' CHECK (source IN ('\''local'\'', '\''gateway'\'')),
-            device_id text NOT NULL,
-            FOREIGN KEY (device_id) REFERENCES saito_miner.device_status(device_id)
+            device_id uuid,
+            FOREIGN KEY (device_id) REFERENCES saito_miner.device_status(id)
         );
       "
 
       psql -U postgres -d saito_db -c "
         CREATE TABLE saito_miner.earnings ( 
-            id text PRIMARY KEY,
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             block_rewards double precision NOT NULL DEFAULT 0,
             job_rewards double precision NOT NULL DEFAULT 0,
             created_at timestamp NOT NULL DEFAULT now(),
             updated_at timestamp NOT NULL DEFAULT now(),
             source text NOT NULL DEFAULT '\''local'\'' CHECK (source IN ('\''local'\'', '\''gateway'\'')),
-            device_id text NOT NULL,
-            task_id text,
-            FOREIGN KEY (device_id) REFERENCES saito_miner.device_status(device_id),
+            device_id uuid,
+            task_id uuid,
+            FOREIGN KEY (device_id) REFERENCES saito_miner.device_status(id),
             FOREIGN KEY (task_id) REFERENCES saito_miner.tasks(id)
         );
       "

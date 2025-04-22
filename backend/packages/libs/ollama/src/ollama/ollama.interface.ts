@@ -1,16 +1,24 @@
-import { ModelOfOllama } from "@saito/models";
+import { 
+  OllamaGenerateRequest,
+  OllamaChatRequest,
+  OllamaModelList,
+  OllamaModelInfo,
+  OllamaVersionResponse,
+  OllamaEmbeddingsRequest,
+  OllamaEmbeddingsResponse,
+  OllamaRunningModels
+} from "@saito/models";
 import { Response } from 'express';
-
+import { z } from 'zod';
 
 export abstract class OllamaService {
-  abstract complete(args: ModelOfOllama<'generate_request'>, res: Response): Promise<void>;
-  abstract chat(args: ModelOfOllama<'chat_request'>, res: Response): Promise<void>;
+  abstract complete(args: z.infer<typeof OllamaGenerateRequest>, res: Response): Promise<void>;
+  abstract chat(args: z.infer<typeof OllamaChatRequest>, res: Response): Promise<void>;
   abstract checkStatus(): Promise<boolean>;
-  abstract listModelTags(): Promise<ModelOfOllama<'list_model_response'>>;
-  abstract showModelInformation(args: ModelOfOllama<'show_model_request'>): Promise<any>;
-  abstract showModelVersion(): Promise<ModelOfOllama<'version_response'>>;
-  abstract listModels(): Promise<ModelOfOllama<'list_model_response'>>;
-  // New endpoints
-  abstract generateEmbeddings(args: ModelOfOllama<'embed_request'>): Promise<ModelOfOllama<'embed_response'>>;
-  abstract listRunningModels(): Promise<ModelOfOllama<'list_running_models_response'>>;
+  abstract listModelTags(): Promise<z.infer<typeof OllamaModelList>>;
+  abstract showModelInformation(args: { name: string }): Promise<z.infer<typeof OllamaModelInfo>>;
+  abstract showModelVersion(): Promise<z.infer<typeof OllamaVersionResponse>>;
+  abstract listModels(): Promise<z.infer<typeof OllamaModelList>>;
+  abstract generateEmbeddings(args: z.infer<typeof OllamaEmbeddingsRequest>): Promise<z.infer<typeof OllamaEmbeddingsResponse>>;
+  abstract listRunningModels(): Promise<z.infer<typeof OllamaRunningModels>>;
 }

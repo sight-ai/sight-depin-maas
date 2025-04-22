@@ -4,6 +4,7 @@ import { z } from 'zod';
 export const OllamaModel = z.object({
   name: z.string(),
   modified_at: z.string(),
+  model: z.string(),
   size: z.number(),
   digest: z.string(),
   details: z.object({
@@ -167,6 +168,8 @@ export const OllamaChatRequest = z.object({
   }).optional(),
   stream: z.boolean().optional(),
   keep_alive: z.union([z.string(), z.number()]).optional(),
+  task_id: z.string().optional(),
+  device_id: z.string().optional()
 });
 
 // Chat response format
@@ -228,6 +231,8 @@ export const OllamaGenerateRequest = z.object({
   stream: z.boolean().optional(),
   raw: z.boolean().optional(),
   keep_alive: z.union([z.string(), z.number()]).optional(),
+  task_id: z.string().optional(),
+  device_id: z.string().optional()
 });
 
 // Generation response format

@@ -27,119 +27,268 @@ export const DeviceStatus = z.object({
 export const DeviceListItem = z.object({
   id: z.string().uuid(),
   name: z.string(),
-  status: z.enum(['waiting', 'in-progress', 'connected', 'disconnected', 'failed'])
+  status: DeviceStatus.shape.status
 });
 
-// Task Result
-export const TaskResult = z.object({
-  id: z.string().uuid(),
-  model: z.string(),
-  status: z.enum(['pending', 'running', 'completed', 'failed', 'cancelled']),
-  created_at: z.string().datetime()
+// Miner schemas
+export const MinerEarning = z.object({
+  total_block_rewards: z.number(),
+  total_job_rewards: z.number()
 });
 
-// Earning Result
-export const EarningResult = z.object({
-  id: z.string().uuid(),
-  block_rewards: z.number(),
-  job_rewards: z.number(),
-  created_at: z.string().datetime(),
-  task_id: z.string().uuid().nullable()
+export const MinerDeviceStatus = z.object({
+  name: z.string(),
+  status: DeviceStatus.shape.status,
+  up_time_start: z.number().nullable(),
+  up_time_end: z.number().nullable()
 });
 
-// Base Tasks schema
+export const MinerUptime = z.object({
+  uptime_percentage: z.number()
+});
+
+export const MinerEarningsHistory = z.object({
+  daily_earning: z.number(),
+  date: z.string()
+});
+
+export const MinerDailyRequests = z.object({
+  request_count: z.number(),
+  date: z.string()
+});
+
+export const MinerTaskActivity = z.object({
+  date: z.string(),
+  task_count: z.number()
+});
+
+export const TaskCount = z.object({
+  count: z.number()
+});
+
 export const Task = z.object({
   id: z.string().uuid(),
   model: z.string(),
+  status: z.enum(['pending', 'running', 'completed', 'failed', 'cancelled']),
   created_at: z.string().datetime(),
-  status: z.string(),
+  updated_at: z.string().datetime(),
   total_duration: z.number().nullable(),
   load_duration: z.number().nullable(),
   prompt_eval_count: z.number().nullable(),
   prompt_eval_duration: z.number().nullable(),
   eval_count: z.number().nullable(),
   eval_duration: z.number().nullable(),
-  updated_at: z.string().datetime(),
   source: z.enum(['local', 'gateway']).default('local'),
-  device_id: z.string().uuid().nullable(),
+  device_id: z.string().uuid().nullable()
 });
 
-// Base Earnings schema
 export const Earning = z.object({
   id: z.string().uuid(),
-  block_rewards: z.number().default(0),
-  job_rewards: z.number().default(0),
+  block_rewards: z.number(),
+  job_rewards: z.number(),
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
   source: z.enum(['local', 'gateway']).default('local'),
   device_id: z.string().uuid().nullable(),
-  task_id: z.string().uuid().nullable(),
+  task_id: z.string().uuid().nullable()
 });
 
-// Create requests
-export const CreateDeviceStatusRequest = DeviceStatus.omit({ 
-  id: true, 
-  created_at: true, 
-  updated_at: true 
+export const TaskResult = z.object({
+  id: z.string().uuid(),
+  model: z.string(),
+  status: z.enum(['pending', 'running', 'completed', 'failed', 'cancelled']),
+  created_at: z.string().datetime(),
+  updated_at: z.string().datetime(),
+  total_duration: z.number().nullable(),
+  load_duration: z.number().nullable(),
+  prompt_eval_count: z.number().nullable(),
+  prompt_eval_duration: z.number().nullable(),
+  eval_count: z.number().nullable(),
+  eval_duration: z.number().nullable(),
+  source: z.enum(['local', 'gateway']).default('local'),
+  device_id: z.string().uuid().nullable()
 });
 
-export const CreateTaskRequest = Task.omit({ 
-  id: true, 
-  created_at: true, 
-  updated_at: true 
+export const EarningResult = z.object({
+  id: z.string().uuid(),
+  block_rewards: z.number(),
+  job_rewards: z.number(),
+  created_at: z.string().datetime(),
+  updated_at: z.string().datetime(),
+  source: z.enum(['local', 'gateway']).default('local'),
+  device_id: z.string().uuid().nullable(),
+  task_id: z.string().uuid().nullable()
 });
 
-export const CreateEarningRequest = Earning.omit({ 
-  id: true, 
-  created_at: true, 
-  updated_at: true 
+// Request/Response schemas
+export const CreateTaskRequest = z.object({
+  model: z.string(),
+  device_id: z.string().uuid().optional()
 });
 
-// Update requests
-export const UpdateDeviceStatusRequest = CreateDeviceStatusRequest.partial();
-export const UpdateTaskRequest = CreateTaskRequest.partial();
-export const UpdateEarningRequest = CreateEarningRequest.partial();
-
-// List responses
-export const DeviceStatusList = z.array(DeviceStatus);
-export const TaskList = z.array(Task);
-export const EarningList = z.array(Earning);
-
-// Query filters
-export const DeviceStatusFilter = z.object({
-  status: z.enum(['waiting', 'in-progress', 'connected', 'disconnected', 'failed']).optional(),
-  name: z.string().optional(),
-  reward_address: z.string().optional(),
-  gateway_address: z.string().optional(),
+export const TaskHistoryResponse = z.object({
+  page: z.number(),
+  limit: z.number(),
+  total: z.number(),
+  tasks: z.array(Task)
 });
 
-export const TaskFilter = z.object({
-  model: z.string().optional(),
-  status: z.enum(['pending', 'running', 'completed', 'failed', 'cancelled']).optional(),
-  source: z.enum(['local', 'gateway']).optional(),
-  device_id: z.string().uuid().optional(),
+export const Summary = z.object({
+  earning_info: MinerEarning,
+  device_info: z.object({
+    name: z.string(),
+    status: z.enum(['connected', 'disconnected'])
+  }),
+  statistics: z.object({
+    up_time_percentage: z.number(),
+    earning_serials: z.array(z.number()),
+    request_serials: z.array(z.number()),
+    task_activity: z.array(z.number())
+  })
 });
 
-export const EarningFilter = z.object({
-  source: z.enum(['local', 'gateway']).optional(),
-  device_id: z.string().uuid().optional(),
-  task_id: z.string().uuid().optional(),
+export const ConnectTaskListRequest = z.object({
+  gateway_address: z.string(),
+  key: z.string(),
+  page: z.number(),
+  limit: z.number()
 });
 
-// Delete responses
-export const DeleteResponse = z.object({
+export const ConnectTaskListResponse = z.object({
   success: z.boolean(),
-  message: z.string().optional(),
+  error: z.string().optional(),
+  data: z.object({
+    data: z.array(z.any()),
+    total: z.number()
+  }).optional()
 });
 
-// Type inference helpers
+// DeviceStatusModule types
+export const DeviceStatusModule = z.object({
+  id: z.string(),
+  name: z.string(),
+  status: z.enum(['waiting', 'in-progress', 'connected', 'disconnected', 'failed']),
+  reward_address: z.string().nullable(),
+  gateway_address: z.string().nullable(),
+  key: z.string().nullable(),
+  code: z.string().nullable(),
+  up_time_start: z.string().nullable(),
+  up_time_end: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string()
+});
+
+export const DeviceStatusList = z.array(DeviceStatusModule);
+
+export const DeviceStatusResponse = z.object({
+  success: z.boolean(),
+  error: z.string().optional(),
+  data: DeviceStatusModule.optional()
+});
+
+export const DeviceStatusListResponse = z.object({
+  success: z.boolean(),
+  error: z.string().optional(),
+  data: DeviceStatusList.optional()
+});
+
+export const DeviceStatusUpdateRequest = z.object({
+  name: z.string(),
+  status: z.enum(['waiting', 'in-progress', 'connected', 'disconnected', 'failed']),
+  reward_address: z.string(),
+  gateway_address: z.string(),
+  key: z.string(),
+  code: z.string()
+});
+
+export const DeviceStatusUpdateResponse = z.object({
+  success: z.boolean(),
+  error: z.string().optional(),
+  data: DeviceStatusModule.optional()
+});
+
+// Database row types
+export const DeviceStatusRow = z.object({
+  id: z.string(),
+  name: z.string(),
+  status: z.enum(['waiting', 'in-progress', 'connected', 'disconnected', 'failed']),
+  reward_address: z.string().nullable(),
+  gateway_address: z.string().nullable(),
+  key: z.string().nullable(),
+  code: z.string().nullable(),
+  up_time_start: z.string().nullable(),
+  up_time_end: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string()
+});
+
+export const TaskRow = z.object({
+  id: z.string(),
+  device_id: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  status: z.enum(['failed', 'pending', 'running', 'completed', 'cancelled']),
+  model: z.string(),
+  total_duration: z.number().nullable(),
+  load_duration: z.number().nullable(),
+  prompt_eval_count: z.number().nullable(),
+  prompt_eval_duration: z.number().nullable(),
+  eval_count: z.number().nullable(),
+  eval_duration: z.number().nullable(),
+  source: z.enum(['local', 'gateway']),
+  activity: z.string()
+});
+
+export const EarningRow = z.object({
+  id: z.string(),
+  device_id: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  task_id: z.string().nullable(),
+  source: z.enum(['local', 'gateway']),
+  block_rewards: z.number(),
+  job_rewards: z.number()
+});
+
+export const Miner = z.object({
+  id: z.string(),
+  device_id: z.string(),
+  created_at: z.string(),
+  updated_at: z.string()
+});
+
+// Type inference
 export type TDeviceStatus = z.infer<typeof DeviceStatus>;
 export type TDeviceListItem = z.infer<typeof DeviceListItem>;
 export type TDeviceCredentials = z.infer<typeof DeviceCredentials>;
-export type TTaskResult = z.infer<typeof TaskResult>;
-export type TEarningResult = z.infer<typeof EarningResult>;
+export type TMinerEarning = z.infer<typeof MinerEarning>;
+export type TMinerDeviceStatus = z.infer<typeof MinerDeviceStatus>;
+export type TMinerUptime = z.infer<typeof MinerUptime>;
+export type TMinerEarningsHistory = z.infer<typeof MinerEarningsHistory>;
+export type TMinerDailyRequests = z.infer<typeof MinerDailyRequests>;
+export type TMinerTaskActivity = z.infer<typeof MinerTaskActivity>;
 export type TTask = z.infer<typeof Task>;
 export type TEarning = z.infer<typeof Earning>;
+export type TCreateTaskRequest = z.infer<typeof CreateTaskRequest>;
+export type TTaskHistoryResponse = z.infer<typeof TaskHistoryResponse>;
+export type TSummary = z.infer<typeof Summary>;
+export type TConnectTaskListRequest = z.infer<typeof ConnectTaskListRequest>;
+export type TConnectTaskListResponse = z.infer<typeof ConnectTaskListResponse>;
+export type TTaskResult = z.infer<typeof TaskResult>;
+export type TEarningResult = z.infer<typeof EarningResult>;
+export type TDeviceStatusRow = z.infer<typeof DeviceStatusRow>;
+export type TTaskRow = z.infer<typeof TaskRow>;
+export type TEarningRow = z.infer<typeof EarningRow>;
+export type TTaskCount = z.infer<typeof TaskCount>;
+export type TMiner = z.infer<typeof Miner>;
+
+// Export types for DeviceStatusModule
+export type TDeviceStatusModule = z.infer<typeof DeviceStatusModule>;
+export type TDeviceStatusList = z.infer<typeof DeviceStatusList>;
+export type TDeviceStatusResponse = z.infer<typeof DeviceStatusResponse>;
+export type TDeviceStatusListResponse = z.infer<typeof DeviceStatusListResponse>;
+export type TDeviceStatusUpdateRequest = z.infer<typeof DeviceStatusUpdateRequest>;
+export type TDeviceStatusUpdateResponse = z.infer<typeof DeviceStatusUpdateResponse>;
 
 // Registration Response Type
 export type TRegistrationResponse = {
@@ -147,4 +296,39 @@ export type TRegistrationResponse = {
   error: string;
   node_id?: string;
   name?: string;
-}; 
+};
+
+// DeviceConfig types
+export const DeviceConfig = z.object({
+  deviceId: z.string(),
+  deviceName: z.string(),
+  rewardAddress: z.string(),
+  gatewayAddress: z.string(),
+  key: z.string(),
+  code: z.string(),
+  isRegistered: z.boolean()
+});
+
+export const HeartbeatData = z.object({
+  cpuLoad: z.object({
+    currentLoad: z.number()
+  }),
+  memoryInfo: z.object({
+    used: z.number(),
+    total: z.number()
+  }),
+  gpuInfo: z.object({
+    controllers: z.array(z.object({
+      utilizationGpu: z.number()
+    }))
+  }),
+  ipAddress: z.string(),
+  deviceType: z.string(),
+  deviceModel: z.string(),
+  deviceInfo: z.string(),
+  deviceConfig: DeviceConfig
+});
+
+// Export types for DeviceConfig
+export type TDeviceConfig = z.infer<typeof DeviceConfig>;
+export type THeartbeatData = z.infer<typeof HeartbeatData>; 

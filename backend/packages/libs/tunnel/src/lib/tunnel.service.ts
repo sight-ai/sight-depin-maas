@@ -1,8 +1,8 @@
 import { TunnelService } from "./tunnel.interface";
-import { Inject, Injectable, Logger, forwardRef } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { io, Socket } from "socket.io-client";
 import got from "got-cjs";
-import { OllamaChatRequest, OllamaGenerateRequest, TunnelSchemas } from '@saito/models';
+import { OllamaChatRequest, OllamaGenerateRequest } from '@saito/models';
 import * as R from 'ramda';
 import { z } from 'zod';
 
@@ -39,8 +39,8 @@ export class DefaultTunnelService implements TunnelService {
       // 从完整地址中提取基础URL
       const url = new URL(gatewayAddress);
       this.gatewayUrl = `${url.protocol}//${url.host}`;
-      const basePath = '';  // 代理转发的基础路径
-      // const basePath = '/api/model';  // 代理转发的基础路径
+      // const basePath = '';  // 代理转发的基础路径
+      const basePath = '/api/model';  // 代理转发的基础路径
       const socketPath = `${basePath}/socket.io`;  // 完整的socket.io路径
 
       this.logger.debug('Socket连接配置信息:');
@@ -434,7 +434,7 @@ export class DefaultTunnelService implements TunnelService {
    * 处理代理请求
    * @param serverData 服务器数据
    */
-  async proxyRequest(serverData: TunnelSchemas.ModelOfTunnel<'ProxyRequest'>): Promise<void> {
+  async proxyRequest(serverData:  any): Promise<void> {
     try {
       const { taskId, data } = serverData;
       this.logger.debug(`处理代理请求: ${taskId}`);

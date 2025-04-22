@@ -46,7 +46,7 @@ export const apiService = {
         return request<{ 
             deviceId: string, 
             rewardAddress: string | null,
-            status: 'online' | 'offline'
+            status: 'waiting' | 'in-progress' | 'connected' | 'disconnected' | 'failed'
         }>('/miner/currentDevice', {method: 'GET'});
     },
 

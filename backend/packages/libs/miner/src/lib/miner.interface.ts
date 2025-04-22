@@ -1,7 +1,14 @@
-import { CreateTaskRequest, Task, Summary } from "@saito/models";
+import { 
+  TCreateTaskRequest, 
+  TTask, 
+  TSummary, 
+  TEarning,
+  TConnectTaskListRequest,
+  TConnectTaskListResponse
+} from "@saito/models";
 
 export abstract class MinerService {
-  abstract createTask(args: CreateTaskRequest): Promise<Task>;
+  abstract createTask(args: TCreateTaskRequest): Promise<TTask>;
   abstract getSummary(timeRange?: { 
     request_serials?: 'daily' | 'weekly' | 'monthly',
     filteredTaskActivity?: { 
@@ -9,45 +16,29 @@ export abstract class MinerService {
       month?: string; 
       view?: 'Month' | 'Year' 
     }
-  }): Promise<Summary>;
+  }): Promise<TSummary>;
   
   abstract getTaskHistory(page: number, limit: number): Promise<{
     page: number;
     limit: number;
     total: number;
-    tasks: Task[];
+    tasks: TTask[];
   }>;
   
-  abstract updateTask(id: string, updates: Partial<Task>): Promise<Task>;
-  abstract createEarnings(blockRewards: number, jobRewards: number, taskId: string, deviceId: string): Promise<{
+  abstract updateTask(id: string, updates: Partial<TTask>): Promise<TTask>;
+  abstract createEarnings(
+    blockRewards: number, 
+    jobRewards: number, 
+    taskId: string, 
+    deviceId: string
+  ): Promise<{
     total_block_rewards: number;
     total_job_rewards: number;
   }>;
   
   // 新增设备关系方法
-  abstract getDeviceTasks(deviceId: string, limit?: number): Promise<Task[]>;
-  abstract getDeviceEarnings(deviceId: string, limit?: number): Promise<{
-    id: string;
-    block_rewards: number;
-    job_rewards: number;
-    device_id: string;
-    task_id: string | null;
-    created_at: string;
-    updated_at: string;
-    source: "local" | "gateway";
-  }[]>;
+  abstract getDeviceTasks(deviceId: string, limit?: number): Promise<TTask[]>;
+  abstract getDeviceEarnings(deviceId: string, limit?: number): Promise<TEarning[]>;
 
-  abstract connectTaskList(body: {
-    gateway_address: string;
-    key: string;
-    page: number;
-    limit: number;
-  }): Promise<{
-    success: boolean;
-    error?: string;
-    data?: {
-      data: any[];
-      total: number;
-    };
-  }>;
+  abstract connectTaskList(body: TConnectTaskListRequest): Promise<TConnectTaskListResponse>;
 }

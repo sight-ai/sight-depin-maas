@@ -11,45 +11,19 @@ import {
   TDeviceStatus,
   TDeviceListItem,
   TTaskResult,
-  TEarningResult
+  TEarningResult,
+  TDeviceStatusRow,
+  TTaskRow,
+  TEarningRow,
+  TDeviceStatusModule
 } from "@saito/models";
 
 // Utility functions
 const toISOString = R.curry((date: Date) => date.toISOString());
 const getTimestamp = () => toISOString(new Date());
 
-// Database row types
-type DeviceStatusRow = {
-  id: string;
-  name: string;
-  status: "waiting" | "in-progress" | "connected" | "disconnected" | "failed";
-  reward_address: string | null;
-  gateway_address: string | null;
-  key: string | null;
-  code: string | null;
-  up_time_start: string | null;
-  up_time_end: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-type TaskRow = {
-  id: string;
-  model: string;
-  status: "pending" | "running" | "completed" | "failed" | "cancelled";
-  created_at: string;
-};
-
-type EarningRow = {
-  id: string;
-  block_rewards: number;
-  job_rewards: number;
-  created_at: string;
-  task_id: string | null;
-};
-
 // Data transformers
-const formatDeviceStatus = (row: DeviceStatusRow): TDeviceStatus => ({
+const formatDeviceStatus = (row: TDeviceStatusRow): TDeviceStatusModule => ({
   id: row.id,
   name: row.name,
   status: row.status,
@@ -63,30 +37,42 @@ const formatDeviceStatus = (row: DeviceStatusRow): TDeviceStatus => ({
   updated_at: row.updated_at
 });
 
-const formatDeviceList = (rows: DeviceStatusRow[]): TDeviceListItem[] => 
+const formatDeviceList = (rows: TDeviceStatusRow[]): TDeviceListItem[] => 
   rows.map(row => ({
     id: row.id,
     name: row.name,
     status: row.status
   }));
 
-const formatTask = (row: TaskRow): TTaskResult => ({
+const formatTask = (row: TTaskRow): TTaskResult => ({
   id: row.id,
   model: row.model,
   status: row.status,
-  created_at: row.created_at
+  created_at: row.created_at,
+  updated_at: row.updated_at,
+  total_duration: row.total_duration,
+  load_duration: row.load_duration,
+  prompt_eval_count: row.prompt_eval_count,
+  prompt_eval_duration: row.prompt_eval_duration,
+  eval_count: row.eval_count,
+  eval_duration: row.eval_duration,
+  source: row.source,
+  device_id: row.device_id
 });
 
-const formatEarning = (row: EarningRow): TEarningResult => ({
+const formatEarning = (row: TEarningRow): TEarningResult => ({
   id: row.id,
   block_rewards: row.block_rewards,
   job_rewards: row.job_rewards,
   created_at: row.created_at,
+  updated_at: row.updated_at,
+  source: row.source,
+  device_id: row.device_id,
   task_id: row.task_id
 });
 
-const defaultDevice: TDeviceStatus = {
-  id: 'default_device',
+const defaultDevice: TDeviceStatusModule = {
+  id: '24dea62e-95df-4549-b3ba-c9522cd5d5c1',
   name: 'Default Device',
   status: 'waiting' as const,
   reward_address: null,
@@ -123,7 +109,7 @@ export class DeviceStatusRepository {
     const upTimeStart = status === 'connected' ? now : null;
     const upTimeEnd = status === 'disconnected' ? now : null;
 
-    return conn.query(SQL.type(DeviceStatus)`
+    return conn.query(SQL.unsafe`
       INSERT INTO saito_miner.device_status (
         id, name, status, up_time_start, up_time_end, 
         reward_address, gateway_address, key, code, created_at, updated_at
@@ -145,20 +131,20 @@ export class DeviceStatusRepository {
     `);
   }
 
-  async findDeviceStatus(conn: DatabaseTransactionConnection, deviceId: string): Promise<TDeviceStatus | null> {
-    const result = await conn.query(SQL.type(DeviceStatus)`
+  async findDeviceStatus(conn: DatabaseTransactionConnection, deviceId: string): Promise<TDeviceStatusModule | null> {
+    const result = await conn.query(SQL.unsafe`
       SELECT *
       FROM saito_miner.device_status
       WHERE id = ${deviceId};
     `);
     
-    const row = result.rows[0] as DeviceStatusRow | undefined;
+    const row = result.rows[0] as TDeviceStatusRow | undefined;
     return row ? formatDeviceStatus(row) : null;
   }
 
   async markDevicesOffline(conn: DatabaseTransactionConnection, thresholdTime: Date) {
     const thresholdTimeStr = toISOString(thresholdTime);
-    return conn.query(SQL.type(DeviceStatus)`
+    return conn.query(SQL.unsafe`
       UPDATE saito_miner.device_status 
       SET status = 'disconnected', up_time_end = NOW()
       WHERE updated_at < ${thresholdTimeStr} AND status = 'connected';
@@ -166,17 +152,17 @@ export class DeviceStatusRepository {
   }
 
   async findDeviceList(conn: DatabaseTransactionConnection): Promise<TDeviceListItem[]> {
-    const result = await conn.query(SQL.type(DeviceListItem)`
+    const result = await conn.query(SQL.unsafe`
       SELECT id, name, status 
       FROM saito_miner.device_status 
       WHERE status = 'connected';
     `);
     
-    return formatDeviceList(result.rows as DeviceStatusRow[]);
+    return result.rows.map(row => formatDeviceList([row as TDeviceStatusRow])[0]);
   }
 
-  async findCurrentDevice(conn: DatabaseTransactionConnection): Promise<TDeviceStatus> {  
-    const result = await conn.query(SQL.type(DeviceStatus)`
+  async findCurrentDevice(conn: DatabaseTransactionConnection): Promise<TDeviceStatusModule> {  
+    const result = await conn.query(SQL.unsafe`
       SELECT *
       FROM saito_miner.device_status 
       WHERE status = 'connected' 
@@ -184,34 +170,29 @@ export class DeviceStatusRepository {
       LIMIT 1;
     `);
     
-    const row = result.rows[0] as DeviceStatusRow | undefined;
+    const row = result.rows[0] as TDeviceStatusRow | undefined;
     return row ? formatDeviceStatus(row) : defaultDevice;
   }
   
   async findDevicesTasks(conn: DatabaseTransactionConnection, deviceId: string): Promise<TTaskResult[]> {
-    const result = await conn.query(SQL.type(TaskResult)`
-      SELECT id, model, status, created_at
+    const result = await conn.query(SQL.unsafe`
+      SELECT *
       FROM saito_miner.tasks
       WHERE device_id = ${deviceId}
       ORDER BY created_at DESC;
     `);
     
-    return (result.rows as TaskRow[]).map(formatTask);
+    return result.rows.map(row => formatTask(row as TTaskRow));
   }
   
   async findDeviceEarnings(conn: DatabaseTransactionConnection, deviceId: string): Promise<TEarningResult[]> {
-    const result = await conn.query(SQL.type(EarningResult)`
-      SELECT 
-        id, 
-        block_rewards, 
-        job_rewards, 
-        created_at,
-        task_id
+    const result = await conn.query(SQL.unsafe`
+      SELECT *
       FROM saito_miner.earnings
       WHERE device_id = ${deviceId}
       ORDER BY created_at DESC;
     `);
     
-    return (result.rows as EarningRow[]).map(formatEarning);
+    return result.rows.map(row => formatEarning(row as TEarningRow));
   }
 }

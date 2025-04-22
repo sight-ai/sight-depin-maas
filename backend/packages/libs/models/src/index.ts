@@ -1,4 +1,5 @@
-export * from './saito-miner';
+export * from './ollama/ollama';
+export * from './saito-miner/saito-miner';
 export * from './basic.model';
 export * from './m.model';
 

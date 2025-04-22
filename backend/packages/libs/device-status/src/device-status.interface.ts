@@ -4,21 +4,25 @@ import {
   TTaskResult, 
   TEarningResult, 
   TDeviceCredentials,
-  TRegistrationResponse 
+  TRegistrationResponse,
+  TDeviceStatusModule,
+  TDeviceStatusResponse,
+  TDeviceStatusUpdateRequest,
+  TDeviceStatusUpdateResponse
 } from "@saito/models";
 
 export abstract class DeviceStatusService {
   abstract register(credentials: TDeviceCredentials): Promise<TRegistrationResponse>;
-  abstract getDeviceStatus(deviceId: string): Promise<TDeviceStatus | null>;
+  abstract getDeviceStatus(deviceId: string): Promise<TDeviceStatusModule | null>;
   abstract updateDeviceStatus(
     deviceId: string, 
     name: string, 
     status: "waiting" | "in-progress" | "connected" | "disconnected" | "failed", 
     rewardAddress: string
-  ): Promise<TDeviceStatus>;
-  abstract markInactiveDevicesOffline(inactiveDuration: number): Promise<TDeviceStatus[]>;
+  ): Promise<TDeviceStatusModule>;
+  abstract markInactiveDevicesOffline(inactiveDuration: number): Promise<TDeviceStatusModule[]>;
   abstract getDeviceList(): Promise<TDeviceListItem[]>;
-  abstract getCurrentDevice(): Promise<TDeviceStatus>;
+  abstract getCurrentDevice(): Promise<TDeviceStatusModule>;
   abstract getDeviceTasks(deviceId: string): Promise<TTaskResult[]>;
   abstract getDeviceEarnings(deviceId: string): Promise<TEarningResult[]>;
   abstract getGatewayStatus(): Promise<{ isRegistered: boolean }>;

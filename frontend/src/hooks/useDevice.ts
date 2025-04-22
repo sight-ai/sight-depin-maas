@@ -7,7 +7,7 @@ export function useDevice() {
   let [data, setData] = useState<{ 
     deviceId: string, 
     rewardAddress: string | null,
-    status: 'online' | 'offline'
+    status: 'waiting' | 'in-progress' | 'connected' | 'disconnected' | 'failed'
   } | null>(null)
   
   let [gatewayStatus, setGatewayStatus] = useState<{ isRegistered: boolean }>({ isRegistered: false })
