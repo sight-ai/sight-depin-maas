@@ -16,8 +16,8 @@ export class DefaultTunnelService implements TunnelService {
   socket: Socket;
   node_id: string = '';
   private reconnectAttempts: number = 0;
-  private readonly maxReconnectAttempts: number = 5;
-  private readonly reconnectDelay: number = 1000; // 1秒，与测试一致
+  private readonly maxReconnectAttempts: number = 10;
+  private readonly reconnectDelay: number = 2000; // 1秒，与测试一致
   gatewayUrl: string = '';
   
   // 用于存储消息回调
@@ -39,8 +39,8 @@ export class DefaultTunnelService implements TunnelService {
       // 从完整地址中提取基础URL
       const url = new URL(gatewayAddress);
       this.gatewayUrl = `${url.protocol}//${url.host}`;
-      // const basePath = '';  // 代理转发的基础路径
-      const basePath = '/api/model';  // 代理转发的基础路径
+      const basePath = '';  // 代理转发的基础路径
+      // const basePath = '/api/model';  // 代理转发的基础路径
       const socketPath = `${basePath}/socket.io`;  // 完整的socket.io路径
 
       this.logger.debug('Socket连接配置信息:');
@@ -53,7 +53,7 @@ export class DefaultTunnelService implements TunnelService {
         reconnection: true,
         reconnectionAttempts: this.maxReconnectAttempts,
         reconnectionDelay: this.reconnectDelay,
-        timeout: 10000,
+        timeout: 60000,
         transports: ['polling', 'websocket'],
         forceNew: true,
         secure: true,
@@ -63,7 +63,6 @@ export class DefaultTunnelService implements TunnelService {
           'Authorization': `Bearer ${key}`
         }
       });
-
       // 设置Socket事件监听器
       this.setupSocketListeners();
     } catch (error) {
@@ -111,6 +110,8 @@ export class DefaultTunnelService implements TunnelService {
     // 连接断开
     this.socket.on('disconnect', (reason: string) => {
       this.logger.warn(`Socket连接断开: ${reason}`);
+      this.logger.debug(`最后一次ping时间: ${this.socket}`);
+      this.logger.debug(`连接状态: ${this.socket.connected}`);
       this.handleDisconnect();
     });
 

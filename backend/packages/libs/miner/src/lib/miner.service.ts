@@ -7,7 +7,8 @@ import {
   TEarning,
   Earning,
   TMinerEarning,
-  MinerEarning
+  MinerEarning,
+  ModelOfMiner
 } from "@saito/models";
 import { MinerService } from "./miner.interface";
 import { MinerRepository } from "./miner.repository";
@@ -86,7 +87,7 @@ export class DefaultMinerService implements MinerService {
     return retryWithDelay(0);
   }
 
-  async createTask(args: TCreateTaskRequest): Promise<TTask> {
+  async createTask(args: ModelOfMiner<'CreateTaskRequest'>): Promise<ModelOfMiner<'Task'>> {
     this.logger.log(`Creating task for model: ${args.model}`);
     
     return this.withRetry(async () => {
@@ -108,7 +109,7 @@ export class DefaultMinerService implements MinerService {
       month?: string; 
       view?: 'Month' | 'Year' 
     }
-  }): Promise<TSummary> {
+  }): Promise<ModelOfMiner<'Summary'>> {
     this.logger.log(`Getting summary with timeRange: ${JSON.stringify(timeRange || {})}`);
     
     return this.withRetry(async () => {
@@ -176,7 +177,7 @@ export class DefaultMinerService implements MinerService {
     }, MAX_DB_RETRIES, 'get task history');
   }
 
-  async updateTask(id: string, updates: Partial<TTask>): Promise<TTask> {
+  async updateTask(id: string, updates: Partial<ModelOfMiner<'Task'>>): Promise<ModelOfMiner<'Task'>> {
     this.logger.log(`Updating task ${id} with status: ${updates.status || 'unchanged'}`);
     
     return this.withRetry(async () => {
@@ -207,7 +208,7 @@ export class DefaultMinerService implements MinerService {
     jobRewards: number, 
     taskId: string, 
     deviceId: string
-  ): Promise<TMinerEarning> {
+  ): Promise<{ total_block_rewards: number; total_job_rewards: number }> {
     this.logger.log(`Creating earnings: block=${blockRewards}, job=${jobRewards} for task ${taskId}`);
     
     return this.withRetry(async () => {
@@ -244,7 +245,7 @@ export class DefaultMinerService implements MinerService {
     }, MAX_DB_RETRIES, `create earnings for task ${taskId}`);
   }
 
-  async getDeviceTasks(deviceId: string): Promise<TTask[]> {
+  async getDeviceTasks(deviceId: string): Promise<ModelOfMiner<'Task'>[]> {
     this.logger.log(`Getting tasks for device ${deviceId}`);
     
     return this.withRetry(async () => {
@@ -255,7 +256,7 @@ export class DefaultMinerService implements MinerService {
     }, MAX_DB_RETRIES, `get device tasks for ${deviceId}`);
   }
 
-  async getDeviceEarnings(deviceId: string): Promise<TEarning[]> {
+  async getDeviceEarnings(deviceId: string): Promise<ModelOfMiner<'Earning'>[]> {
     this.logger.log(`Getting earnings for device ${deviceId}`);
     
     return this.withRetry(async () => {
@@ -289,7 +290,7 @@ export class DefaultMinerService implements MinerService {
     });
   }
 
-  async connectTaskList(body: TConnectTaskListRequest): Promise<TConnectTaskListResponse> {
+  async connectTaskList(body: ModelOfMiner<'ConnectTaskListRequest'>): Promise<ModelOfMiner<'ConnectTaskListResponse'>> {
     const buildQueryString = R.pipe(
       R.pick(['page', 'limit']),
       R.assoc('status', 'connected'),

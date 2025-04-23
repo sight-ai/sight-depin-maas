@@ -290,13 +290,15 @@ export type TDeviceStatusListResponse = z.infer<typeof DeviceStatusListResponse>
 export type TDeviceStatusUpdateRequest = z.infer<typeof DeviceStatusUpdateRequest>;
 export type TDeviceStatusUpdateResponse = z.infer<typeof DeviceStatusUpdateResponse>;
 
+export const RegistrationResponse = z.object({
+  success: z.boolean(),
+  error: z.string(),
+  node_id: z.string().optional(),
+  name: z.string().optional()
+});
+
 // Registration Response Type
-export type TRegistrationResponse = {
-  success: boolean;
-  error: string;
-  node_id?: string;
-  name?: string;
-};
+export type TRegistrationResponse = z.infer<typeof RegistrationResponse>;
 
 // DeviceConfig types
 export const DeviceConfig = z.object({
@@ -331,4 +333,39 @@ export const HeartbeatData = z.object({
 
 // Export types for DeviceConfig
 export type TDeviceConfig = z.infer<typeof DeviceConfig>;
-export type THeartbeatData = z.infer<typeof HeartbeatData>; 
+export type THeartbeatData = z.infer<typeof HeartbeatData>;
+
+export const MinerModel = {
+  DeviceStatus,
+  DeviceListItem,
+  DeviceCredentials,
+  MinerEarning,
+  MinerDeviceStatus,
+  MinerUptime,
+  MinerEarningsHistory,
+  MinerDailyRequests,
+  MinerTaskActivity,
+  TaskCount,
+  Task,
+  Earning,
+  TaskResult,
+  EarningResult,
+  CreateTaskRequest,
+  TaskHistoryResponse,
+  Summary,
+  ConnectTaskListRequest,
+  ConnectTaskListResponse,
+  DeviceStatusModule,
+  DeviceStatusList,
+  DeviceStatusResponse,
+  DeviceStatusListResponse,
+  DeviceStatusUpdateRequest,
+  DeviceStatusUpdateResponse,
+  DeviceStatusRow,
+  TaskRow,
+  EarningRow,
+  RegistrationResponse,
+  HeartbeatData,
+  DeviceConfig,
+  Miner
+} as const;

@@ -311,3 +311,26 @@ export const OllamaVersionResponse = z.object({
 });
 
 
+export const OllamaModelSchema = {
+  OllamaModel,
+  OllamaModelList,
+  OllamaModelInfo,
+  OllamaModelCopyRequest,
+  OllamaModelDeleteRequest,
+  OllamaModelPullRequest,
+  OllamaModelPullResponse,
+  OllamaModelPushRequest,
+  OllamaModelPushResponse,
+  OllamaModelCreateRequest,
+  OllamaModelCreateResponse,
+  OllamaChatRequest,
+  OllamaChatResponse,
+  OllamaGenerateRequest,
+  OllamaGenerateResponse,
+  OllamaEmbeddingsRequest,
+  OllamaEmbeddingsResponse,
+  OllamaRunningModels,
+  OllamaVersionResponse,
+  ChatMessage,
+  ToolFunction,
+}

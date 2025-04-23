@@ -10,17 +10,8 @@ import { env } from '../env'
 import { DeviceStatusService } from "./device-status.interface";
 import { TunnelService } from "@saito/tunnel";
 import { 
-  TDeviceStatus, 
-  TDeviceListItem, 
-  TTaskResult, 
-  TEarningResult, 
-  TDeviceCredentials,
-  TRegistrationResponse,
-  TDeviceStatusModule,
-  TDeviceConfig,
-  THeartbeatData
+  ModelOfMiner
 } from "@saito/models";
-import { v4 as uuidv4 } from 'uuid';
 
 const STATUS_CHECK_TIMEOUT = 2000;
 
@@ -30,16 +21,16 @@ const formatNumber = (value: number) => Number(value.toFixed(2));
 const createHeartbeatData = R.applySpec({
   code: R.path(['deviceConfig', 'code']),
   cpu_usage: R.pipe(
-    R.path(['cpuLoad', 'currentLoad']) as (data: THeartbeatData) => number | undefined,
+    R.path(['cpuLoad', 'currentLoad']) as (data: ModelOfMiner<'HeartbeatData'>) => number | undefined,
     R.defaultTo(0),
     formatNumber
   ),
   memory_usage: R.pipe(
-    R.prop('memoryInfo') as (data: THeartbeatData) => { used: number; total: number },
+    R.prop('memoryInfo') as (data: ModelOfMiner<'HeartbeatData'>) => { used: number; total: number },
     ({ used, total }) => formatNumber((used / total) * 100)
   ),
   gpu_usage: R.pipe(
-    R.path(['gpuInfo', 'controllers', 0, 'utilizationGpu']) as (data: THeartbeatData) => number | undefined,
+    R.path(['gpuInfo', 'controllers', 0, 'utilizationGpu']) as (data: ModelOfMiner<'HeartbeatData'>) => number | undefined,
     R.defaultTo(0),
     formatNumber
   ),
@@ -55,7 +46,7 @@ const createHeartbeatData = R.applySpec({
 @Injectable()
 export class DefaultDeviceStatusService implements DeviceStatusService {
   private readonly logger = new Logger(DefaultDeviceStatusService.name);
-  private deviceConfig: TDeviceConfig = {
+  private deviceConfig: ModelOfMiner<'DeviceConfig'> = {
     deviceId: '24dea62e-95df-4549-b3ba-c9522cd5d5c1',
     deviceName: 'local_device_name',
     rewardAddress: '',
@@ -92,7 +83,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     }
   }
 
-  async register(credentials: TDeviceCredentials): Promise<TRegistrationResponse> {
+  async register(credentials: ModelOfMiner<'DeviceCredentials'>): Promise<ModelOfMiner<'RegistrationResponse'>> {
     try {
       const [ipAddress, deviceType, deviceModel] = await Promise.all([
         address(),
@@ -116,7 +107,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
           ip: ipAddress,
         },
       }).json() as {
-        data: TRegistrationResponse;
+        data: ModelOfMiner<'RegistrationResponse'>;
         code: number;
       };
 
@@ -175,7 +166,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     name: string, 
     status: "waiting" | "in-progress" | "connected" | "disconnected" | "failed", 
     rewardAddress: string
-  ): Promise<TDeviceStatusModule> {
+  ): Promise<ModelOfMiner<'DeviceStatusModule'>> {
     return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
       await this.deviceStatusRepository.updateDeviceStatus(
         conn, 
@@ -195,13 +186,13 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     });
   }
 
-  async getDeviceStatus(deviceId: string): Promise<TDeviceStatusModule | null> {
+  async getDeviceStatus(deviceId: string): Promise<ModelOfMiner<'DeviceStatusModule'> | null> {
     return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
       return this.deviceStatusRepository.findDeviceStatus(conn, deviceId);
     });
   }
 
-  async markInactiveDevicesOffline(inactiveDuration: number): Promise<TDeviceStatusModule[]> {
+  async markInactiveDevicesOffline(inactiveDuration: number): Promise<ModelOfMiner<'DeviceStatusModule'>[]> {
     return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
       const thresholdTime = new Date(Date.now() - inactiveDuration);
       await this.deviceStatusRepository.markDevicesOffline(conn, thresholdTime);
@@ -220,25 +211,25 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     });
   }
 
-  async getDeviceList(): Promise<TDeviceListItem[]> {
+  async getDeviceList(): Promise<ModelOfMiner<'DeviceListItem'>[]> {
     return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
       return this.deviceStatusRepository.findDeviceList(conn);
     });
   }
 
-  async getCurrentDevice(): Promise<TDeviceStatusModule> {
+  async getCurrentDevice(): Promise<ModelOfMiner<'DeviceStatusModule'>> {
     return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
       return this.deviceStatusRepository.findCurrentDevice(conn);
     });
   }
 
-  async getDeviceTasks(deviceId: string): Promise<TTaskResult[]> {
+  async getDeviceTasks(deviceId: string): Promise<ModelOfMiner<'TaskResult'>[]> {
     return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
       return this.deviceStatusRepository.findDevicesTasks(conn, deviceId);
     });
   }
 
-  async getDeviceEarnings(deviceId: string): Promise<TEarningResult[]> {
+  async getDeviceEarnings(deviceId: string): Promise<ModelOfMiner<'EarningResult'>[]> {
     return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
       return this.deviceStatusRepository.findDeviceEarnings(conn, deviceId);
     });

@@ -4,18 +4,7 @@ import { PersistentService } from "@saito/persistent";
 import { DatabaseTransactionConnection } from "slonik";
 import { SQL } from "@saito/common";
 import { 
-  DeviceStatus, 
-  DeviceListItem, 
-  TaskResult, 
-  EarningResult,
-  TDeviceStatus,
-  TDeviceListItem,
-  TTaskResult,
-  TEarningResult,
-  TDeviceStatusRow,
-  TTaskRow,
-  TEarningRow,
-  TDeviceStatusModule
+  ModelOfMiner
 } from "@saito/models";
 
 // Utility functions
@@ -23,7 +12,7 @@ const toISOString = R.curry((date: Date) => date.toISOString());
 const getTimestamp = () => toISOString(new Date());
 
 // Data transformers
-const formatDeviceStatus = (row: TDeviceStatusRow): TDeviceStatusModule => ({
+const formatDeviceStatus = (row: ModelOfMiner<'DeviceStatusRow'>): ModelOfMiner<'DeviceStatusModule'> => ({
   id: row.id,
   name: row.name,
   status: row.status,
@@ -37,14 +26,14 @@ const formatDeviceStatus = (row: TDeviceStatusRow): TDeviceStatusModule => ({
   updated_at: row.updated_at
 });
 
-const formatDeviceList = (rows: TDeviceStatusRow[]): TDeviceListItem[] => 
+const formatDeviceList = (rows: ModelOfMiner<'DeviceStatusRow'>[]): ModelOfMiner<'DeviceListItem'>[] => 
   rows.map(row => ({
     id: row.id,
     name: row.name,
     status: row.status
   }));
 
-const formatTask = (row: TTaskRow): TTaskResult => ({
+const formatTask = (row: ModelOfMiner<'TaskRow'>): ModelOfMiner<'TaskResult'> => ({
   id: row.id,
   model: row.model,
   status: row.status,
@@ -60,7 +49,7 @@ const formatTask = (row: TTaskRow): TTaskResult => ({
   device_id: row.device_id
 });
 
-const formatEarning = (row: TEarningRow): TEarningResult => ({
+const formatEarning = (row: ModelOfMiner<'EarningRow'>): ModelOfMiner<'EarningResult'> => ({
   id: row.id,
   block_rewards: row.block_rewards,
   job_rewards: row.job_rewards,
@@ -71,7 +60,7 @@ const formatEarning = (row: TEarningRow): TEarningResult => ({
   task_id: row.task_id
 });
 
-const defaultDevice: TDeviceStatusModule = {
+const defaultDevice: ModelOfMiner<'DeviceStatusModule'> = {
   id: '24dea62e-95df-4549-b3ba-c9522cd5d5c1',
   name: 'Default Device',
   status: 'waiting' as const,
@@ -131,14 +120,14 @@ export class DeviceStatusRepository {
     `);
   }
 
-  async findDeviceStatus(conn: DatabaseTransactionConnection, deviceId: string): Promise<TDeviceStatusModule | null> {
+  async findDeviceStatus(conn: DatabaseTransactionConnection, deviceId: string): Promise<ModelOfMiner<'DeviceStatusModule'> | null> {
     const result = await conn.query(SQL.unsafe`
       SELECT *
       FROM saito_miner.device_status
       WHERE id = ${deviceId};
     `);
     
-    const row = result.rows[0] as TDeviceStatusRow | undefined;
+    const row = result.rows[0] as ModelOfMiner<'DeviceStatusRow'> | undefined;
     return row ? formatDeviceStatus(row) : null;
   }
 
@@ -151,17 +140,17 @@ export class DeviceStatusRepository {
     `);
   }
 
-  async findDeviceList(conn: DatabaseTransactionConnection): Promise<TDeviceListItem[]> {
+  async findDeviceList(conn: DatabaseTransactionConnection): Promise<ModelOfMiner<'DeviceListItem'>[]> {
     const result = await conn.query(SQL.unsafe`
       SELECT id, name, status 
       FROM saito_miner.device_status 
       WHERE status = 'connected';
     `);
     
-    return result.rows.map(row => formatDeviceList([row as TDeviceStatusRow])[0]);
+    return result.rows.map(row => formatDeviceList([row as ModelOfMiner<'DeviceStatusRow'>])[0]);
   }
 
-  async findCurrentDevice(conn: DatabaseTransactionConnection): Promise<TDeviceStatusModule> {  
+  async findCurrentDevice(conn: DatabaseTransactionConnection): Promise<ModelOfMiner<'DeviceStatusModule'>> {  
     const result = await conn.query(SQL.unsafe`
       SELECT *
       FROM saito_miner.device_status 
@@ -170,11 +159,11 @@ export class DeviceStatusRepository {
       LIMIT 1;
     `);
     
-    const row = result.rows[0] as TDeviceStatusRow | undefined;
+    const row = result.rows[0] as ModelOfMiner<'DeviceStatusRow'> | undefined;
     return row ? formatDeviceStatus(row) : defaultDevice;
   }
   
-  async findDevicesTasks(conn: DatabaseTransactionConnection, deviceId: string): Promise<TTaskResult[]> {
+  async findDevicesTasks(conn: DatabaseTransactionConnection, deviceId: string): Promise<ModelOfMiner<'TaskResult'>[]> {
     const result = await conn.query(SQL.unsafe`
       SELECT *
       FROM saito_miner.tasks
@@ -182,10 +171,10 @@ export class DeviceStatusRepository {
       ORDER BY created_at DESC;
     `);
     
-    return result.rows.map(row => formatTask(row as TTaskRow));
+    return result.rows.map(row => formatTask(row as ModelOfMiner<'TaskRow'>));
   }
   
-  async findDeviceEarnings(conn: DatabaseTransactionConnection, deviceId: string): Promise<TEarningResult[]> {
+  async findDeviceEarnings(conn: DatabaseTransactionConnection, deviceId: string): Promise<ModelOfMiner<'EarningResult'>[]> {
     const result = await conn.query(SQL.unsafe`
       SELECT *
       FROM saito_miner.earnings
@@ -193,6 +182,6 @@ export class DeviceStatusRepository {
       ORDER BY created_at DESC;
     `);
     
-    return result.rows.map(row => formatEarning(row as TEarningRow));
+    return result.rows.map(row => formatEarning(row as ModelOfMiner<'EarningRow'>));
   }
 }

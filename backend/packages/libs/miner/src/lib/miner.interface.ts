@@ -1,14 +1,9 @@
 import { 
-  TCreateTaskRequest, 
-  TTask, 
-  TSummary, 
-  TEarning,
-  TConnectTaskListRequest,
-  TConnectTaskListResponse
+  ModelOfMiner
 } from "@saito/models";
 
 export abstract class MinerService {
-  abstract createTask(args: TCreateTaskRequest): Promise<TTask>;
+  abstract createTask(args: ModelOfMiner<'CreateTaskRequest'>): Promise<ModelOfMiner<'Task'>>;
   abstract getSummary(timeRange?: { 
     request_serials?: 'daily' | 'weekly' | 'monthly',
     filteredTaskActivity?: { 
@@ -16,16 +11,16 @@ export abstract class MinerService {
       month?: string; 
       view?: 'Month' | 'Year' 
     }
-  }): Promise<TSummary>;
+  }): Promise<ModelOfMiner<'Summary'>>;
   
   abstract getTaskHistory(page: number, limit: number): Promise<{
     page: number;
     limit: number;
     total: number;
-    tasks: TTask[];
+    tasks: ModelOfMiner<'Task'>[];
   }>;
   
-  abstract updateTask(id: string, updates: Partial<TTask>): Promise<TTask>;
+  abstract updateTask(id: string, updates: Partial<ModelOfMiner<'Task'>>): Promise<ModelOfMiner<'Task'>>;
   abstract createEarnings(
     blockRewards: number, 
     jobRewards: number, 
@@ -37,8 +32,8 @@ export abstract class MinerService {
   }>;
   
   // 新增设备关系方法
-  abstract getDeviceTasks(deviceId: string, limit?: number): Promise<TTask[]>;
-  abstract getDeviceEarnings(deviceId: string, limit?: number): Promise<TEarning[]>;
+  abstract getDeviceTasks(deviceId: string, limit?: number): Promise<ModelOfMiner<'Task'>[]>;
+  abstract getDeviceEarnings(deviceId: string, limit?: number): Promise<ModelOfMiner<'Earning'>[]>;
 
-  abstract connectTaskList(body: TConnectTaskListRequest): Promise<TConnectTaskListResponse>;
+  abstract connectTaskList(body: ModelOfMiner<'ConnectTaskListRequest'>): Promise<ModelOfMiner<'ConnectTaskListResponse'>>;
 }

@@ -2,19 +2,13 @@ import { Inject, Logger } from "@nestjs/common";
 import { PersistentService } from "@saito/persistent";
 import { DatabaseTransactionConnection, sql as SQL } from 'slonik';
 import {
-  Task,
-  Earning,
   MinerEarning,
   MinerDeviceStatus,
   MinerUptime,
   MinerEarningsHistory,
   MinerDailyRequests,
   MinerTaskActivity,
-  TTaskRow,
-  TEarningRow,
-  TMiner,
-  TaskCount,
-  TTaskCount
+  ModelOfMiner
 } from "@saito/models";
 
 export class MinerRepository {
@@ -241,7 +235,7 @@ export class MinerRepository {
 
     return {
       count: Number(countResult.count),
-      tasks: tasksResult as TTaskRow[]
+      tasks: tasksResult as ModelOfMiner<'Task'>[]
     };
   }
 
@@ -250,14 +244,14 @@ export class MinerRepository {
     conn: DatabaseTransactionConnection,
     deviceId: string,
     isRegistered: boolean
-  ): Promise<TTaskRow[]> {
+  ): Promise<ModelOfMiner<'Task'>[]> {
     const source = isRegistered ? 'gateway' : 'local';
     const result = await conn.any(SQL.unsafe`
       SELECT * FROM saito_miner.tasks
       WHERE device_id = ${deviceId} AND source = ${source}
       ORDER BY created_at DESC;
     `);
-    return result as TTaskRow[];
+    return result as ModelOfMiner<'Task'>[];
   }
 
   // 根据设备ID获取收益记录
@@ -265,27 +259,27 @@ export class MinerRepository {
     conn: DatabaseTransactionConnection,
     deviceId: string,
     isRegistered: boolean
-  ): Promise<TEarningRow[]> {
+  ): Promise<ModelOfMiner<'Earning'>[]> {
     const source = isRegistered ? 'gateway' : 'local';
     const result = await conn.any(SQL.unsafe`
       SELECT * FROM saito_miner.earnings
       WHERE device_id = ${deviceId} AND source = ${source}
       ORDER BY created_at DESC;
     `);
-    return result as TEarningRow[];
+    return result as ModelOfMiner<'Earning'>[];
   }
 
   // 根据任务ID获取收益记录
   async getEarningsByTaskId(
     conn: DatabaseTransactionConnection,
     taskId: string
-  ): Promise<TEarningRow[]> {
+  ): Promise<ModelOfMiner<'Earning'>[]> {
     const result = await conn.any(SQL.unsafe`
       select *
       from saito_miner.earnings
       where task_id = ${taskId};
     `);
-    return result as TEarningRow[];
+    return result as ModelOfMiner<'Earning'>[];
   }
 
   // 创建任务
@@ -293,7 +287,7 @@ export class MinerRepository {
     conn: DatabaseTransactionConnection, 
     model: string, 
     deviceId: string
-  ): Promise<TTaskRow> {
+  ): Promise<ModelOfMiner<'Task'>> {
     this.logger.log(`Creating task for model: ${model}, deviceId: ${deviceId}`);
     const result = await conn.one(SQL.unsafe`
       insert into saito_miner.tasks (
@@ -328,7 +322,7 @@ export class MinerRepository {
       )
       returning *;
     `);
-    return result as TTaskRow;
+    return result as ModelOfMiner<'Task'>;
   }
 
   // 更新任务 - 直接接收SQL更新片段
@@ -336,26 +330,26 @@ export class MinerRepository {
     conn: DatabaseTransactionConnection,
     id: string,
     updateSql: string
-  ): Promise<TTaskRow> {
+  ): Promise<ModelOfMiner<'Task'>> {
     const result = await conn.one(SQL.unsafe`
       update saito_miner.tasks
       set ${SQL.fragment([updateSql])}, updated_at = now()
       where id = ${id}
       returning *;
     `);
-    return result as TTaskRow;
+    return result as ModelOfMiner<'Task'>;
   }
 
   // 获取单个任务
   async getTaskById(
     conn: DatabaseTransactionConnection,
     taskId: string
-  ): Promise<TTaskRow | null> {
+  ): Promise<ModelOfMiner<'Task'> | null> {
     const result = await conn.maybeOne(SQL.unsafe`
       select *
       from saito_miner.tasks
       where id = ${taskId};
     `);
-    return result as TTaskRow | null;
+    return result as ModelOfMiner<'Task'> | null;
   }
 }

@@ -1,30 +1,21 @@
-import { 
-  TDeviceStatus, 
-  TDeviceListItem, 
-  TTaskResult, 
-  TEarningResult, 
-  TDeviceCredentials,
-  TRegistrationResponse,
-  TDeviceStatusModule,
-  TDeviceStatusResponse,
-  TDeviceStatusUpdateRequest,
-  TDeviceStatusUpdateResponse
+import {
+  ModelOfMiner
 } from "@saito/models";
 
 export abstract class DeviceStatusService {
-  abstract register(credentials: TDeviceCredentials): Promise<TRegistrationResponse>;
-  abstract getDeviceStatus(deviceId: string): Promise<TDeviceStatusModule | null>;
+  abstract register(credentials: ModelOfMiner<'DeviceCredentials'>): Promise<ModelOfMiner<'RegistrationResponse'>>;
+  abstract getDeviceStatus(deviceId: string): Promise<ModelOfMiner<'DeviceStatusModule'> | null>;
   abstract updateDeviceStatus(
-    deviceId: string, 
-    name: string, 
-    status: "waiting" | "in-progress" | "connected" | "disconnected" | "failed", 
+    deviceId: string,
+    name: string,
+    status: "waiting" | "in-progress" | "connected" | "disconnected" | "failed",
     rewardAddress: string
-  ): Promise<TDeviceStatusModule>;
-  abstract markInactiveDevicesOffline(inactiveDuration: number): Promise<TDeviceStatusModule[]>;
-  abstract getDeviceList(): Promise<TDeviceListItem[]>;
-  abstract getCurrentDevice(): Promise<TDeviceStatusModule>;
-  abstract getDeviceTasks(deviceId: string): Promise<TTaskResult[]>;
-  abstract getDeviceEarnings(deviceId: string): Promise<TEarningResult[]>;
+  ): Promise<ModelOfMiner<'DeviceStatusModule'>>;
+  abstract markInactiveDevicesOffline(inactiveDuration: number): Promise<ModelOfMiner<'DeviceStatusModule'>[]>;
+  abstract getDeviceList(): Promise<ModelOfMiner<'DeviceListItem'>[]>;
+  abstract getCurrentDevice(): Promise<ModelOfMiner<'DeviceStatusModule'>>;
+  abstract getDeviceTasks(deviceId: string): Promise<ModelOfMiner<'TaskResult'>[]>;
+  abstract getDeviceEarnings(deviceId: string): Promise<ModelOfMiner<'EarningResult'>[]>;
   abstract getGatewayStatus(): Promise<{ isRegistered: boolean }>;
   abstract getDeviceId(): Promise<string>;
   abstract getDeviceName(): Promise<string>;
