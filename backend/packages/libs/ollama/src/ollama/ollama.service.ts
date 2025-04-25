@@ -1,23 +1,26 @@
 import { env } from '../env';
 import { OllamaService } from './ollama.interface';
-import { ModelOfOllama, m, TaskData } from "@saito/models";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import got from 'got-cjs';
 import { MinerService } from '@saito/miner';
 import { Response } from 'express';
 import { OllamaRepository } from './ollama.repository';
-import * as R from 'ramda';
 import { DeviceStatusService } from '@saito/device-status';
-
-// Extract common task data fields
-const extractTaskData = R.pick([
-  'total_duration',
-  'load_duration',
-  'prompt_eval_count',
-  'prompt_eval_duration',
-  'eval_count',
-  'eval_duration',
-]);
+import { z } from 'zod';
+import * as R from 'ramda';
+import {
+  OllamaChatRequest,
+  OllamaChatResponse,
+  OllamaGenerateRequest,
+  OllamaGenerateResponse,
+  OllamaModelList,
+  OllamaModelInfo,
+  OllamaEmbeddingsRequest,
+  OllamaEmbeddingsResponse,
+  OllamaRunningModels,
+  OllamaVersionResponse,
+  Task
+} from '@saito/models';
 
 // Default timeout values
 const DEFAULT_REQUEST_TIMEOUT = 60000; // 60 seconds
@@ -40,8 +43,8 @@ export class DefaultOllamaService implements OllamaService {
     this.logger.log(`Initialized OllamaService with baseUrl: ${this.baseUrl}`);
   }
 
-  private async createTask(model: string, taskId: string, device_id: string) {
-    this.logger.log(`Creating task for model: ${model}, taskId: ${taskId}`);
+  private async createTask(model: string, task_id?: string, device_id?: string) {
+    this.logger.log(`Creating task for model: ${model}, taskId: ${task_id || 'new'}`);
     try {
       const deviceId = device_id || await this.deviceStatusService.getDeviceId();
       const task = await this.minerService.createTask({
@@ -57,18 +60,20 @@ export class DefaultOllamaService implements OllamaService {
     }
   }
 
-  private async updateTask(taskId: string, taskData: Partial<TaskData> & { status: 'succeed' | 'failed' }) {
+  private async updateTask(taskId: string, taskData: Partial<z.infer<typeof Task>>) {
     this.logger.debug(`Updating task ${taskId} with status: ${taskData.status}`);
     try {
-      const { status, ...rest } = taskData;
-      const taskDataWithDefaults = R.map(R.defaultTo(0), rest);
-      await this.minerService.updateTask(
-        taskId,
-        R.mergeRight({ status: status }, taskDataWithDefaults)
-      );
+      await this.minerService.updateTask(taskId, {
+        status: taskData.status,
+        total_duration: taskData.total_duration ?? null,
+        load_duration: taskData.load_duration ?? null,
+        prompt_eval_count: taskData.prompt_eval_count ?? null,
+        prompt_eval_duration: taskData.prompt_eval_duration ?? null,
+        eval_count: taskData.eval_count ?? null,
+        eval_duration: taskData.eval_duration ?? null
+      });
     } catch (error) {
       this.logger.error(`Failed to update task ${taskId}`, error);
-      // Don't rethrow error to avoid breaking the chain
     }
   }
 
@@ -95,13 +100,19 @@ export class DefaultOllamaService implements OllamaService {
 
         if (part.done) {
           clearTimeout(streamErrorTimeout);
-          const taskData = extractTaskData(part);
-          await this.updateTask(taskId, { ...taskData, status: 'succeed' });
+          await this.updateTask(taskId, {
+            status: 'completed',
+            total_duration: part.total_duration ?? null,
+            load_duration: part.load_duration ?? null,
+            prompt_eval_count: part.prompt_eval_count ?? null,
+            prompt_eval_duration: part.prompt_eval_duration ?? null,
+            eval_count: part.eval_count ?? null,
+            eval_duration: part.eval_duration ?? null
+          });
           await this.createEarnings(taskId, part, part.device_id);
         }
       } catch (err) {
         this.logger.warn(`Error processing stream chunk for task ${taskId}:`, err);
-        // Don't end the stream here, just log the error and continue
       }
     });
 
@@ -111,7 +122,6 @@ export class DefaultOllamaService implements OllamaService {
       await this.updateTask(taskId, { status: 'failed' });
       
       if (!res.headersSent) {
-        // Use status code 400 for errors
         res.status(400).json({ 
           error: error.message || 'Stream error occurred',
           model: isChat ? 'unknown' : 'unknown',
@@ -120,7 +130,6 @@ export class DefaultOllamaService implements OllamaService {
         });
       }
       
-      // Only end the response if it hasn't been ended already
       if (!res.writableEnded) {
         res.end();
       }
@@ -130,14 +139,13 @@ export class DefaultOllamaService implements OllamaService {
       clearTimeout(streamErrorTimeout);
       this.logger.debug(`Stream ended for task ${taskId}`);
       
-      // Only end the response if it hasn't been ended already
       if (!res.writableEnded) {
         res.end();
       }
     });
   }
 
-  private async createEarnings(taskId: string, responseData: any, device_id: string) {
+  private async createEarnings(taskId: string, responseData: any, device_id?: string) {
     try {
       const blockRewards = Math.floor(Math.random() * 100) + 1;
       const jobRewards = R.sum([
@@ -169,37 +177,40 @@ export class DefaultOllamaService implements OllamaService {
             request: DEFAULT_REQUEST_TIMEOUT
           },
           retry: {
-            limit: 0 // We'll handle retries ourselves
+            limit: 0
           }
         });
         
         const responseBody = ollResponse.body as any;
-        const taskData = extractTaskData(responseBody);
 
-        await this.updateTask(taskId, { ...taskData, status: 'succeed' });
+        await this.updateTask(taskId, {
+          status: 'completed',
+          total_duration: responseBody.total_duration ?? null,
+          load_duration: responseBody.load_duration ?? null,
+          prompt_eval_count: responseBody.prompt_eval_count ?? null,
+          prompt_eval_duration: responseBody.prompt_eval_duration ?? null,
+          eval_count: responseBody.eval_count ?? null,
+          eval_duration: responseBody.eval_duration ?? null
+        });
         await this.createEarnings(taskId, responseBody, args.device_id);
         
-        // Return success with 200 status code
         if (!res.headersSent) {
           res.status(200).json(responseBody);
         }
       } catch (error: any) {
-        // Handle retry logic
         if (retries < MAX_RETRIES && this.isRetryableError(error)) {
           retries++;
-          const backoffTime = Math.pow(2, retries) * 1000; // Exponential backoff
+          const backoffTime = Math.pow(2, retries) * 1000;
           this.logger.warn(`Retrying request for task ${taskId} (attempt ${retries}/${MAX_RETRIES}) after ${backoffTime}ms`);
           
           await new Promise(resolve => setTimeout(resolve, backoffTime));
           return attemptRequest();
         }
         
-        // Max retries reached or non-retryable error
         await this.updateTask(taskId, { status: 'failed' });
         
-        // Return error with 400 status code
         if (!res.headersSent) {
-          const errorBody = R.pathOr({ error: error.message || 'Unknown error' }, ['response', 'body'], error);
+          const errorBody = error.response?.body || { error: error.message || 'Unknown error' };
           res.status(400).json({
             ...errorBody,
             model: args?.model || 'unknown',
@@ -222,15 +233,12 @@ export class DefaultOllamaService implements OllamaService {
     return false;
   }
 
-  async complete(args: ModelOfOllama<'generate_request'>, res: Response): Promise<void> {
-    // Make sure args always has all the required fields
+  async complete(args: z.infer<typeof OllamaGenerateRequest>, res: Response): Promise<void> {
     const processedArgs = R.mergeRight({ stream: true }, args);
     
     try {
-      // Check if Ollama service is available
       const isAvailable = await this.checkStatus();
       if (!isAvailable) {
-        // Service unavailable returns 400 status code
         if (!res.headersSent) {
           this.logger.warn('Ollama service is not available for complete request');
           res.status(400).json({
@@ -242,15 +250,13 @@ export class DefaultOllamaService implements OllamaService {
         }
         return;
       }
-      this.logger.error('createTask1')
+
       const task = await this.createTask(processedArgs.model, processedArgs.task_id, processedArgs.device_id);
       const taskId = task.id;
-
+      this.updateTask(taskId, { status: 'running' });
       try {
         if (processedArgs.stream) {
           const url = new URL(`api/generate`, this.baseUrl);
-          
-          // Start with 200 status code for streaming
           res.status(200);
           
           const stream = got.stream(url.toString(), {
@@ -268,9 +274,8 @@ export class DefaultOllamaService implements OllamaService {
         this.logger.error(`Error in complete request for task ${taskId}:`, error);
         await this.updateTask(taskId, { status: 'failed' });
         
-        // Return error with 400 status code
         if (!res.headersSent) {
-          const errorBody = R.pathOr({ error: error.message || 'Unknown error' }, ['response', 'body'], error);
+          const errorBody = error.response?.body || { error: error.message || 'Unknown error' };
           res.status(400).json({
             ...errorBody,
             model: processedArgs.model,
@@ -281,7 +286,6 @@ export class DefaultOllamaService implements OllamaService {
       }
     } catch (error: any) {
       this.logger.error('Failed to create task for complete request:', error);
-      // Task creation failed returns 400 status code
       if (!res.headersSent) {
         res.status(400).json({
           error: error.message || 'Failed to create task',
@@ -293,15 +297,12 @@ export class DefaultOllamaService implements OllamaService {
     }
   }
 
-  async chat(args: ModelOfOllama<'chat_request'>, res: Response): Promise<void> {
-    // Make sure args always has all the required fields
+  async chat(args: z.infer<typeof OllamaChatRequest>, res: Response): Promise<void> {
     const processedArgs = R.mergeRight({ stream: true }, args);
     
     try {
-      // Check if Ollama service is available
       const isAvailable = await this.checkStatus();
       if (!isAvailable) {
-        // Service unavailable returns 400 status code
         if (!res.headersSent) {
           this.logger.warn('Ollama service is not available for chat request');
           res.status(400).json({
@@ -313,15 +314,13 @@ export class DefaultOllamaService implements OllamaService {
         }
         return;
       }
-      this.logger.error('createTask2', args)
+
       const task = await this.createTask(processedArgs.model, processedArgs.task_id, processedArgs.device_id);
       const taskId = task.id;
 
       try {
         if (processedArgs.stream) {
           const url = new URL(`api/chat`, this.baseUrl);
-          
-          // Start with 200 status code for streaming
           res.status(200);
           
           const stream = got.stream(url.toString(), {
@@ -339,9 +338,8 @@ export class DefaultOllamaService implements OllamaService {
         this.logger.error(`Error in chat request for task ${taskId}:`, error);
         await this.updateTask(taskId, { status: 'failed' });
         
-        // Return error with 400 status code
         if (!res.headersSent) {
-          const errorBody = R.pathOr({ error: error.message || 'Unknown error' }, ['response', 'body'], error);
+          const errorBody = error.response?.body || { error: error.message || 'Unknown error' };
           res.status(400).json({
             ...errorBody,
             model: processedArgs.model,
@@ -352,7 +350,6 @@ export class DefaultOllamaService implements OllamaService {
       }
     } catch (error: any) {
       this.logger.error('Failed to create task for chat request:', error);
-      // Task creation failed returns 400 status code
       if (!res.headersSent) {
         res.status(400).json({
           error: error.message || 'Failed to create task',
@@ -364,14 +361,11 @@ export class DefaultOllamaService implements OllamaService {
     }
   }
 
-  private isModelUnloadRequest(args: ModelOfOllama<'chat_request'>): boolean {
-    return R.both(
-      R.pathSatisfies(arr => Array.isArray(arr) && arr.length === 0, ['messages']),
-      R.pathSatisfies(val => val !== undefined && Number(val) === 0, ['keep_alive'])
-    )(args);
+  private isModelUnloadRequest(args: z.infer<typeof OllamaChatRequest>): boolean {
+    return args.messages.length === 1 && args.messages[0].content === 'unload';
   }
 
-  private async handleModelUnload(args: ModelOfOllama<'chat_request'>, res: Response, taskId: string): Promise<void> {
+  private async handleModelUnload(args: z.infer<typeof OllamaChatRequest>, res: Response, taskId: string): Promise<void> {
     try {
       const url = new URL(`api/chat`, this.baseUrl);
       this.logger.log(`Handling model unload request for model: ${args.model}, task: ${taskId}`);
@@ -389,35 +383,32 @@ export class DefaultOllamaService implements OllamaService {
       
       const responseBody = ollResponse.body as any;
       
-      // Ensure all required fields exist with defaults for task data
-      const modifiedResponse = R.mergeDeepRight(responseBody, {
-        done: true,
-        model: args.model,
-        created_at: responseBody.created_at || new Date().toISOString(),
-        done_reason: responseBody.done_reason || 'unload',
-        total_duration: 0,
-        load_duration: 0,
-        prompt_eval_count: 0, 
-        prompt_eval_duration: 0,
-        eval_count: 0,
-        eval_duration: 0
+      await this.updateTask(taskId, {
+        status: 'completed',
+        total_duration: responseBody.total_duration ?? null,
+        load_duration: responseBody.load_duration ?? null,
+        prompt_eval_count: responseBody.prompt_eval_count ?? null,
+        prompt_eval_duration: responseBody.prompt_eval_duration ?? null,
+        eval_count: responseBody.eval_count ?? null,
+        eval_duration: responseBody.eval_duration ?? null
       });
+      await this.createEarnings(taskId, responseBody, args.device_id);
       
-      const taskData = extractTaskData(modifiedResponse) as TaskData;
-
-      await this.updateTask(taskId, { ...taskData, status: 'succeed' });
-      await this.createEarnings(taskId, modifiedResponse, args.device_id);
-      
-      this.logger.log('Model unload response:', modifiedResponse);
+      this.logger.log('Model unload response:', responseBody);
       if (!res.headersSent) {
-        res.status(200).json(modifiedResponse);
+        res.status(200).json({
+          ...responseBody,
+          done: true,
+          model: args.model,
+          created_at: responseBody.created_at || new Date().toISOString(),
+          done_reason: responseBody.done_reason || 'unload'
+        });
       }
     } catch (error) {
       this.logger.error('Error during unload model request:', error);
       
       await this.updateTask(taskId, { status: 'failed' });
       
-      // Even if unload fails, return a proper error response
       if (!res.headersSent) {
         res.status(400).json({
           error: 'Failed to unload model',
@@ -449,7 +440,7 @@ export class DefaultOllamaService implements OllamaService {
     }
   }
 
-  async listModelTags(): Promise<ModelOfOllama<'list_model_response'>> {
+  async listModelTags(): Promise<z.infer<typeof OllamaModelList>> {
     try {
       const url = new URL(`api/tags`, this.baseUrl);
       const response = await got.get(url.toString(), {
@@ -460,9 +451,7 @@ export class DefaultOllamaService implements OllamaService {
           limit: MAX_RETRIES
         }
       }).json();
-      
-      const parseResult = m.ollama('list_model_response').safeParse(response);
-      
+      const parseResult = OllamaModelList.safeParse(response);
       return parseResult.success 
         ? parseResult.data 
         : this.handleParseError('list model response', parseResult.error, { models: [] });
@@ -477,7 +466,7 @@ export class DefaultOllamaService implements OllamaService {
     return defaultValue;
   }
 
-  async showModelInformation(args: ModelOfOllama<'show_model_request'>): Promise<any> {
+  async showModelInformation(args: { name: string }): Promise<z.infer<typeof OllamaModelInfo>> {
     try {
       const url = new URL(`api/show`, this.baseUrl);
       return await got.post(url.toString(), {
@@ -491,7 +480,21 @@ export class DefaultOllamaService implements OllamaService {
       }).json();
     } catch (error) {
       this.logger.error(`Failed to show model information: ${error}`);
-      return { error: 'Failed to retrieve model information' };
+      return {
+        template: '',
+        parameters: '',
+        modelfile: '',
+        details: {
+          format: '',
+          parent_model: '',
+          family: '',
+          families: [],
+          parameter_size: '',
+          quantization_level: ''
+        },
+        model_info: {},
+        capabilities: []
+      };
     }
   }
 
@@ -512,7 +515,7 @@ export class DefaultOllamaService implements OllamaService {
     }
   }
 
-  async listModels(): Promise<ModelOfOllama<'list_model_response'>> {
+  async listModels(): Promise<z.infer<typeof OllamaModelList>> {
     try {
       const url = new URL(`api/models`, this.baseUrl);
       const response = await got.get(url.toString(), {
@@ -524,7 +527,7 @@ export class DefaultOllamaService implements OllamaService {
         }
       }).json();
       
-      const parseResult = m.ollama('list_model_response').safeParse(response);
+      const parseResult = OllamaModelList.safeParse(response);
       
       return parseResult.success 
         ? parseResult.data 
@@ -535,7 +538,7 @@ export class DefaultOllamaService implements OllamaService {
     }
   }
 
-  async generateEmbeddings(args: ModelOfOllama<'embed_request'>): Promise<ModelOfOllama<'embed_response'>> {
+  async generateEmbeddings(args: z.infer<typeof OllamaEmbeddingsRequest>): Promise<z.infer<typeof OllamaEmbeddingsResponse>> {
     try {
       const url = new URL(`api/embed`, this.baseUrl);
       const response = await got.post(url.toString(), { 
@@ -548,7 +551,7 @@ export class DefaultOllamaService implements OllamaService {
         }
       }).json();
       
-      const parseResult = m.ollama('embed_response').safeParse(response);
+      const parseResult = OllamaEmbeddingsResponse.safeParse(response);
       
       return parseResult.success 
         ? parseResult.data 
@@ -562,7 +565,7 @@ export class DefaultOllamaService implements OllamaService {
     }
   }
 
-  async listRunningModels(): Promise<ModelOfOllama<'list_running_models_response'>> {
+  async listRunningModels(): Promise<z.infer<typeof OllamaRunningModels>> {
     try {
       const url = new URL(`api/ps`, this.baseUrl);
       const response = await got.get(url.toString(), {
@@ -574,7 +577,7 @@ export class DefaultOllamaService implements OllamaService {
         }
       }).json();
       
-      const parseResult = m.ollama('list_running_models_response').safeParse(response);
+      const parseResult = OllamaRunningModels.safeParse(response);
       
       return parseResult.success 
         ? parseResult.data 

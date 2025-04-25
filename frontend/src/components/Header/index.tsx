@@ -46,7 +46,7 @@ export const Header = () => {
                             <div 
                                 className="w-2 h-2 rounded-full" 
                                 style={{
-                                    backgroundColor: data?.status === 'online' ? '#4CAF50' : '#F44336'
+                                    backgroundColor: data?.status === 'connected' ? '#4CAF50' : '#F44336'
                                 }}
                             />
                             <span className="text-xs">Ollama</span>
@@ -96,7 +96,7 @@ export const Header = () => {
                     color: isDark ? '#000' : '#fff'
                 }}>
                     <div className="flex items-center gap-2">
-                        {formatAddress(data?.rewardAddress || '')}
+                        {formatAddress(data?.reward_address || '')}
                     </div>
                 </span>
             </Button>

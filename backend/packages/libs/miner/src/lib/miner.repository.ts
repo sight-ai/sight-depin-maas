@@ -1,11 +1,14 @@
-import { Inject } from "@nestjs/common";
+import { Inject, Logger } from "@nestjs/common";
 import { PersistentService } from "@saito/persistent";
-import { DatabaseTransactionConnection } from "slonik";
-import { SQL } from "@saito/common";
+import { DatabaseTransactionConnection, sql as SQL } from 'slonik';
 import {
-  MinerSchema,
-  Task,
-  Earning,
+  MinerEarning,
+  MinerDeviceStatus,
+  MinerUptime,
+  MinerEarningsHistory,
+  MinerDailyRequests,
+  MinerTaskActivity,
+  ModelOfMiner
 } from "@saito/models";
 
 export class MinerRepository {
@@ -13,7 +16,7 @@ export class MinerRepository {
     @Inject(PersistentService)
     private readonly persistentService: PersistentService,
   ) { }
-
+  private readonly logger = new Logger(MinerRepository.name);
   async transaction<T>(
     handler: (conn: DatabaseTransactionConnection) => Promise<T>,
   ) {
@@ -26,7 +29,7 @@ export class MinerRepository {
     if(isRegistered) {
       source = 'gateway';
     }
-    return conn.one(SQL.type(MinerSchema.MinerEarningSchema)`
+    return conn.one(SQL.type(MinerEarning)`
       select 
         coalesce(sum(block_rewards::float), 0) as total_block_rewards,
         coalesce(sum(job_rewards::float), 0) as total_job_rewards
@@ -41,14 +44,14 @@ export class MinerRepository {
     if(isRegistered) {
       source = 'gateway';
     }
-    return conn.maybeOne(SQL.type(MinerSchema.MinerDeviceStatusSchema)`
+    return conn.maybeOne(SQL.type(MinerDeviceStatus)`
       select 
         name, 
         status, 
         extract(epoch from up_time_start)::bigint as up_time_start,
         extract(epoch from up_time_end)::bigint as up_time_end
       from saito_miner.device_status
-      where device_id = ${deviceId}
+      where id = ${deviceId}
       order by updated_at desc
       limit 1;
     `);
@@ -60,7 +63,7 @@ export class MinerRepository {
     if(isRegistered) {
       source = 'gateway';
     }
-    return conn.one(SQL.type(MinerSchema.MinerUptimeSchema)`
+    return conn.one(SQL.type(MinerUptime)`
       select 
         count(distinct date_trunc('day', created_at))::float / 30.0 * 100 as uptime_percentage
       from saito_miner.tasks
@@ -74,7 +77,7 @@ export class MinerRepository {
     if(isRegistered) {
       source = 'gateway';
     }
-    return conn.any(SQL.type(MinerSchema.MinerEarningsHistorySchema)`
+    return conn.any(SQL.type(MinerEarningsHistory)`
       with dates as (
         select generate_series(
           date_trunc('day', now()) - (${days}) * interval '1 day',
@@ -118,7 +121,7 @@ export class MinerRepository {
 
     const timeConfig = intervalMap[period];
 
-    return conn.any(SQL.type(MinerSchema.MinerDailyRequestsSchema)`
+    return conn.any(SQL.type(MinerDailyRequests)`
       with dates as (
         select generate_series(
           date_trunc(${timeConfig.unit}, now()) - ${SQL.fragment([`interval '${timeConfig.value}'`])},
@@ -150,7 +153,7 @@ export class MinerRepository {
     if(isRegistered) {
       source = 'gateway';
     }
-    return conn.any(SQL.type(MinerSchema.MinerTaskActivitySchema)`
+    return conn.any(SQL.type(MinerTaskActivity)`
       with dates as (
         select generate_series(1, 12) as month
       )
@@ -181,7 +184,7 @@ export class MinerRepository {
     if(isRegistered) {
       source = 'gateway';
     }
-    return conn.any(SQL.type(MinerSchema.MinerTaskActivitySchema)`
+    return conn.any(SQL.type(MinerTaskActivity)`
       with dates as (
         select generate_series(
           date_trunc('month', make_date(extract(year from now())::int, ${month}, 1)),
@@ -212,19 +215,17 @@ export class MinerRepository {
     isRegistered: boolean
   ) {
     const offset = (page - 1) * limit;
-    let source = 'local';
-    if(isRegistered) {
-      source = 'gateway';
-    }
-    // 获取任务总数
-    const countResult = await conn.one(SQL.type(MinerSchema.TaskCountSchema)`
+    const source = isRegistered ? 'gateway' : 'local';
+    
+    // Get total count
+    const countResult = await conn.one(SQL.unsafe`
       select count(*) as count
       from saito_miner.tasks 
       where device_id = ${deviceId} and source = ${source};
     `);
 
-    // 获取分页任务列表
-    const tasksResult = await conn.any(SQL.type(MinerSchema.TaskSchema)`
+    // Get paginated task list
+    const tasksResult = await conn.any(SQL.unsafe`
       select *
       from saito_miner.tasks
       where device_id = ${deviceId} and source = ${source}
@@ -233,8 +234,8 @@ export class MinerRepository {
     `);
 
     return {
-      count: countResult.count,
-      tasks: [...tasksResult]
+      count: Number(countResult.count),
+      tasks: tasksResult as ModelOfMiner<'Task'>[]
     };
   }
 
@@ -242,61 +243,53 @@ export class MinerRepository {
   async getTasksByDeviceId(
     conn: DatabaseTransactionConnection,
     deviceId: string,
-    limit: number,
     isRegistered: boolean
-  ): Promise<Task[]> {
-    let source = 'local';
-    if(isRegistered) {
-      source = 'gateway';
-    }
-    const result = await conn.any(SQL.type(MinerSchema.TaskSchema)`
+  ): Promise<ModelOfMiner<'Task'>[]> {
+    const source = isRegistered ? 'gateway' : 'local';
+    const result = await conn.any(SQL.unsafe`
       SELECT * FROM saito_miner.tasks
-      WHERE device_id = ${deviceId} and source = ${source}
-      ORDER BY created_at DESC
-      LIMIT ${limit};
+      WHERE device_id = ${deviceId} AND source = ${source}
+      ORDER BY created_at DESC;
     `);
-
-    return [...result];
+    return result as ModelOfMiner<'Task'>[];
   }
 
   // 根据设备ID获取收益记录
   async getEarningsByDeviceId(
     conn: DatabaseTransactionConnection,
     deviceId: string,
-    limit: number,
     isRegistered: boolean
-  ): Promise<Earning[]> {
-    let source = 'local';
-    if(isRegistered) {
-      source = 'gateway';
-    }
-    const result = await conn.any(SQL.type(MinerSchema.EarningSchema)`
+  ): Promise<ModelOfMiner<'Earning'>[]> {
+    const source = isRegistered ? 'gateway' : 'local';
+    const result = await conn.any(SQL.unsafe`
       SELECT * FROM saito_miner.earnings
-      WHERE device_id = ${deviceId} and source = ${source}
-      ORDER BY created_at DESC
-      LIMIT ${limit};
+      WHERE device_id = ${deviceId} AND source = ${source}
+      ORDER BY created_at DESC;
     `);
-
-    return [...result];
+    return result as ModelOfMiner<'Earning'>[];
   }
 
   // 根据任务ID获取收益记录
   async getEarningsByTaskId(
     conn: DatabaseTransactionConnection,
     taskId: string
-  ): Promise<Earning[]> {
-    const result = await conn.any(SQL.type(MinerSchema.EarningSchema)`
-      SELECT * FROM saito_miner.earnings
-      WHERE task_id = ${taskId}
-      ORDER BY created_at DESC;
+  ): Promise<ModelOfMiner<'Earning'>[]> {
+    const result = await conn.any(SQL.unsafe`
+      select *
+      from saito_miner.earnings
+      where task_id = ${taskId};
     `);
-
-    return [...result];
+    return result as ModelOfMiner<'Earning'>[];
   }
 
   // 创建任务
-  async createTask(conn: DatabaseTransactionConnection, model: string, deviceId: string): Promise<Task> {
-    const result = await conn.one(SQL.type(MinerSchema.TaskSchema)`
+  async createTask(
+    conn: DatabaseTransactionConnection, 
+    model: string, 
+    deviceId: string
+  ): Promise<ModelOfMiner<'Task'>> {
+    this.logger.log(`Creating task for model: ${model}, deviceId: ${deviceId}`);
+    const result = await conn.one(SQL.unsafe`
       insert into saito_miner.tasks (
         id,
         model,
@@ -317,7 +310,7 @@ export class MinerRepository {
         ${model},
         now(),
         now(),
-        'in-progress',
+        'pending',
         0,
         0,
         0,
@@ -329,7 +322,7 @@ export class MinerRepository {
       )
       returning *;
     `);
-    return result;
+    return result as ModelOfMiner<'Task'>;
   }
 
   // 更新任务 - 直接接收SQL更新片段
@@ -337,74 +330,26 @@ export class MinerRepository {
     conn: DatabaseTransactionConnection,
     id: string,
     updateSql: string
-  ): Promise<Task> {
-    const result = await conn.one(SQL.type(MinerSchema.TaskSchema)`
+  ): Promise<ModelOfMiner<'Task'>> {
+    const result = await conn.one(SQL.unsafe`
       update saito_miner.tasks
       set ${SQL.fragment([updateSql])}, updated_at = now()
       where id = ${id}
       returning *;
     `);
-    return result;
+    return result as ModelOfMiner<'Task'>;
   }
 
   // 获取单个任务
-  async getTaskById(conn: DatabaseTransactionConnection, id: string): Promise<Task> {
-    return conn.one(SQL.type(MinerSchema.TaskSchema)`
-      select * from saito_miner.tasks where id = ${id};
-    `);
-  }
-
-  // 更新过期任务
-  async updateStaleInProgressTasks(
+  async getTaskById(
     conn: DatabaseTransactionConnection,
-    timeoutMinutes: number
-  ): Promise<Task[]> {
-    const intervalString = `${timeoutMinutes} minutes`;
-    const staleTasksResult = await conn.query(SQL.type(MinerSchema.TaskSchema)`
-      update saito_miner.tasks
-      set 
-        status = 'failed',
-        updated_at = now()
-      where status = 'in-progress'
-        and created_at < now() - ${SQL.fragment([`interval '${intervalString}'`])}
-      returning *;
+    taskId: string
+  ): Promise<ModelOfMiner<'Task'> | null> {
+    const result = await conn.maybeOne(SQL.unsafe`
+      select *
+      from saito_miner.tasks
+      where id = ${taskId};
     `);
-
-    return [...staleTasksResult.rows];
-  }
-
-  // 创建收益记录
-  async createEarnings(
-    conn: DatabaseTransactionConnection,
-    blockRewards: number,
-    jobRewards: number,
-    deviceId: string,
-    taskId: string | null
-  ) {
-    const result = await conn.one(SQL.type(MinerSchema.MinerEarningSchema)`
-      INSERT INTO saito_miner.earnings (
-        id, 
-        block_rewards, 
-        job_rewards, 
-        device_id, 
-        task_id, 
-        created_at, 
-        updated_at, 
-        source
-      )
-      VALUES (
-        gen_random_uuid(), 
-        ${blockRewards}, 
-        ${jobRewards}, 
-        ${deviceId}, 
-        ${taskId}, 
-        now(), 
-        now(), 
-        'local'
-      )
-      RETURNING block_rewards as total_block_rewards, job_rewards as total_job_rewards;
-    `);
-
-    return result;
+    return result as ModelOfMiner<'Task'> | null;
   }
 }

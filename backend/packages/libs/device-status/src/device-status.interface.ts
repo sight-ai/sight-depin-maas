@@ -1,47 +1,32 @@
-import { DeviceListItem, TaskResult, EarningResult } from "@saito/models";
+import {
+  ModelOfMiner
+} from "@saito/models";
 
 export abstract class DeviceStatusService {
-  abstract register( body: { code: string, gateway_address: string, reward_address: string, key: string }): Promise<{
-    success: boolean,
-    error: string
-  }>;
-
-  abstract getDeviceType(): Promise<string>;
-  abstract getDeviceModel(): Promise<string>;
-
-  abstract getDeviceInfo(): Promise<string>;
-  abstract heartbeat(): void;
-  abstract updateDeviceStatus(deviceId: string, name: string, status: "online" | "offline", rewardAddress: string): void;
-
-  abstract getDeviceStatus(deviceId: string): void;
-
-  abstract markInactiveDevicesOffline(inactiveDuration: number): void;
-
-  abstract checkOllamaStatus(): void;
-
-  abstract isOllamaOnline(): Promise<boolean>;
-
-  abstract getDeviceList(): Promise<DeviceListItem[]>;
-
-  abstract getCurrentDevice(): Promise<{
+  abstract register(credentials: ModelOfMiner<'DeviceCredentials'>): Promise<ModelOfMiner<'RegistrationResponse'>>;
+  abstract getDeviceStatus(deviceId: string): Promise<ModelOfMiner<'DeviceStatusModule'> | null>;
+  abstract updateDeviceStatus(
     deviceId: string,
     name: string,
-    status: "online" | "offline",
-    rewardAddress: string | null
-  }>;
-
-  abstract getGatewayStatus(): Promise<{
-    isRegistered: boolean
-  }>;
-
+    status: "waiting" | "in-progress" | "connected" | "disconnected" | "failed",
+    rewardAddress: string
+  ): Promise<ModelOfMiner<'DeviceStatusModule'>>;
+  abstract markInactiveDevicesOffline(inactiveDuration: number): Promise<ModelOfMiner<'DeviceStatusModule'>[]>;
+  abstract getDeviceList(): Promise<ModelOfMiner<'DeviceListItem'>[]>;
+  abstract getCurrentDevice(): Promise<ModelOfMiner<'DeviceStatusModule'>>;
+  abstract getDeviceTasks(deviceId: string): Promise<ModelOfMiner<'TaskResult'>[]>;
+  abstract getDeviceEarnings(deviceId: string): Promise<ModelOfMiner<'EarningResult'>[]>;
+  abstract getGatewayStatus(): Promise<{ isRegistered: boolean }>;
   abstract getDeviceId(): Promise<string>;
   abstract getDeviceName(): Promise<string>;
   abstract getRewardAddress(): Promise<string>;
   abstract getGatewayAddress(): Promise<string>;
   abstract getKey(): Promise<string>;
   abstract isRegistered(): Promise<boolean>;
-  // // New methods for relational data
-  // abstract getDeviceTasks(deviceId: string): Promise<TaskResult[]>;
-  
-  // abstract getDeviceEarnings(deviceId: string): Promise<EarningResult[]>;
+  abstract getDeviceType(): Promise<string>;
+  abstract getDeviceModel(): Promise<string>;
+  abstract getDeviceInfo(): Promise<string>;
+  abstract checkStatus(): Promise<boolean>;
+  abstract isOllamaOnline(): Promise<boolean>;
+  abstract heartbeat(): Promise<void>;
 }

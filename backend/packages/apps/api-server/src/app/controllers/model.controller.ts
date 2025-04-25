@@ -1,115 +1,112 @@
-import { Body, Controller, Delete, Get, Inject, Logger, Post, Res } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Logger, Post, Res } from "@nestjs/common";
 import { createZodDto } from 'nestjs-zod';
-import { z } from 'zod';
 import { OllamaService } from "@saito/ollama";
-import { m, ModelOfOllama } from "@saito/models";
 import { Response } from 'express';
+import * as R from 'ramda';
+import {
+  OllamaChatRequest,
+  OllamaGenerateRequest,
+  OllamaEmbeddingsRequest,
+  OllamaModelDeleteRequest
+} from "@saito/models";
 
-export class OllamaGenerateRequestMessage extends createZodDto(m.ollama('generate_request')) { }
-export class OllamaChatRequestMessage extends createZodDto(m.ollama('chat_request')) { }
-export class OllamaCreateRequestMessage extends createZodDto(m.ollama('create_request')) { }
-export class OllamaEmbedRequestMessage extends createZodDto(m.ollama('embed_request')) { }
+export class OllamaGenerateRequestDto extends createZodDto(OllamaGenerateRequest) {}
+export class OllamaChatRequestDto extends createZodDto(OllamaChatRequest) {}
+export class OllamaEmbedRequestDto extends createZodDto(OllamaEmbeddingsRequest) {}
+export class OllamaShowModelRequestDto extends createZodDto(OllamaModelDeleteRequest) {}
 
+const handleApiError = (res: Response, error: unknown, model?: string) => {
+  if (!res.headersSent) {
+    res.status(400).json({
+      error: 'Error during API request',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      model: model || 'unknown',
+      created_at: new Date().toISOString(),
+      done: true
+    });
+  }
+};
 
 @Controller('/api/')
 export class ModelController {
   private readonly logger = new Logger(ModelController.name);
   constructor(
     @Inject(OllamaService) private readonly ollamaService: OllamaService
-  ) { }
+  ) {}
 
   @Post('/generate')
-  async generateResponse(@Body() args: ModelOfOllama<'generate_request'>, @Res() res: Response) {
+  async generateResponse(@Body() args: OllamaGenerateRequestDto, @Res() res: Response) {
     try {
-      // Forward directly to ollama service, let the service handle all error cases
       await this.ollamaService.complete(args, res);
     } catch (error) {
       this.logger.error('Error during generate response:', error);
-      if (!res.headersSent) {
-        // Use 400 status code for errors
-        res.status(400).json({ 
-          error: 'Error during generate response',
-          details: error instanceof Error ? error.message : 'Unknown error',
-          model: args.model || 'unknown',
-          created_at: new Date().toISOString(),
-          done: true
-        });
-      }
+      handleApiError(res, error, args.model);
     }
   }
 
-  /**
-   * This method skips ollama DTO check to adapt with "real" ollama behavior
-   *
-   * @param args
-   * @param res
-   */
   @Post('/chat')
-  async generateChatResponse(@Body() args: ModelOfOllama<'chat_request'>, @Res() res: Response) {
+  async generateChatResponse(@Body() args: OllamaChatRequestDto, @Res() res: Response) {
     try {
       await this.ollamaService.chat(args, res);
     } catch (error) {
       this.logger.error('Error during chat response:', error);
-      if (!res.headersSent) {
-        // Use 400 status code for errors
-        res.status(400).json({ 
-          error: 'Error during chat response',
-          details: error instanceof Error ? error.message : 'Unknown error',
-          model: args.model || 'unknown',
-          created_at: new Date().toISOString(),
-          done: true
-        });
-      }
+      handleApiError(res, error, args.model);
     }
   }
 
   @Get('/tags')
   async listModelTags() {
-    try {
-      return await this.ollamaService.listModelTags();
-    } catch (error) {
-      this.logger.error('Error listing model tags:', error);
-      throw error; // NestJS will convert this to a 500 response
-    }
+    this.logger.debug('Listing model tags');
+    return R.tryCatch(
+      () => this.ollamaService.listModelTags(),
+      (error) => {
+        this.logger.error('Error listing model tags:', error);
+        throw error;
+      }
+    )();
   }
 
   @Get('/show')
-  async showModelInformation(@Body() args: ModelOfOllama<'show_model_request'>) {
-    try {
-      return await this.ollamaService.showModelInformation(args);
-    } catch (error) {
-      this.logger.error('Error showing model information:', error);
-      throw error; // NestJS will convert this to a 500 response
-    }
+  async showModelInformation(@Body() args: { name: string }) {
+    return R.tryCatch(
+      () => this.ollamaService.showModelInformation(args),
+      (error) => {
+        this.logger.error('Error showing model information:', error);
+        throw error;
+      }
+    )();
   }
   
   @Get('/version')
   async showModelVersion() {
-    try {
-      return await this.ollamaService.showModelVersion();
-    } catch (error) {
-      this.logger.error('Error showing model version:', error);
-      throw error; // NestJS will convert this to a 500 response
-    }
+    return R.tryCatch(
+      () => this.ollamaService.showModelVersion(),
+      (error) => {
+        this.logger.error('Error showing model version:', error);
+        throw error;
+      }
+    )();
   }
 
   @Post('/embed')
-  async generateEmbeddings(@Body() args: OllamaEmbedRequestMessage) {
-    try {
-      return await this.ollamaService.generateEmbeddings(args);
-    } catch (error) {
-      this.logger.error('Error generating embeddings:', error);
-      throw error; // NestJS will convert this to a 500 response
-    }
+  async generateEmbeddings(@Body() args: OllamaEmbedRequestDto) {
+    return R.tryCatch(
+      () => this.ollamaService.generateEmbeddings(args),
+      (error) => {
+        this.logger.error('Error generating embeddings:', error);
+        throw error;
+      }
+    )();
   }
 
   @Get('/ps')
   async listRunningModels() {
-    try {
-      return await this.ollamaService.listRunningModels();
-    } catch (error) {
-      this.logger.error('Error listing running models:', error);
-      throw error; // NestJS will convert this to a 500 response
-    }
+    return R.tryCatch(
+      () => this.ollamaService.listRunningModels(),
+      (error) => {
+        this.logger.error('Error listing running models:', error);
+        throw error;
+      }
+    )();
   }
 }

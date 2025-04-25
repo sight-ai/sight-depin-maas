@@ -1,8 +1,8 @@
 import { TunnelService } from "./tunnel.interface";
-import { Inject, Injectable, Logger, forwardRef } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { io, Socket } from "socket.io-client";
 import got from "got-cjs";
-import { OllamaChatRequest, OllamaGenerateRequest, TunnelSchemas } from '@saito/models';
+import { OllamaChatRequest, OllamaGenerateRequest } from '@saito/models';
 import * as R from 'ramda';
 import { z } from 'zod';
 
@@ -16,8 +16,8 @@ export class DefaultTunnelService implements TunnelService {
   socket: Socket;
   node_id: string = '';
   private reconnectAttempts: number = 0;
-  private readonly maxReconnectAttempts: number = 5;
-  private readonly reconnectDelay: number = 1000; // 1秒，与测试一致
+  private readonly maxReconnectAttempts: number = 10;
+  private readonly reconnectDelay: number = 2000; // 1秒，与测试一致
   gatewayUrl: string = '';
   
   // 用于存储消息回调
@@ -53,7 +53,7 @@ export class DefaultTunnelService implements TunnelService {
         reconnection: true,
         reconnectionAttempts: this.maxReconnectAttempts,
         reconnectionDelay: this.reconnectDelay,
-        timeout: 10000,
+        timeout: 60000,
         transports: ['polling', 'websocket'],
         forceNew: true,
         secure: true,
@@ -63,7 +63,6 @@ export class DefaultTunnelService implements TunnelService {
           'Authorization': `Bearer ${key}`
         }
       });
-
       // 设置Socket事件监听器
       this.setupSocketListeners();
     } catch (error) {
@@ -111,6 +110,8 @@ export class DefaultTunnelService implements TunnelService {
     // 连接断开
     this.socket.on('disconnect', (reason: string) => {
       this.logger.warn(`Socket连接断开: ${reason}`);
+      this.logger.debug(`最后一次ping时间: ${this.socket}`);
+      this.logger.debug(`连接状态: ${this.socket.connected}`);
       this.handleDisconnect();
     });
 
@@ -434,7 +435,7 @@ export class DefaultTunnelService implements TunnelService {
    * 处理代理请求
    * @param serverData 服务器数据
    */
-  async proxyRequest(serverData: TunnelSchemas.ModelOfTunnel<'ProxyRequest'>): Promise<void> {
+  async proxyRequest(serverData:  any): Promise<void> {
     try {
       const { taskId, data } = serverData;
       this.logger.debug(`处理代理请求: ${taskId}`);

@@ -2,7 +2,8 @@ import { Inject, Logger } from "@nestjs/common";
 import { PersistentService } from "@saito/persistent";
 import { DatabaseTransactionConnection } from "slonik";
 import { SQL } from "@saito/common";
-import { TaskSyncSchemas } from "@saito/models";
+import { Task, Earning } from "@saito/models";
+import { z } from 'zod';
 import * as R from 'ramda';
 
 /**
@@ -29,14 +30,14 @@ export class TaskSyncRepository {
    */
   async getCurrentDeviceId(conn: DatabaseTransactionConnection): Promise<string> {
     const result = await conn.maybeOne(SQL.unsafe`
-      SELECT device_id
+      SELECT id
       FROM saito_miner.device_status 
-      WHERE status = 'online' 
+      WHERE status = 'connected' 
       ORDER BY created_at DESC 
       LIMIT 1;
     `);
     
-    return R.propOr('default_device', 'device_id', result);
+    return R.propOr('24dea62e-95df-4549-b3ba-c9522cd5d5c1', 'id', result);
   }
 
   /**
@@ -54,7 +55,7 @@ export class TaskSyncRepository {
   /**
    * 更新已存在的任务
    */
-  async updateExistingTask(conn: DatabaseTransactionConnection, task: TaskSyncSchemas.ModelOfTaskSync<'Task'>): Promise<void> {
+  async updateExistingTask(conn: DatabaseTransactionConnection, task: z.infer<typeof Task>): Promise<void> {
     try {
       await conn.query(SQL.unsafe`
         UPDATE saito_miner.tasks 
@@ -83,8 +84,8 @@ export class TaskSyncRepository {
     try {
       await conn.query(SQL.unsafe`
         UPDATE saito_miner.tasks 
-        SET status = 'succeed'
-        WHERE status = 'completed' AND source = 'gateway'
+        SET status = 'completed'
+        WHERE status = 'succeed' AND source = 'gateway'
       `);
     } catch (error) {
       this.logger.error('批量更新任务状态失败', error);
@@ -95,10 +96,8 @@ export class TaskSyncRepository {
   /**
    * 创建新任务
    */
-  async createTask(conn: DatabaseTransactionConnection, task: TaskSyncSchemas.ModelOfTaskSync<'Task'>): Promise<void> {
+  async createTask(conn: DatabaseTransactionConnection, task: z.infer<typeof Task>): Promise<void> {
     try {
-      const deviceId = R.propOr('default_device', 'device_id', task) as string;
-      
       await conn.query(SQL.unsafe`
         INSERT INTO saito_miner.tasks (
           id, model, created_at, status, total_duration,
@@ -108,7 +107,7 @@ export class TaskSyncRepository {
           ${task.id}, ${task.model}, ${task.created_at}, ${task.status},
           ${task.total_duration}, ${task.load_duration}, ${task.prompt_eval_count},
           ${task.prompt_eval_duration}, ${task.eval_count}, ${task.eval_duration},
-          ${task.updated_at}, 'gateway', ${deviceId}
+          ${task.updated_at}, 'gateway', ${task.device_id}
         )
       `);
     } catch (error) {
@@ -131,7 +130,7 @@ export class TaskSyncRepository {
   /**
    * 更新已存在的收益记录
    */
-  async updateExistingEarning(conn: DatabaseTransactionConnection, earning: TaskSyncSchemas.ModelOfTaskSync<'Earning'>): Promise<void> {
+  async updateExistingEarning(conn: DatabaseTransactionConnection, earning: z.infer<typeof Earning>): Promise<void> {
     try {
       await conn.query(SQL.unsafe`
         UPDATE saito_miner.earnings 
@@ -150,16 +149,14 @@ export class TaskSyncRepository {
   /**
    * 创建新的收益记录
    */
-  async createEarning(conn: DatabaseTransactionConnection, earning: TaskSyncSchemas.ModelOfTaskSync<'Earning'>): Promise<void> {
+  async createEarning(conn: DatabaseTransactionConnection, earning: z.infer<typeof Earning>): Promise<void> {
     try {
-      const deviceId = R.propOr('default_device', 'device_id', earning) as string;
-      
       await conn.query(SQL.unsafe`
         INSERT INTO saito_miner.earnings (
           id, block_rewards, job_rewards, created_at, updated_at, source, device_id, task_id
         ) VALUES (
           ${earning.id}, ${earning.block_rewards}, ${earning.job_rewards},
-          ${earning.created_at}, ${earning.updated_at}, 'gateway', ${deviceId}, ${earning.task_id}
+          ${earning.created_at}, ${earning.updated_at}, 'gateway', ${earning.device_id}, ${earning.task_id}
         )
       `);
     } catch (error) {

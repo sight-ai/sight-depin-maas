@@ -1,21 +1,22 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { z } from 'zod';
+import { MinerModel } from './saito-miner';
+import { OllamaModelSchema } from './ollama/ollama';
+const Models = {
+  miner: MinerModel,
+  ollama: OllamaModelSchema,
+} as const;
 
-import { OllamaModel } from "./ollama/ollama.schema";
-import { MinerSchema } from "./miner/miner.schema";
-import { DeviceSchema } from './device-status/device-status.schema';
 
+export type ModelOfMiner<T extends keyof typeof Models.miner> =
+  (typeof Models.miner)[T] extends z.ZodType<infer O> ? O : never;
+
+export type ModelOfOllama<T extends keyof typeof Models.ollama> =
+  (typeof Models.ollama)[T] extends z.ZodType<infer O> ? O : never;
 
 export const m = {
-  ollama<T extends keyof typeof OllamaModel>(type: T) {
-    return OllamaModel[type]
-  },
-  miner<T extends keyof typeof MinerSchema>(type: T) {
-    return MinerSchema[type];
-  },
-  deviceStatus<T extends keyof typeof DeviceSchema>(type: T) {
-    return DeviceSchema[type];
-  }
+  miner: Models.miner,
+  ollama: Models.ollama,
 };
 
 export const kModel = m;

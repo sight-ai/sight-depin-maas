@@ -1,9 +1,6 @@
 import { Inject, Logger } from "@nestjs/common";
 import { PersistentService } from "@saito/persistent";
 import { DatabaseTransactionConnection } from "slonik";
-import { SQL } from "@saito/common";
-import { m } from "@saito/models";
-import * as R from 'ramda';
 
 /**
  * OllamaRepository handles database operations for chat records
@@ -30,16 +27,4 @@ export class OllamaRepository {
     }
   }
 
-  /**
-   * Validate that required fields exist in data object
-   */
-  validateRequiredFields(data: any, requiredFields: string[]): boolean {
-    for (const field of requiredFields) {
-      if (data[field] === undefined || data[field] === null) {
-        this.logger.warn(`Missing required field: ${field}`);
-        return false;
-      }
-    }
-    return true;
-  }
 }
