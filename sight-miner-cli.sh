@@ -131,6 +131,7 @@ ${BOLD}Options:${NC}
       --node-code=CODE      Node code
       --gateway-api-key=KEY Gateway API key
       --reward-address=ADDR Reward address
+      --api-base-path=PATH  API server base path
     
     --help                 Show this help information
     --version              Show script version
@@ -170,9 +171,10 @@ select_mode() {
                 read -p "Node code: " NODE_CODE
                 read -p "Gateway API key: " GATEWAY_API_KEY
                 read -p "Reward address: " REWARD_ADDRESS
+                read -p "API server base path: " API_SERVER_BASE_PATH
                 
                 # Validate input
-                if [[ -z "$GATEWAY_API_URL" || -z "$NODE_CODE" || -z "$GATEWAY_API_KEY" || -z "$REWARD_ADDRESS" ]]; then
+                if [[ -z "$GATEWAY_API_URL" || -z "$NODE_CODE" || -z "$GATEWAY_API_KEY" || -z "$REWARD_ADDRESS" || -z "$API_SERVER_BASE_PATH" ]]; then
                     log_error "All parameters are required for remote mode"
                     exit 1
                 fi
@@ -382,7 +384,7 @@ run_remote() {
     log_info "Starting remote mode setup..."
     
     # Validate remote mode parameters
-    if [[ -z "$GATEWAY_API_URL" || -z "$NODE_CODE" || -z "$GATEWAY_API_KEY" || -z "$REWARD_ADDRESS" ]]; then
+    if [[ -z "$GATEWAY_API_URL" || -z "$NODE_CODE" || -z "$GATEWAY_API_KEY" || -z "$REWARD_ADDRESS" || -z "$API_SERVER_BASE_PATH" ]]; then
         log_error "Missing required parameters for remote mode"
         return 1
     fi
@@ -430,6 +432,7 @@ services:
       - GPU_BRAND="${GPU_BRAND}"
       - DEVICE_TYPE="${os}"
       - GPU_MODEL="${GPU_MODEL}"
+      - API_SERVER_BASE_PATH=
 EOL
     else
         cat > "$OVERRIDE_FILE" <<EOL
@@ -444,6 +447,7 @@ services:
       - DEVICE_TYPE="${os}"
       - GPU_MODEL="${GPU_MODEL}"
       - REWARD_ADDRESS=${REWARD_ADDRESS}
+      - API_SERVER_BASE_PATH=${API_SERVER_BASE_PATH}
 EOL
     fi
     
@@ -620,6 +624,10 @@ case "$1" in
                     ;;
                 --reward-address=*)
                     REWARD_ADDRESS="${1#*=}"
+                    shift
+                    ;;
+                --api-base-path=*)
+                    API_SERVER_BASE_PATH="${1#*=}"
                     shift
                     ;;
                 *)
