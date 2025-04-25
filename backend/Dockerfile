@@ -19,7 +19,6 @@ ENV NODE_DATABASE_URL="postgres://postgres:postgres@sight-miner-postgres:5432/sa
 ENV OLLAMA_MODEL="deepscaler"
 ENV OLLAMA_API_URL="http://host.docker.internal:11434/"
 
-
 # RUN npm cache clean --force
 RUN npm i --legacy-peer-deps
 # RUN ollama serve & \
