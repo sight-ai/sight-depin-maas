@@ -8,17 +8,17 @@ import { OllamaRepository } from './ollama.repository';
 import { DeviceStatusService } from '@saito/device-status';
 import { z } from 'zod';
 import * as R from 'ramda';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { BaseModelService } from '@saito/models';
+import { MODEL_EVENTS } from '@saito/tunnel';
 import {
   OllamaChatRequest,
-  OllamaChatResponse,
   OllamaGenerateRequest,
-  OllamaGenerateResponse,
   OllamaModelList,
   OllamaModelInfo,
   OllamaEmbeddingsRequest,
   OllamaEmbeddingsResponse,
   OllamaRunningModels,
-  OllamaVersionResponse,
   Task
 } from '@saito/models';
 
@@ -28,19 +28,73 @@ const STATUS_CHECK_TIMEOUT = 2000; // 2 seconds
 const MAX_RETRIES = 3;
 
 @Injectable()
-export class DefaultOllamaService implements OllamaService {
+export class DefaultOllamaService extends BaseModelService implements OllamaService {
   private readonly baseUrl = env().OLLAMA_API_URL;
-  private readonly logger = new Logger(DefaultOllamaService.name);
 
   constructor(
-    @Inject(OllamaRepository)
-    private readonly ollamaRepository: OllamaRepository,
     @Inject(MinerService)
     private readonly minerService: MinerService,
     @Inject('DEVICE_STATUS_SERVICE')
     private readonly deviceStatusService: DeviceStatusService,
+    eventEmitter: EventEmitter2
   ) {
+    super(eventEmitter, 'ollama', DefaultOllamaService.name);
     this.logger.log(`Initialized OllamaService with baseUrl: ${this.baseUrl}`);
+  }
+
+  protected override async handleChatRequest(data: { taskId: string, data: any }): Promise<void> {
+    await this.chat(data.data, this.createResponseHandler(data.taskId));
+  }
+
+  protected override async handleCompletionRequest(data: { taskId: string, data: any }): Promise<void> {
+    await this.complete(data.data, this.createResponseHandler(data.taskId));
+  }
+
+  protected override async handleEmbeddingRequest(data: { taskId: string, data: any }): Promise<void> {
+    const response = await this.generateEmbeddings(data.data);
+    this.eventEmitter.emit(MODEL_EVENTS.EMBEDDING_RESPONSE, {
+      taskId: data.taskId,
+      content: response
+    });
+  }
+
+  protected override createResponseHandler(taskId: string): Response {
+    const response = {
+      write: (chunk: any) => {
+        this.eventEmitter.emit(MODEL_EVENTS.CHAT_RESPONSE, {
+          taskId,
+          content: chunk
+        });
+      },
+      end: () => {
+        this.eventEmitter.emit(MODEL_EVENTS.CHAT_RESPONSE, {
+          taskId,
+          content: JSON.stringify({ done: true })
+        });
+      },
+      status: (code: number) => response,
+      json: (data: any) => {
+        this.eventEmitter.emit(MODEL_EVENTS.CHAT_RESPONSE, {
+          taskId,
+          content: JSON.stringify(data)
+        });
+        return response;
+      },
+      setHeader: () => response,
+      headersSent: false,
+      writableEnded: false,
+      // 添加必要的属性
+      sendStatus: () => response,
+      links: () => response,
+      send: () => response,
+      jsonp: () => response,
+      // 添加其他必要的属性
+      ...Object.fromEntries(
+        Array.from({ length: 87 }, (_, i) => [`prop${i}`, () => response])
+      )
+    } as unknown as Response;
+
+    return response;
   }
 
   private async createTask(model: string, task_id?: string, device_id?: string) {
@@ -517,7 +571,7 @@ export class DefaultOllamaService implements OllamaService {
 
   async listModels(): Promise<z.infer<typeof OllamaModelList>> {
     try {
-      const url = new URL(`api/models`, this.baseUrl);
+      const url = new URL(`api/tags`, this.baseUrl);
       const response = await got.get(url.toString(), {
         timeout: {
           request: DEFAULT_REQUEST_TIMEOUT

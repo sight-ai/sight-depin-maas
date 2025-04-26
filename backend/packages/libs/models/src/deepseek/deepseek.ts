@@ -22,6 +22,33 @@ export const OllamaModelList = z.object({
   models: z.array(OllamaModel),
 });
 
+// DeepSeek list models response
+export const DeepSeekListModelsResponse = z.object({
+  object: z.literal('list'),
+  data: z.array(z.object({
+    id: z.string(),
+    object: z.literal('model'),
+    created: z.number(),
+    owned_by: z.string(),
+    permission: z.array(z.object({
+      id: z.string(),
+      object: z.literal('model_permission'),
+      created: z.number(),
+      allow_create_engine: z.boolean(),
+      allow_sampling: z.boolean(),
+      allow_logprobs: z.boolean(),
+      allow_search_indices: z.boolean(),
+      allow_view: z.boolean(),
+      allow_fine_tuning: z.boolean(),
+      organization: z.string(),
+      group: z.string().nullable(),
+      is_blocking: z.boolean()
+    })).optional(),
+    root: z.string().optional(),
+    parent: z.string().nullable().optional()
+  }))
+});
+
 // Show model info response
 export const OllamaModelInfo = z.object({
   modelfile: z.string(),
@@ -519,6 +546,7 @@ export const DeepSeek = {
   // Ollama specific
   OllamaModel,
   OllamaModelList,
+  DeepSeekListModelsResponse,
   OllamaModelInfo,
   OllamaChatParams,
   OllamaCompletionParams,

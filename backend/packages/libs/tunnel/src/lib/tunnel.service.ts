@@ -1,11 +1,23 @@
 import { TunnelService } from "./tunnel.interface";
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Inject } from "@nestjs/common";
 import { io, Socket } from "socket.io-client";
 import got from "got-cjs";
 import { OllamaChatRequest, OllamaGenerateRequest } from '@saito/models';
 import * as R from 'ramda';
 import { z } from 'zod';
 import { env } from "../env";
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Response } from 'express';
+
+// 定义事件类型
+export const MODEL_EVENTS = {
+  CHAT_REQUEST: 'model.chat.request',
+  CHAT_RESPONSE: 'model.chat.response',
+  COMPLETION_REQUEST: 'model.completion.request',
+  COMPLETION_RESPONSE: 'model.completion.response',
+  EMBEDDING_REQUEST: 'model.embedding.request',
+  EMBEDDING_RESPONSE: 'model.embedding.response'
+} as const;
 
 /**
  * 隧道服务
@@ -25,8 +37,160 @@ export class DefaultTunnelService implements TunnelService {
   private messageCallbacks: Array<(message: unknown) => void> = [];
 
   constructor(
+    private readonly eventEmitter: EventEmitter2
   ) {
     this.socket = io();
+    this.setupEventListeners();
+  }
+
+  /**
+   * 设置事件监听器
+   */
+  private setupEventListeners(): void {
+    // 监听模型响应事件
+    this.eventEmitter.on(MODEL_EVENTS.CHAT_RESPONSE, (data: { taskId: string, content: any }) => {
+      this.socket.emit('register_stream_no_handler', {
+        taskId: data.taskId,
+        content: JSON.stringify(data.content)
+      });
+    });
+
+    this.eventEmitter.on(MODEL_EVENTS.COMPLETION_RESPONSE, (data: { taskId: string, content: any }) => {
+      this.socket.emit('register_stream_no_handler', {
+        taskId: data.taskId,
+        content: JSON.stringify(data.content)
+      });
+    });
+
+    this.eventEmitter.on(MODEL_EVENTS.EMBEDDING_RESPONSE, (data: { taskId: string, content: any }) => {
+      this.socket.emit('register_stream_no_handler', {
+        taskId: data.taskId,
+        content: JSON.stringify(data.content)
+      });
+    });
+  }
+
+  /**
+   * 处理 OpenAI 请求
+   */
+  private async handleOpenAIRequest(messageType: string, serverData: any): Promise<void> {
+    try {
+      const { taskId, data } = serverData;
+      this.logger.debug(`处理 OpenAI 请求: ${taskId}`);
+      
+      // 根据消息类型选择不同的事件
+      switch (messageType) {
+        case 'chat_request_stream':
+        case 'chat_request_no_stream':
+          this.eventEmitter.emit(MODEL_EVENTS.CHAT_REQUEST, {
+            serviceType: 'openai',
+            taskId,
+            data
+          });
+          break;
+        case 'generate_request_stream':
+        case 'generate_request_no_stream':
+          this.eventEmitter.emit(MODEL_EVENTS.COMPLETION_REQUEST, {
+            serviceType: 'openai',
+            taskId,
+            data
+          });
+          break;
+        case 'embedding_request':
+          this.eventEmitter.emit(MODEL_EVENTS.EMBEDDING_REQUEST, {
+            serviceType: 'openai',
+            taskId,
+            data
+          });
+          break;
+        default:
+          throw new Error(`未知的 OpenAI 消息类型: ${messageType}`);
+      }
+    } catch (error) {
+      this.handleRequestError(serverData.taskId, error, 'register_stream_no_handler');
+    }
+  }
+
+  /**
+   * 处理 DeepSeek 请求
+   */
+  private async handleDeepSeekRequest(messageType: string, serverData: any): Promise<void> {
+    try {
+      const { taskId, data } = serverData;
+      this.logger.debug(`处理 DeepSeek 请求: ${taskId}`);
+      
+      // 根据消息类型选择不同的事件
+      switch (messageType) {
+        case 'chat_request_stream':
+        case 'chat_request_no_stream':
+          this.eventEmitter.emit(MODEL_EVENTS.CHAT_REQUEST, {
+            serviceType: 'deepseek',
+            taskId,
+            data
+          });
+          break;
+        case 'generate_request_stream':
+        case 'generate_request_no_stream':
+          this.eventEmitter.emit(MODEL_EVENTS.COMPLETION_REQUEST, {
+            serviceType: 'deepseek',
+            taskId,
+            data
+          });
+          break;
+        case 'embedding_request':
+          this.eventEmitter.emit(MODEL_EVENTS.EMBEDDING_REQUEST, {
+            serviceType: 'deepseek',
+            taskId,
+            data
+          });
+          break;
+        default:
+          throw new Error(`未知的 DeepSeek 消息类型: ${messageType}`);
+      }
+    } catch (error) {
+      this.handleRequestError(serverData.taskId, error, 'register_stream_no_handler');
+    }
+  }
+
+  /**
+   * 处理 Ollama 请求
+   */
+  private async handleOllamaRequest(messageType: string, serverData: any): Promise<void> {
+    try {
+      const { taskId, data } = serverData;
+      this.logger.debug(`处理 Ollama 请求: ${taskId}`);
+      
+      // 根据消息类型选择不同的事件
+      switch (messageType) {
+        case 'chat_request_stream':
+        case 'chat_request_no_stream':
+          this.eventEmitter.emit(MODEL_EVENTS.CHAT_REQUEST, {
+            serviceType: 'ollama',
+            taskId,
+            data
+          });
+          break;
+        case 'generate_request_stream':
+        case 'generate_request_no_stream':
+          this.eventEmitter.emit(MODEL_EVENTS.COMPLETION_REQUEST, {
+            serviceType: 'ollama',
+            taskId,
+            data
+          });
+          break;
+        case 'embedding_request':
+          this.eventEmitter.emit(MODEL_EVENTS.EMBEDDING_REQUEST, {
+            serviceType: 'ollama',
+            taskId,
+            data
+          });
+          break;
+        default:
+          throw new Error(`未知的 Ollama 消息类型: ${messageType}`);
+      }
+    } catch (error) {
+      this.handleRequestError(serverData.taskId, error, 'register_stream_no_handler');
+    }
   }
 
   /**
@@ -132,22 +296,20 @@ export class DefaultTunnelService implements TunnelService {
       // 根据消息类型调用相应的处理方法
       const messageType = R.prop('type', serverData);
       const taskId = R.prop('taskId', serverData);
+      const serviceType = R.prop('serviceType', serverData); // 新增：服务类型
       
-      this.logger.debug(`收到服务器消息，类型: ${messageType}, 任务ID: ${taskId}`);
+      this.logger.debug(`收到服务器消息，类型: ${messageType}, 任务ID: ${taskId}, 服务类型: ${serviceType}`);
       
-      switch (messageType) {
-        case 'chat_request_stream':
-          return this.chatRequestStream(serverData);
-        case 'chat_request_no_stream':
-          return this.chatRequestNoStream(serverData);
-        case 'generate_request_stream':
-          return this.generateRequestStream(serverData);
-        case 'generate_request_no_stream':
-          return this.generateRequestNoStream(serverData);
-        case 'proxy_request':
-          return this.proxyRequest(serverData);
+      // 根据服务类型选择不同的处理方法
+      switch (serviceType) {
+        case 'ollama':
+          return this.handleOllamaRequest(messageType, serverData);
+        case 'openai':
+          return this.handleOpenAIRequest(messageType, serverData);
+        case 'deepseek':
+          return this.handleDeepSeekRequest(messageType, serverData);
         default:
-          this.logger.warn(`未知的消息类型: ${messageType}`);
+          this.logger.warn(`未知的服务类型: ${serviceType}`);
           return Promise.resolve();
       }
     } catch (error) {

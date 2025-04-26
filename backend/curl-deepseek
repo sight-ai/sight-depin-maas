@@ -22,7 +22,7 @@ curl -X POST http://localhost:8716/deepseek/completions \
     "max_tokens": 100,
     "temperature": 0.7,
     "top_p": 0.9,
-    "stream": false
+    "stream": true
   }'
 
 curl -X POST http://localhost:8716/deepseek/embeddings \

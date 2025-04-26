@@ -15,7 +15,7 @@ export abstract class ModelOpenaiService {
   /**
    * 处理聊天请求
    */
-  abstract handleChat(params: z.infer<typeof OpenAI.OpenAIChatParams>, res: Response): Promise<void>;
+ abstract handleChat(params: z.infer<typeof OpenAI.OpenAIChatParams>, res: Response): Promise<void>;
 
   /**
    * 处理补全请求
@@ -35,12 +35,12 @@ export abstract class ModelOpenaiService {
   /**
    * 获取模型列表
    */
-  abstract listModels(): Promise<z.infer<typeof OpenAI.OllamaModelList>>;
+  abstract listModels(): Promise<{ object: string; data: Array<{ id: string; object: string; created: number; owned_by: string }> }>;
 
   /**
    * 获取模型标签列表
    */
-  abstract listModelTags(): Promise<z.infer<typeof OpenAI.OllamaModelList>>;
+  abstract listModelTags(): Promise<{ object: string; data: Array<{ id: string; object: string; created: number; owned_by: string }> }>;
 
   /**
    * 获取模型信息
@@ -51,5 +51,4 @@ export abstract class ModelOpenaiService {
    * 获取模型版本
    */
   abstract showModelVersion(): Promise<z.infer<typeof OpenAI.OllamaVersionResponse>>;
-
 } 

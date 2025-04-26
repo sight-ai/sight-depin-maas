@@ -5,18 +5,128 @@ import { ModelOpenaiService } from './openai.interface';
 import { ModelAdapter } from './adapters';
 import { OpenAI } from '@saito/models';
 import { OllamaService } from '@saito/ollama';
-import got from 'got-cjs';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { BaseModelService } from '@saito/models';
+import { MODEL_EVENTS } from '@saito/tunnel';
 
 @Injectable()
-export class DefaultModelOpenaiService implements ModelOpenaiService {
-  private readonly logger = new Logger(DefaultModelOpenaiService.name);
-  private readonly baseUrl: string;
+export class DefaultModelOpenaiService extends BaseModelService implements ModelOpenaiService {
 
   constructor(
     @Inject('OLLAMA_SERVICE')
     private readonly ollamaService: OllamaService,
+    eventEmitter: EventEmitter2
   ) {
-    this.baseUrl = (ollamaService as any).baseUrl;
+    super(eventEmitter, 'openai', DefaultModelOpenaiService.name);
+  }
+
+  protected override setupEventListeners(): void {
+    // 监听聊天请求
+    this.eventEmitter.on(MODEL_EVENTS.CHAT_REQUEST, async (data: { serviceType: string, taskId: string, data: any }) => {
+      if (data.serviceType === 'openai') {
+        try {
+          const ollamaParams = ModelAdapter.fromOpenAIChatParams(data.data);
+          await this.ollamaService.chat(ollamaParams, this.createResponseHandler(data.taskId));
+        } catch (error) {
+          this.logger.error('Error handling chat request:', error);
+          this.eventEmitter.emit(MODEL_EVENTS.CHAT_RESPONSE, {
+            taskId: data.taskId,
+            content: {
+              error: 'Failed to process chat request',
+              model: data.data.model,
+              created_at: new Date().toISOString(),
+              done: true
+            }
+          });
+        }
+      }
+    });
+
+    // 监听完成请求
+    this.eventEmitter.on(MODEL_EVENTS.COMPLETION_REQUEST, async (data: { serviceType: string, taskId: string, data: any }) => {
+      if (data.serviceType === 'openai') {
+        try {
+          const ollamaParams = ModelAdapter.fromOpenAICompletionParams(data.data);
+          await this.ollamaService.complete(ollamaParams, this.createResponseHandler(data.taskId));
+        } catch (error) {
+          this.logger.error('Error handling completion request:', error);
+          this.eventEmitter.emit(MODEL_EVENTS.COMPLETION_RESPONSE, {
+            taskId: data.taskId,
+            content: {
+              error: 'Failed to process completion request',
+              model: data.data.model,
+              created_at: new Date().toISOString(),
+              done: true
+            }
+          });
+        }
+      }
+    });
+
+    // 监听嵌入请求
+    this.eventEmitter.on(MODEL_EVENTS.EMBEDDING_REQUEST, async (data: { serviceType: string, taskId: string, data: any }) => {
+      if (data.serviceType === 'openai') {
+        try {
+          const ollamaParams = ModelAdapter.fromOpenAIEmbeddingParams(data.data);
+          const ollamaResponse = await this.ollamaService.generateEmbeddings(ollamaParams);
+          const openAIResponse = ModelAdapter.toOpenAIEmbeddingResponse(ollamaResponse, data.data.model);
+          this.eventEmitter.emit(MODEL_EVENTS.EMBEDDING_RESPONSE, {
+            taskId: data.taskId,
+            content: openAIResponse
+          });
+        } catch (error) {
+          this.logger.error('Error handling embedding request:', error);
+          this.eventEmitter.emit(MODEL_EVENTS.EMBEDDING_RESPONSE, {
+            taskId: data.taskId,
+            content: {
+              error: 'Failed to process embedding request',
+              model: data.data.model,
+              created_at: new Date().toISOString(),
+              done: true
+            }
+          });
+        }
+      }
+    });
+  }
+
+  protected override createResponseHandler(taskId: string): Response {
+    const response = {
+      write: (chunk: any) => {
+        this.eventEmitter.emit(MODEL_EVENTS.CHAT_RESPONSE, {
+          taskId,
+          content: chunk
+        });
+      },
+      end: () => {
+        this.eventEmitter.emit(MODEL_EVENTS.CHAT_RESPONSE, {
+          taskId,
+          content: JSON.stringify({ done: true })
+        });
+      },
+      status: (code: number) => response,
+      json: (data: any) => {
+        this.eventEmitter.emit(MODEL_EVENTS.CHAT_RESPONSE, {
+          taskId,
+          content: JSON.stringify(data)
+        });
+        return response;
+      },
+      setHeader: () => response,
+      headersSent: false,
+      writableEnded: false,
+      // 添加必要的属性
+      sendStatus: () => response,
+      links: () => response,
+      send: () => response,
+      jsonp: () => response,
+      // 添加其他必要的属性
+      ...Object.fromEntries(
+        Array.from({ length: 87 }, (_, i) => [`prop${i}`, () => response])
+      )
+    } as unknown as Response;
+
+    return response;
   }
 
   async handleChat(params: z.infer<typeof OpenAI.OpenAIChatParams>, res: Response): Promise<void> {
@@ -161,21 +271,45 @@ export class DefaultModelOpenaiService implements ModelOpenaiService {
     }
   }
 
-  async listModels(): Promise<z.infer<typeof OpenAI.OllamaModelList>> {
+  async listModels(): Promise<{ object: string; data: Array<{ id: string; object: string; created: number; owned_by: string }> }> {
     try {
-      return await this.ollamaService.listModels();
+      const ollamaModels = await this.ollamaService.listModels();
+      return {
+        object: 'list',
+        data: ollamaModels.models.map(model => ({
+          id: model.name,
+          object: 'model',
+          created: Math.floor(Date.now() / 1000),
+          owned_by: 'openai'
+        }))
+      };
     } catch (error) {
       this.logger.error('Error listing models:', error);
-      return { models: [] };
+      return {
+        object: 'list',
+        data: []
+      };
     }
   }
 
-  async listModelTags(): Promise<z.infer<typeof OpenAI.OllamaModelList>> {
+  async listModelTags(): Promise<{ object: string; data: Array<{ id: string; object: string; created: number; owned_by: string }> }> {
     try {
-      return await this.ollamaService.listModelTags();
+      const ollamaModels = await this.ollamaService.listModelTags();
+      return {
+        object: 'list',
+        data: ollamaModels.models.map(model => ({
+          id: model.name,
+          object: 'model',
+          created: Math.floor(Date.now() / 1000),
+          owned_by: 'openai'
+        }))
+      };
     } catch (error) {
       this.logger.error('Error listing model tags:', error);
-      return { models: [] };
+      return {
+        object: 'list',
+        data: []
+      };
     }
   }
 
@@ -209,6 +343,26 @@ export class DefaultModelOpenaiService implements ModelOpenaiService {
       this.logger.error('Error showing model version:', error);
       return { version: 'unknown' };
     }
+  }
+
+  protected override async handleChatRequest(data: { taskId: string, data: any }): Promise<void> {
+    const ollamaParams = ModelAdapter.fromOpenAIChatParams(data.data);
+    await this.ollamaService.chat(ollamaParams, this.createResponseHandler(data.taskId));
+  }
+
+  protected override async handleCompletionRequest(data: { taskId: string, data: any }): Promise<void> {
+    const ollamaParams = ModelAdapter.fromOpenAICompletionParams(data.data);
+    await this.ollamaService.complete(ollamaParams, this.createResponseHandler(data.taskId));
+  }
+
+  protected override async handleEmbeddingRequest(data: { taskId: string, data: any }): Promise<void> {
+    const ollamaParams = ModelAdapter.fromOpenAIEmbeddingParams(data.data);
+    const ollamaResponse = await this.ollamaService.generateEmbeddings(ollamaParams);
+    const openAIResponse = ModelAdapter.toOpenAIEmbeddingResponse(ollamaResponse, data.data.model);
+    this.eventEmitter.emit('model.embedding.response', {
+      taskId: data.taskId,
+      content: openAIResponse
+    });
   }
 }
 

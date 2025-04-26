@@ -14,6 +14,7 @@ import { OpenAIController } from "./controllers/openai.controller";
 import { ModelOpenaiModule } from '@saito/openai';
 import { DeepSeekController } from "./controllers/deepseek.controller";
 import { ModelDeepSeekModule } from '@saito/deepseek';  
+import { EventEmitterModule } from '@nestjs/event-emitter';
 @Module({
   imports: [
     forwardRef(() => OllamaModule), 
@@ -22,7 +23,8 @@ import { ModelDeepSeekModule } from '@saito/deepseek';
     forwardRef(() => TunnelModule), 
     TaskSyncModule,
     ModelOpenaiModule,
-    ModelDeepSeekModule
+    ModelDeepSeekModule,
+    EventEmitterModule.forRoot()
   ],
   controllers: [IndexController, ModelController, MinerController, DeviceStatusController, OpenAIController, DeepSeekController],
   providers: [

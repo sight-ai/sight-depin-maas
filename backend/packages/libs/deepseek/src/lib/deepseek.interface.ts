@@ -26,12 +26,12 @@ export abstract class ModelDeepSeekService {
   /**
    * 获取模型列表
    */
-  abstract listModels(): Promise<z.infer<typeof DeepSeek.OllamaModelList>>;
+  abstract listModels(): Promise<{ object: string; data: Array<{ id: string; object: string; owned_by: string }> }>;
 
   /**
    * 获取模型标签列表
    */
-  abstract listModelTags(): Promise<z.infer<typeof DeepSeek.OllamaModelList>>;
+  abstract listModelTags(): Promise<{ object: string; data: Array<{ id: string; object: string; owned_by: string }> }>;
 
   /**
    * 获取模型信息
@@ -42,5 +42,4 @@ export abstract class ModelDeepSeekService {
    * 获取模型版本
    */
   abstract showModelVersion(): Promise<z.infer<typeof DeepSeek.OllamaVersionResponse>>;
-
 } 
