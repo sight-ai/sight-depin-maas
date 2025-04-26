@@ -9,7 +9,7 @@ export class OpenAIChatRequestDto extends createZodDto(OpenAI.OpenAIChatParams) 
 export class OpenAICompletionRequestDto extends createZodDto(OpenAI.OpenAICompletionParams) {}
 export class OpenAIEmbeddingRequestDto extends createZodDto(OpenAI.OpenAIEmbeddingParams) {}
 
-@Controller('openai/v1')
+@Controller(['openai/', 'openai/v1'])
 export class OpenAIController {
   private readonly logger = new Logger(OpenAIController.name);
 
@@ -20,7 +20,7 @@ export class OpenAIController {
 
   @Post('chat/completions')
   async chat(@Body() body: OpenAIChatRequestDto, @Res() res: Response) {
-    await this.modelOpenaiService.handleChat(body, res);
+    await this.modelOpenaiService.handleChat({...body, model: 'deepscaler'}, res);
   }
 
   @Post('completions')

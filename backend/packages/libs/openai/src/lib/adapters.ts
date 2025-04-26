@@ -74,13 +74,13 @@ export class ModelAdapter {
     if (max_tokens !== undefined) options.num_predict = max_tokens;
     if (stop !== undefined) options.stop = stop;
     
-    // OpenAI特有参数的处理
-    // 注意：n, logprobs, echo, presence_penalty, frequency_penalty, best_of, logit_bias 在Ollama中没有直接对应
+    // 添加其他可选参数
+    if (presence_penalty !== undefined) options.repeat_penalty = presence_penalty;
+    if (frequency_penalty !== undefined) options.repeat_last_n = Math.floor(frequency_penalty * 10);
     
     return {
       model,
       prompt,
-      suffix,
       stream,
       options: Object.keys(options).length > 0 ? options : undefined
     };
@@ -107,16 +107,19 @@ export class ModelAdapter {
   static toOpenAIChatResponse(ollamaResponse: any): z.infer<typeof OpenAI.OpenAIChatResponse> {
     return {
       id: '', // Ollama不提供ID
-      object: 'chat.completion',
+      object: 'chat.completion.chunk',
       created: Math.floor(Date.now() / 1000),
+      system_fingerprint: null,
+      service_tier: "default",
       model: ollamaResponse.model,
       choices: [{
-        message: {
+        delta: {
           role: 'assistant',
-          content: ollamaResponse.response || ''
+          content: ollamaResponse.message.content || '',
+          refusal: null
         },
-        index: 0,
-        finish_reason: ollamaResponse.done ? 'stop' : 'length'
+        logprobs: null,
+        finish_reason: null
       }],
       usage: {
         prompt_tokens: ollamaResponse.prompt_eval_count,
@@ -279,6 +282,26 @@ export class ModelAdapter {
       input,
       options: {
         truncate: true
+      }
+    };
+  }
+
+  static toOpenAIStreamingResponse(ollamaResponse: any): z.infer<typeof OpenAI.OpenAICompletionResponse> {
+    return {
+      id: ollamaResponse.id || '',
+      object: 'text_completion',
+      created: Math.floor(Date.now() / 1000),
+      model: ollamaResponse.model,
+      choices: [{
+        text: ollamaResponse.response || '',
+        index: 0,
+        logprobs: null,
+        finish_reason: ollamaResponse.done ? 'stop' : 'length'
+      }],
+      usage: {
+        prompt_tokens: ollamaResponse.prompt_eval_count || 0,
+        completion_tokens: ollamaResponse.eval_count || 0,
+        total_tokens: (ollamaResponse.prompt_eval_count || 0) + (ollamaResponse.eval_count || 0)
       }
     };
   }

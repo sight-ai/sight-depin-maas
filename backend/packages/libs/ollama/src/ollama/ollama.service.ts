@@ -132,8 +132,6 @@ export class DefaultOllamaService extends BaseModelService implements OllamaServ
   }
 
   private async handleStream(stream: any, res: Response, taskId: string, isChat: boolean) {
-    res.setHeader('Content-Type', 'application/x-ndjson');
-    res.flushHeaders();
 
     let hasReceivedData = false;
 

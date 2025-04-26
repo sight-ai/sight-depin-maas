@@ -10,10 +10,10 @@ import {
   OllamaModelDeleteRequest
 } from "@saito/models";
 
-export class OllamaGenerateRequestDto extends createZodDto(OllamaGenerateRequest) {}
-export class OllamaChatRequestDto extends createZodDto(OllamaChatRequest) {}
-export class OllamaEmbedRequestDto extends createZodDto(OllamaEmbeddingsRequest) {}
-export class OllamaShowModelRequestDto extends createZodDto(OllamaModelDeleteRequest) {}
+export class OllamaGenerateRequestDto extends createZodDto(OllamaGenerateRequest) { }
+export class OllamaChatRequestDto extends createZodDto(OllamaChatRequest) { }
+export class OllamaEmbedRequestDto extends createZodDto(OllamaEmbeddingsRequest) { }
+export class OllamaShowModelRequestDto extends createZodDto(OllamaModelDeleteRequest) { }
 
 const handleApiError = (res: Response, error: unknown, model?: string) => {
   if (!res.headersSent) {
@@ -32,7 +32,7 @@ export class ModelController {
   private readonly logger = new Logger(ModelController.name);
   constructor(
     @Inject(OllamaService) private readonly ollamaService: OllamaService
-  ) {}
+  ) { }
 
   @Post('/generate')
   async generateResponse(@Body() args: OllamaGenerateRequestDto, @Res() res: Response) {
@@ -47,6 +47,10 @@ export class ModelController {
   @Post('/chat')
   async generateChatResponse(@Body() args: OllamaChatRequestDto, @Res() res: Response) {
     try {
+      if (args.stream) {
+        res.setHeader('Content-Type', 'application/x-ndjson');
+        res.flushHeaders();
+      }
       await this.ollamaService.chat(args, res);
     } catch (error) {
       this.logger.error('Error during chat response:', error);
@@ -76,7 +80,7 @@ export class ModelController {
       }
     )();
   }
-  
+
   @Get('/version')
   async showModelVersion() {
     return R.tryCatch(

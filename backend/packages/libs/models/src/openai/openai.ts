@@ -131,6 +131,7 @@ export const OllamaModelCreateResponse = z.object({
 export const ChatMessage = z.object({
   role: z.enum(['system', 'user', 'assistant', 'tool']),
   content: z.string(),
+  refusal: z.any(),
   images: z.array(z.string()).optional(),
   tool_calls: z.array(z.object({
     function: z.object({
@@ -292,7 +293,7 @@ export const OpenAIResponse = z.object({
   created: z.number(),
   model: z.string(),
   choices: z.array(z.object({
-    message: ChatMessage.optional(),
+    delta: ChatMessage.optional(),
     text: z.string().optional(),
     index: z.number(),
     logprobs: z.any().optional(),
@@ -311,10 +312,12 @@ export const OpenAIChatResponse = z.object({
   object: z.string(),
   created: z.number(),
   model: z.string(),
+  system_fingerprint: z.any(),
+  service_tier: z.string(),
   choices: z.array(z.object({
-    message: ChatMessage,
-    index: z.number(),
-    finish_reason: z.string(),
+    delta: ChatMessage,
+    finish_reason: z.any(),
+    logprobs: z.any()
   })),
   usage: z.object({
     prompt_tokens: z.number(),

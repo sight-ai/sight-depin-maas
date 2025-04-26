@@ -132,34 +132,68 @@ export class DefaultModelOpenaiService extends BaseModelService implements Model
   async handleChat(params: z.infer<typeof OpenAI.OpenAIChatParams>, res: Response): Promise<void> {
     try {
       const ollamaParams = ModelAdapter.fromOpenAIChatParams(params);
-      
+      if (params.stream) {
+        // Set streaming headers
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
+      }
+
       let responseData = '';
       const originalWrite = res.write.bind(res);
       const originalEnd = res.end.bind(res);
+      const originaljson = res.json.bind(res);
       const logger = this.logger;
 
-      res.write = function(chunk: any, encodingOrCallback?: BufferEncoding | ((error: Error | null | undefined) => void), callback?: (error: Error | null | undefined) => void): boolean {
+      res.write = function (chunk: any, encodingOrCallback?: BufferEncoding | ((error: Error | null | undefined) => void), callback?: (error: Error | null | undefined) => void): boolean {
         if (typeof chunk === 'string') {
           responseData += chunk;
         }
-        if (typeof encodingOrCallback === 'function') {
-          return originalWrite(chunk, 'utf8', encodingOrCallback);
+
+        try {
+          const ollamaResponse = JSON.parse(chunk.toString());
+          const openAIResponse = ModelAdapter.toOpenAIChatResponse(ollamaResponse);
+          const eventData = `data: ${JSON.stringify(openAIResponse)}\n\n`;
+
+          if (typeof encodingOrCallback === 'function') {
+            return originalWrite(eventData, 'utf8', encodingOrCallback);
+          }
+          return originalWrite(eventData, encodingOrCallback as BufferEncoding, callback);
+        } catch (error) {
+          logger.error('Error processing chunk:', error);
+          return originalWrite(chunk, encodingOrCallback as BufferEncoding, callback);
         }
-        return originalWrite(chunk, encodingOrCallback as BufferEncoding, callback);
       };
 
-      res.end = function(chunk?: any, encodingOrCallback?: BufferEncoding | (() => void), callback?: () => void): Response {
+      res.end = function (chunk?: any, encodingOrCallback?: BufferEncoding | (() => void), callback?: () => void): Response {
         if (typeof chunk === 'string') {
           responseData += chunk;
         }
-        
+
         try {
-          const ollamaResponse = JSON.parse(responseData);
-          const openAIResponse = ModelAdapter.toOpenAIChatResponse(ollamaResponse);
-          if (typeof encodingOrCallback === 'function') {
-            originalWrite(JSON.stringify(openAIResponse), 'utf8', encodingOrCallback);
-          } else {
-            originalWrite(JSON.stringify(openAIResponse), encodingOrCallback as BufferEncoding, callback);
+          if (responseData.trim()) {
+            const ollamaResponse = JSON.parse(responseData);
+            const openAIResponse = ModelAdapter.toOpenAIChatResponse(ollamaResponse);
+            const eventData = `data: ${JSON.stringify({
+              id: openAIResponse.id,
+              object: "chat.completion.chunk",
+              created: openAIResponse.created,
+              model: openAIResponse.model,
+              service_tier: "default",
+              system_fingerprint: null,
+              choices: [{
+                index: 0,
+                delta: {},
+                logprobs: null,
+                finish_reason: "stop"
+              }]
+            })}\n\n`;
+            if (typeof encodingOrCallback === 'function') {
+              originalWrite(eventData, 'utf8', encodingOrCallback);
+            } else {
+              originalWrite(eventData, encodingOrCallback as BufferEncoding, callback);
+            }
           }
         } catch (error) {
           logger.error('Error converting response:', error);
@@ -169,11 +203,16 @@ export class DefaultModelOpenaiService extends BaseModelService implements Model
             originalWrite(responseData, encodingOrCallback as BufferEncoding, callback);
           }
         }
-        
+
         if (typeof encodingOrCallback === 'function') {
           return originalEnd(chunk, 'utf8', encodingOrCallback);
         }
         return originalEnd(chunk, encodingOrCallback as BufferEncoding, callback);
+      };
+
+      res.json = function (data: any) {
+        const openAIResponse = ModelAdapter.toOpenAIChatResponse(data);
+        return originaljson(openAIResponse);
       };
 
       await this.ollamaService.chat(ollamaParams, res);
@@ -193,47 +232,72 @@ export class DefaultModelOpenaiService extends BaseModelService implements Model
   async handleCompletion(params: z.infer<typeof OpenAI.OpenAICompletionParams>, res: Response): Promise<void> {
     try {
       const ollamaParams = ModelAdapter.fromOpenAICompletionParams(params);
-      
+
+      if (params.stream) {
+        // Set streaming headers
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
+      }
+
       let responseData = '';
       const originalWrite = res.write.bind(res);
       const originalEnd = res.end.bind(res);
       const logger = this.logger;
 
-      res.write = function(chunk: any, encodingOrCallback?: BufferEncoding | ((error: Error | null | undefined) => void), callback?: (error: Error | null | undefined) => void): boolean {
+      res.write = function (chunk: any, encodingOrCallback?: BufferEncoding | ((error: Error | null | undefined) => void), callback?: (error: Error | null | undefined) => void): boolean {
         if (typeof chunk === 'string') {
           responseData += chunk;
         }
-        if (typeof encodingOrCallback === 'function') {
-          return originalWrite(chunk, 'utf8', encodingOrCallback);
+
+        try {
+          if (params.stream) {
+            const ollamaResponse = JSON.parse(chunk.toString());
+            const openAIResponse = ModelAdapter.toOpenAIStreamingResponse(ollamaResponse);
+            const eventData = `data: ${JSON.stringify(openAIResponse)}\n\n`;
+            return originalWrite(eventData, 'utf8', encodingOrCallback as any);
+          } else {
+            return originalWrite(chunk, encodingOrCallback as BufferEncoding, callback);
+          }
+        } catch (error) {
+          logger.error('Error processing chunk:', error);
+          return originalWrite(chunk, encodingOrCallback as BufferEncoding, callback);
         }
-        return originalWrite(chunk, encodingOrCallback as BufferEncoding, callback);
       };
 
-      res.end = function(chunk?: any, encodingOrCallback?: BufferEncoding | (() => void), callback?: () => void): Response {
+      res.end = function (chunk?: any, encodingOrCallback?: BufferEncoding | (() => void), callback?: () => void): Response {
         if (typeof chunk === 'string') {
           responseData += chunk;
         }
-        
+
         try {
-          const ollamaResponse = JSON.parse(responseData);
-          const openAIResponse = ModelAdapter.toOpenAICompletionResponse(ollamaResponse);
-          if (typeof encodingOrCallback === 'function') {
-            originalWrite(JSON.stringify(openAIResponse), 'utf8', encodingOrCallback);
-          } else {
-            originalWrite(JSON.stringify(openAIResponse), encodingOrCallback as BufferEncoding, callback);
+          if (responseData.trim()) {
+            const ollamaResponse = JSON.parse(responseData);
+            const openAIResponse = ModelAdapter.toOpenAIStreamingResponse(ollamaResponse);
+            if (params.stream) {
+              const eventData = `data: ${JSON.stringify({
+                id: openAIResponse.id,
+                object: "text_completion",
+                created: openAIResponse.created,
+                model: openAIResponse.model,
+                choices: [{
+                  text: "",
+                  index: 0,
+                  logprobs: null,
+                  finish_reason: "stop"
+                }]
+              })}\n\n`;
+              originalWrite(eventData, 'utf8', encodingOrCallback as any);
+            } else {
+              originalWrite(JSON.stringify(openAIResponse), 'utf8', encodingOrCallback as any);
+            }
           }
         } catch (error) {
           logger.error('Error converting response:', error);
-          if (typeof encodingOrCallback === 'function') {
-            originalWrite(responseData, 'utf8', encodingOrCallback);
-          } else {
-            originalWrite(responseData, encodingOrCallback as BufferEncoding, callback);
-          }
+          originalWrite(responseData, 'utf8', encodingOrCallback as any);
         }
-        
-        if (typeof encodingOrCallback === 'function') {
-          return originalEnd(chunk, 'utf8', encodingOrCallback);
-        }
+
         return originalEnd(chunk, encodingOrCallback as BufferEncoding, callback);
       };
 

@@ -108,16 +108,19 @@ export class ModelAdapter {
   static toOpenAIChatResponse(ollamaResponse: any): z.infer<typeof OpenAI.OpenAIChatResponse> {
     return {
       id: '', // Ollama不提供ID
-      object: 'chat.completion',
+      object: 'chat.completion.chunk',
       created: Math.floor(Date.now() / 1000),
+      system_fingerprint: null,
+      service_tier: "default",
       model: ollamaResponse.model,
       choices: [{
-        message: {
+        delta: {
           role: 'assistant',
-          content: ollamaResponse.response || ''
+          content: ollamaResponse.message.content || '',
+          refusal: null
         },
-        index: 0,
-        finish_reason: ollamaResponse.done ? 'stop' : 'length'
+        logprobs: null,
+        finish_reason: null
       }],
       usage: {
         prompt_tokens: ollamaResponse.prompt_eval_count,
