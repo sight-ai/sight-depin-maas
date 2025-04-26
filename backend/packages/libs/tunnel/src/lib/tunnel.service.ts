@@ -5,6 +5,7 @@ import got from "got-cjs";
 import { OllamaChatRequest, OllamaGenerateRequest } from '@saito/models';
 import * as R from 'ramda';
 import { z } from 'zod';
+import { env } from "../env";
 
 /**
  * 隧道服务
@@ -39,8 +40,7 @@ export class DefaultTunnelService implements TunnelService {
       // 从完整地址中提取基础URL
       const url = new URL(gatewayAddress);
       this.gatewayUrl = `${url.protocol}//${url.host}`;
-      const basePath = '';  // 代理转发的基础路径
-      // const basePath = '/api/model';  // 代理转发的基础路径
+      const basePath = env().API_SERVER_BASE_PATH;  // 代理转发的基础路径
       const socketPath = `${basePath}/socket.io`;  // 完整的socket.io路径
 
       this.logger.debug('Socket连接配置信息:');
