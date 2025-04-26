@@ -5,4 +5,4 @@ export * from './m.model';
 
 export * as OpenAI from './openai/openai';
 
-
+export * as DeepSeek from './deepseek/deepseek';

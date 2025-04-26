@@ -53,28 +53,4 @@ export class OpenAIController {
     return await this.modelOpenaiService.showModelVersion();
   }
 
-  @Get('models/running')
-  async listRunningModels() {
-    return await this.modelOpenaiService.listRunningModels();
-  }
-
-  @Post('models/copy')
-  async copyModel(@Body() body: { source: string; destination: string }) {
-    return await this.modelOpenaiService.copyModel(body);
-  }
-
-  @Delete('models/:name')
-  async deleteModel(@Param('name') name: string) {
-    return await this.modelOpenaiService.deleteModel({ name });
-  }
-
-  @Post('models/pull')
-  async pullModel(@Body() body: { model: string; insecure?: boolean; stream?: boolean }) {
-    return await this.modelOpenaiService.pullModel(body);
-  }
-
-  @Post('models/push')
-  async pushModel(@Body() body: { model: string; insecure?: boolean; stream?: boolean }) {
-    return await this.modelOpenaiService.pushModel(body);
-  }
 }

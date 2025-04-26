@@ -12,6 +12,8 @@ import { TunnelModule } from "@saito/tunnel";
 import { TaskSyncModule } from '@saito/task-sync';
 import { OpenAIController } from "./controllers/openai.controller";
 import { ModelOpenaiModule } from '@saito/openai';
+import { DeepSeekController } from "./controllers/deepseek.controller";
+import { ModelDeepSeekModule } from '@saito/deepseek';  
 @Module({
   imports: [
     forwardRef(() => OllamaModule), 
@@ -19,9 +21,10 @@ import { ModelOpenaiModule } from '@saito/openai';
     DeviceStatusModule, 
     forwardRef(() => TunnelModule), 
     TaskSyncModule,
-    ModelOpenaiModule
+    ModelOpenaiModule,
+    ModelDeepSeekModule
   ],
-  controllers: [IndexController, ModelController, MinerController, DeviceStatusController, OpenAIController],
+  controllers: [IndexController, ModelController, MinerController, DeviceStatusController, OpenAIController, DeepSeekController],
   providers: [
     {
       provide: APP_PIPE,

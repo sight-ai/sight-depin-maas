@@ -1,0 +1,45 @@
+curl -X POST http://localhost:8716/deepseek/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "model": "deepscaler",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Hello, how are you?"
+      }
+    ],
+    "temperature": 0.7,
+    "max_tokens": 1000,
+    "stream": false
+  }'
+curl -X POST http://localhost:8716/deepseek/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "model": "deepscaler",
+    "prompt": "Once upon a time",
+    "max_tokens": 100,
+    "temperature": 0.7,
+    "top_p": 0.9,
+    "stream": false
+  }'
+
+curl -X POST http://localhost:8716/deepseek/embeddings \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "model": "deepscaler",
+    "input": "The quick brown fox jumps over the lazy dog"
+  }'
+
+  curl http://localhost:8716/deepseek/models
+
+
+  curl http://localhost:8716/deepseek/models/deepscaler
+
+  curl http://localhost:8716/deepseek/models/tags
+
+  curl http://localhost:8716/deepseek/version
+  
+  
