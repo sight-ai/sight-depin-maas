@@ -43,28 +43,4 @@ export abstract class ModelDeepSeekService {
    */
   abstract showModelVersion(): Promise<z.infer<typeof DeepSeek.OllamaVersionResponse>>;
 
-  /**
-   * 获取运行中的模型列表
-   */
-  abstract listRunningModels(): Promise<z.infer<typeof DeepSeek.OllamaRunningModels>>;
-
-  /**
-   * 复制模型
-   */
-  abstract copyModel(args: z.infer<typeof DeepSeek.OllamaModelCopyRequest>): Promise<void>;
-
-  /**
-   * 删除模型
-   */
-  abstract deleteModel(args: z.infer<typeof DeepSeek.OllamaModelDeleteRequest>): Promise<void>;
-
-  /**
-   * 拉取模型
-   */
-  abstract pullModel(args: z.infer<typeof DeepSeek.OllamaModelPullRequest>): Promise<void>;
-
-  /**
-   * 推送模型
-   */
-  abstract pushModel(args: z.infer<typeof DeepSeek.OllamaModelPushRequest>): Promise<void>;
 } 
