@@ -1,11 +1,11 @@
 import { z } from 'zod';
 import { OpenAI } from '@saito/models';
 
-export class ModelAdapter {
+export class OpenAIOllamaAdapter {
   /**
-   * 将OpenAI聊天参数转换为Ollama聊天参数
+   * Convert OpenAI chat parameters to Ollama chat parameters
    */
-  static fromOpenAIChatParams(params: z.infer<typeof OpenAI.OpenAIChatParams>): z.infer<typeof OpenAI.OllamaChatParams> {
+  static toOllamaChatParams(params: z.infer<typeof OpenAI.ChatParams>): any {
     const { 
       model, 
       messages, 
@@ -15,38 +15,32 @@ export class ModelAdapter {
       stop, 
       stream,
       presence_penalty,
-      frequency_penalty,
-      logit_bias,
-      user,
-      response_format,
-      tools,
-      tool_choice
+      frequency_penalty
     } = params;
     
-    const options: z.infer<typeof OpenAI.OllamaOptions> = {};
+    const options: any = {};
     
-    // 基本参数映射
+    // Map basic parameters according to API specs
     if (temperature !== undefined) options.temperature = temperature;
     if (top_p !== undefined) options.top_p = top_p;
     if (max_tokens !== undefined) options.num_predict = max_tokens;
     if (stop !== undefined) options.stop = stop;
-    
-    // OpenAI特有参数的处理
-    // 注意：presence_penalty, frequency_penalty, logit_bias 在Ollama中没有直接对应
-    // tools 和 tool_choice 在Ollama中不支持
+    if (presence_penalty !== undefined) options.presence_penalty = presence_penalty;
+    if (frequency_penalty !== undefined) options.frequency_penalty = frequency_penalty;
     
     return {
       model,
       messages,
       stream,
-      options: Object.keys(options).length > 0 ? options : undefined
+      options: Object.keys(options).length > 0 ? options : undefined,
+      keep_alive: 60 // Default keep_alive value in seconds
     };
   }
 
   /**
-   * 将OpenAI补全参数转换为Ollama补全参数
+   * Convert OpenAI completion parameters to Ollama completion parameters
    */
-  static fromOpenAICompletionParams(params: z.infer<typeof OpenAI.OpenAICompletionParams>): z.infer<typeof OpenAI.OllamaCompletionParams> {
+  static toOllamaCompletionParams(params: z.infer<typeof OpenAI.CompletionParams>): any {
     const { 
       model, 
       prompt, 
@@ -55,174 +49,55 @@ export class ModelAdapter {
       max_tokens, 
       stop, 
       stream,
-      suffix,
-      n,
-      logprobs,
-      echo,
       presence_penalty,
       frequency_penalty,
-      best_of,
-      logit_bias,
-      user
+      echo,
+      suffix
     } = params;
     
-    const options: z.infer<typeof OpenAI.OllamaOptions> = {};
+    const options: any = {};
     
-    // 基本参数映射
+    // Map basic parameters according to API specs
     if (temperature !== undefined) options.temperature = temperature;
     if (top_p !== undefined) options.top_p = top_p;
     if (max_tokens !== undefined) options.num_predict = max_tokens;
     if (stop !== undefined) options.stop = stop;
-    
-    // 添加其他可选参数
-    if (presence_penalty !== undefined) options.repeat_penalty = presence_penalty;
-    if (frequency_penalty !== undefined) options.repeat_last_n = Math.floor(frequency_penalty * 10);
+    if (presence_penalty !== undefined) options.presence_penalty = presence_penalty;
+    if (frequency_penalty !== undefined) options.frequency_penalty = frequency_penalty;
+    if (echo !== undefined) options.echo = echo;
     
     return {
       model,
       prompt,
       stream,
-      options: Object.keys(options).length > 0 ? options : undefined
-    };
-  }
-
-  /**
-   * 将OpenAI嵌入参数转换为Ollama嵌入参数
-   */
-  static fromOpenAIEmbeddingParams(params: z.infer<typeof OpenAI.OpenAIEmbeddingParams>): z.infer<typeof OpenAI.OllamaEmbeddingParams> {
-    const { model, input, encoding_format, user } = params;
-    
-    return {
-      model,
-      input,
-      options: {
-        truncate: true
-      }
-    };
-  }
-
-  /**
-   * 将Ollama聊天响应转换为OpenAI聊天响应
-   */
-  static toOpenAIChatResponse(ollamaResponse: any): z.infer<typeof OpenAI.OpenAIChatResponse> {
-    return {
-      id: '', // Ollama不提供ID
-      object: 'chat.completion.chunk',
-      created: Math.floor(Date.now() / 1000),
-      system_fingerprint: null,
-      service_tier: "default",
-      model: ollamaResponse.model,
-      choices: [{
-        delta: {
-          role: 'assistant',
-          content: ollamaResponse.message.content || '',
-          refusal: null
-        },
-        logprobs: null,
-        finish_reason: null
-      }],
-      usage: {
-        prompt_tokens: ollamaResponse.prompt_eval_count,
-        completion_tokens: ollamaResponse.eval_count,
-        total_tokens: ollamaResponse.prompt_eval_count + ollamaResponse.eval_count
-      }
-    };
-  }
-
-  /**
-   * 将Ollama补全响应转换为OpenAI补全响应
-   */
-  static toOpenAICompletionResponse(ollamaResponse: any): z.infer<typeof OpenAI.OpenAICompletionResponse> {
-    return {
-      id: '', // Ollama不提供ID
-      object: 'text_completion',
-      created: Math.floor(Date.now() / 1000),
-      model: ollamaResponse.model,
-      choices: [{
-        text: ollamaResponse.response || '',
-        index: 0,
-        logprobs: null,
-        finish_reason: ollamaResponse.done ? 'stop' : 'length'
-      }],
-      usage: {
-        prompt_tokens: ollamaResponse.prompt_eval_count,
-        completion_tokens: ollamaResponse.eval_count,
-        total_tokens: ollamaResponse.prompt_eval_count + ollamaResponse.eval_count
-      }
-    };
-  }
-
-  /**
-   * 将Ollama嵌入响应转换为OpenAI嵌入响应
-   */
-  static toOpenAIEmbeddingResponse(ollamaResponse: z.infer<typeof OpenAI.OllamaEmbeddingResponse>, model: string): z.infer<typeof OpenAI.OpenAIEmbeddingResponse> {
-    return {
-      object: 'list',
-      data: ollamaResponse.embeddings.map((embedding: number[], index: number) => ({
-        object: 'embedding',
-        embedding,
-        index
-      })),
-      model,
-      usage: {
-        prompt_tokens: ollamaResponse.prompt_eval_count ?? 0,
-        total_tokens: ollamaResponse.prompt_eval_count ?? 0
-      }
-    };
-  }
-
-  /**
-   * 将通用聊天参数转换为Ollama聊天参数
-   */
-  static toOllamaChatParams(params: z.infer<typeof OpenAI.ChatParams>): z.infer<typeof OpenAI.OllamaChatParams> {
-    const { model, temperature, top_p, max_tokens, stop, stream, messages } = params;
-    
-    const options: z.infer<typeof OpenAI.OllamaOptions> = {};
-    
-    if (temperature !== undefined) options.temperature = temperature;
-    if (top_p !== undefined) options.top_p = top_p;
-    if (max_tokens !== undefined) options.num_predict = max_tokens;
-    if (stop !== undefined) options.stop = stop;
-    
-    return {
-      model,
-      messages,
-      stream,
-      options: Object.keys(options).length > 0 ? options : undefined
-    };
-  }
-
-  /**
-   * 将通用补全参数转换为Ollama补全参数
-   */
-  static toOllamaCompletionParams(params: z.infer<typeof OpenAI.CompletionParams>): z.infer<typeof OpenAI.OllamaCompletionParams> {
-    const { model, temperature, top_p, max_tokens, stop, stream, prompt, suffix } = params;
-    
-    const options: z.infer<typeof OpenAI.OllamaOptions> = {};
-    
-    if (temperature !== undefined) options.temperature = temperature;
-    if (top_p !== undefined) options.top_p = top_p;
-    if (max_tokens !== undefined) options.num_predict = max_tokens;
-    if (stop !== undefined) options.stop = stop;
-    
-    return {
-      model,
-      prompt,
       suffix,
-      stream,
-      options: Object.keys(options).length > 0 ? options : undefined
+      options: Object.keys(options).length > 0 ? options : undefined,
+      keep_alive: 60 // Default keep_alive value in seconds
     };
   }
 
   /**
-   * 将通用嵌入参数转换为Ollama嵌入参数
+   * Convert OpenAI embedding parameters to Ollama embedding parameters
    */
-  static toOllamaEmbeddingParams(params: z.infer<typeof OpenAI.EmbeddingParams>): z.infer<typeof OpenAI.OllamaEmbeddingParams> {
+  static toOllamaEmbeddingParams(params: z.infer<typeof OpenAI.EmbeddingParams>): any {
     const { model, input } = params;
+    
+    // Handle both single string and array inputs
+    const isArray = Array.isArray(input);
+    
+    if (isArray) {
+      return {
+        model,
+        input,
+        options: {
+          truncate: true
+        }
+      };
+    }
     
     return {
       model,
-      input,
+      prompt: input as string,
       options: {
         truncate: true
       }
@@ -230,73 +105,20 @@ export class ModelAdapter {
   }
 
   /**
-   * 将DeepSeek聊天参数转换为Ollama聊天参数
+   * Convert Ollama chat response to OpenAI chat response format
    */
-  static fromDeepSeekChatParams(params: any): z.infer<typeof OpenAI.OllamaChatParams> {
-    const { model, messages, temperature, top_p, max_tokens, stop, stream } = params;
-    
-    const options: z.infer<typeof OpenAI.OllamaOptions> = {};
-    
-    if (temperature !== undefined) options.temperature = temperature;
-    if (top_p !== undefined) options.top_p = top_p;
-    if (max_tokens !== undefined) options.num_predict = max_tokens;
-    if (stop !== undefined) options.stop = stop;
-    
+  static toOpenAIChatResponse(ollamaResponse: any, stream: boolean = false): z.infer<typeof OpenAI.OpenAIChatResponse> {
     return {
-      model,
-      messages,
-      stream,
-      options: Object.keys(options).length > 0 ? options : undefined
-    };
-  }
-
-  /**
-   * 将DeepSeek补全参数转换为Ollama补全参数
-   */
-  static fromDeepSeekCompletionParams(params: any): z.infer<typeof OpenAI.OllamaCompletionParams> {
-    const { model, prompt, temperature, top_p, max_tokens, stop, stream } = params;
-    
-    const options: z.infer<typeof OpenAI.OllamaOptions> = {};
-    
-    if (temperature !== undefined) options.temperature = temperature;
-    if (top_p !== undefined) options.top_p = top_p;
-    if (max_tokens !== undefined) options.num_predict = max_tokens;
-    if (stop !== undefined) options.stop = stop;
-    
-    return {
-      model,
-      prompt,
-      stream,
-      options: Object.keys(options).length > 0 ? options : undefined
-    };
-  }
-
-  /**
-   * 将DeepSeek嵌入参数转换为Ollama嵌入参数
-   */
-  static fromDeepSeekEmbeddingParams(params: any): z.infer<typeof OpenAI.OllamaEmbeddingParams> {
-    const { model, input } = params;
-    
-    return {
-      model,
-      input,
-      options: {
-        truncate: true
-      }
-    };
-  }
-
-  static toOpenAIStreamingResponse(ollamaResponse: any): z.infer<typeof OpenAI.OpenAICompletionResponse> {
-    return {
-      id: ollamaResponse.id || '',
-      object: 'text_completion',
+      id: 'chat-' + Date.now(),
+      object: 'chat.completion',
       created: Math.floor(Date.now() / 1000),
-      model: ollamaResponse.model,
       choices: [{
-        text: ollamaResponse.response || '',
-        index: 0,
-        logprobs: null,
-        finish_reason: ollamaResponse.done ? 'stop' : 'length'
+        message: {
+          role: 'assistant',
+          content: ollamaResponse.message?.content || ollamaResponse.response || ''
+        },
+        finish_reason: ollamaResponse.done_reason || 'stop',
+        index: 0
       }],
       usage: {
         prompt_tokens: ollamaResponse.prompt_eval_count || 0,
@@ -304,5 +126,103 @@ export class ModelAdapter {
         total_tokens: (ollamaResponse.prompt_eval_count || 0) + (ollamaResponse.eval_count || 0)
       }
     };
+  }
+
+  /**
+   * Convert Ollama completion response to OpenAI completion response format
+   */
+  static toOpenAICompletionResponse(ollamaResponse: any): z.infer<typeof OpenAI.OpenAICompletionResponse> {
+    return {
+      id: 'cmpl-' + Date.now(),
+      object: 'text_completion',
+      created: Math.floor(Date.now() / 1000),
+      model: ollamaResponse.model || 'unknown',
+      system_fingerprint: 'fp_' + Date.now(),
+      choices: [{
+        text: ollamaResponse.response || '',
+        index: 0,
+        logprobs: null,
+        finish_reason: ollamaResponse.done_reason || 'stop'
+      }],
+      usage: {
+        prompt_tokens: ollamaResponse.prompt_eval_count || 0,
+        completion_tokens: ollamaResponse.eval_count || 0,
+        total_tokens: (ollamaResponse.prompt_eval_count || 0) + (ollamaResponse.eval_count || 0)
+      }
+    };
+  }
+
+  /**
+   * Convert Ollama embedding response to OpenAI embedding response format
+   */
+  static toOpenAIEmbeddingResponse(ollamaResponse: any, model: string): z.infer<typeof OpenAI.OpenAIEmbeddingResponse> {
+    // Handle both single and multiple embeddings
+    const embeddings = Array.isArray(ollamaResponse.embeddings) 
+      ? ollamaResponse.embeddings 
+      : [ollamaResponse.embedding];
+
+    return {
+      object: 'list',
+      data: embeddings.map((embedding: number[], index: number) => ({
+        object: 'embedding',
+        embedding,
+        index
+      })),
+      model,
+      usage: {
+        prompt_tokens: ollamaResponse.prompt_eval_count || 0,
+        total_tokens: ollamaResponse.prompt_eval_count || 0
+      }
+    };
+  }
+
+  /**
+   * Convert Ollama model list to OpenAI model list format
+   */
+  static toOpenAIModelList(ollamaModels: any): z.infer<typeof OpenAI.OpenAIListModelsResponse> {
+    return {
+      object: 'list',
+      data: ollamaModels.models.map((model: any) => ({
+        id: model.name,
+        object: 'model',
+        created: Math.floor(new Date(model.modified_at).getTime() / 1000),
+        owned_by: 'ollama'
+      }))
+    };
+  }
+
+  /**
+   * Convert streaming response format
+   */
+  static toOpenAIStreamingResponse(ollamaResponse: any, type: 'chat' | 'completion'): any {
+    if (type === 'chat') {
+      return {
+        id: 'chat-' + Date.now(),
+        object: 'chat.completion.chunk',
+        created: Math.floor(Date.now() / 1000),
+        model: ollamaResponse.model,
+        choices: [{
+          delta: {
+            role: 'assistant',
+            content: ollamaResponse.message?.content || ollamaResponse.response || ''
+          },
+          index: 0,
+          finish_reason: ollamaResponse.done ? 'stop' : null
+        }]
+      };
+    } else {
+      return {
+        id: 'cmpl-' + Date.now(),
+        object: 'text_completion',
+        created: Math.floor(Date.now() / 1000),
+        model: ollamaResponse.model,
+        choices: [{
+          text: ollamaResponse.response || '',
+          index: 0,
+          logprobs: null,
+          finish_reason: ollamaResponse.done ? 'stop' : null
+        }]
+      };
+    }
   }
 } 

@@ -1,31 +1,24 @@
 import { Response } from 'express';
 import { z } from 'zod';
-import { OpenAI } from '@saito/models';
-import { 
-  OpenAIChatParams, 
-  OpenAICompletionParams, 
-  OpenAIEmbeddingParams,
-  OllamaModelList,
-  OllamaModelInfo,
-  OllamaRunningModels,
-  OllamaVersionResponse
-} from './types';
+import { OllamaModelInfo, OllamaVersionResponse, OpenAI } from '@saito/models';
+import { BaseModelService } from '@saito/ollama';
 
-export abstract class ModelOpenaiService {
+
+export abstract class ModelOpenaiService extends BaseModelService {
   /**
    * 处理聊天请求
    */
- abstract handleChat(params: z.infer<typeof OpenAI.OpenAIChatParams>, res: Response): Promise<void>;
+ abstract handleChat(params: z.infer<typeof OpenAI.ChatParams>, res: Response): Promise<void>;
 
   /**
    * 处理补全请求
    */
-  abstract handleCompletion(params: z.infer<typeof OpenAI.OpenAICompletionParams>, res: Response): Promise<void>;
+  abstract handleCompletion(params: z.infer<typeof OpenAI.CompletionParams>, res: Response): Promise<void>;
 
   /**
    * 处理嵌入请求
    */
-  abstract handleEmbedding(params: z.infer<typeof OpenAI.OpenAIEmbeddingParams>): Promise<z.infer<typeof OpenAI.OpenAIEmbeddingResponse>>;
+  abstract handleEmbedding(params: z.infer<typeof OpenAI.EmbeddingParams>): Promise<z.infer<typeof OpenAI.OpenAIEmbeddingResponse>>;
 
   /**
    * 检查服务状态
@@ -45,10 +38,10 @@ export abstract class ModelOpenaiService {
   /**
    * 获取模型信息
    */
-  abstract showModelInformation(args: { name: string }): Promise<z.infer<typeof OpenAI.OllamaModelInfo>>;
+  abstract showModelInformation(args: { name: string }): Promise<z.infer<typeof OllamaModelInfo>>;
 
   /**
    * 获取模型版本
    */
-  abstract showModelVersion(): Promise<z.infer<typeof OpenAI.OllamaVersionResponse>>;
+  abstract showModelVersion(): Promise<z.infer<typeof OllamaVersionResponse>>;
 } 

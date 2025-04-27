@@ -5,9 +5,9 @@ import * as R from 'ramda';
 import { OpenAI } from "@saito/models";
 import { ModelOpenaiService } from '@saito/openai';
 
-export class OpenAIChatRequestDto extends createZodDto(OpenAI.OpenAIChatParams) {}
-export class OpenAICompletionRequestDto extends createZodDto(OpenAI.OpenAICompletionParams) {}
-export class OpenAIEmbeddingRequestDto extends createZodDto(OpenAI.OpenAIEmbeddingParams) {}
+export class OpenAIChatRequestDto extends createZodDto(OpenAI.ChatParams) {}
+export class OpenAICompletionRequestDto extends createZodDto(OpenAI.CompletionParams) {}
+export class OpenAIEmbeddingRequestDto extends createZodDto(OpenAI.EmbeddingParams) {}
 
 @Controller(['openai/', 'openai/v1'])
 export class OpenAIController {
