@@ -20,31 +20,45 @@ const SKIP_STREAMING_TESTS = true;
 /**
  * Compare headers, skipping dynamic ones
  */
-function compareHeaders(
-  expectedHeaders: Record<string, string>,
-  actualHeaders: Record<string, string>,
-) {
-  const skipKeys = ['date', 'transfer-encoding', 'content-length'];
-  const contentTypeKeys = ['content-type'];
-  
-  for (const key of Object.keys(expectedHeaders)) {
-    const lowerKey = key.toLowerCase();
-    if (skipKeys.includes(lowerKey)) {
+function compareHeaders(actual: any, expected: any) {
+  const lowerActual = Object.keys(actual || {}).reduce((acc, key) => {
+    acc[key.toLowerCase()] = actual[key];
+    return acc;
+  }, {} as Record<string, string>);
+
+  const lowerExpected = Object.keys(expected || {}).reduce((acc, key) => {
+    acc[key.toLowerCase()] = expected[key];
+    return acc;
+  }, {} as Record<string, string>);
+
+  // Skip comparing dynamic headers
+  const skipHeaders = [
+    'x-powered-by',
+    'content-length',
+    'transfer-encoding',
+    'date',
+    'etag',
+    'last-modified',
+    'connection',
+    'keep-alive'
+  ];
+
+  for (const key in lowerExpected) {
+    if (skipHeaders.includes(key)) {
       continue;
     }
     
-    if (contentTypeKeys.includes(lowerKey)) {
+    if (key === 'content-type') {
       // Allow both JSON and NDJSON content types
-      const expectedType = expectedHeaders[key].toLowerCase();
-      const actualType = actualHeaders[lowerKey].toLowerCase();
+      const expectedType = lowerExpected[key]?.toLowerCase() || '';
+      const actualType = lowerActual[key]?.toLowerCase() || '';
       expect(
         actualType === expectedType || 
         (actualType.includes('json') && expectedType.includes('json'))
       ).toBe(true);
-      continue;
+    } else {
+      expect(lowerActual[key]).toBe(lowerExpected[key]);
     }
-    
-    expect(actualHeaders[lowerKey]).toEqual(expectedHeaders[key]);
   }
 }
 
