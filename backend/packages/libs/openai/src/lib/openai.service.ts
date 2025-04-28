@@ -45,20 +45,10 @@ export class DefaultModelOpenaiService extends BaseModelService implements Model
             const openAIResponse = OpenAIOllamaAdapter.toOpenAIStreamingResponse(ollamaResponse, 'chat');
             const eventData = `data: ${JSON.stringify(openAIResponse)}\n\n`;
             
-            if (ollamaResponse.done) {
-              const doneEvent = `data: ${JSON.stringify({
-                id: openAIResponse.id,
-                object: 'chat.completion.chunk',
-                created: openAIResponse.created,
-                model: openAIResponse.model,
-                choices: [{
-                  delta: {},
-                  index: 0,
-                  finish_reason: 'stop'
-                }]
-              })}\n\ndata: [DONE]\n\n`;
-              return originalWrite(doneEvent, 'utf8', callback);
-            }
+            // if (ollamaResponse.done) {
+            //   const doneEvent = `data: ${JSON.stringify(openAIResponse)}\n\ndata: [DONE]\n\n`;
+            //   return originalWrite(doneEvent, 'utf8', callback);
+            // }
 
             return originalWrite(eventData, 'utf8', callback);
           } catch (error) {
@@ -69,7 +59,9 @@ export class DefaultModelOpenaiService extends BaseModelService implements Model
 
         res.end = function (chunk?: any, encodingOrCallback?: BufferEncoding | (() => void), callback?: () => void): Response {
           if (chunk) {
-            res.write(chunk);
+            const ollamaResponse = JSON.parse(chunk.toString());
+            const openAIResponse = OpenAIOllamaAdapter.toOpenAIStreamingResponse(ollamaResponse, 'chat');
+            res.write(JSON.stringify(openAIResponse));
           }
           return originalEnd(undefined, encodingOrCallback as BufferEncoding, callback);
         };
@@ -115,22 +107,6 @@ export class DefaultModelOpenaiService extends BaseModelService implements Model
             const openAIResponse = OpenAIOllamaAdapter.toOpenAIStreamingResponse(ollamaResponse, 'completion');
             const eventData = `data: ${JSON.stringify(openAIResponse)}\n\n`;
 
-            if (ollamaResponse.done) {
-              const doneEvent = `data: ${JSON.stringify({
-                id: openAIResponse.id,
-                object: 'text_completion',
-                created: openAIResponse.created,
-                model: openAIResponse.model,
-                choices: [{
-                  text: '',
-                  index: 0,
-                  logprobs: null,
-                  finish_reason: 'stop'
-                }]
-              })}\n\ndata: [DONE]\n\n`;
-              return originalWrite(doneEvent, 'utf8', callback);
-            }
-
             return originalWrite(eventData, 'utf8', callback);
           } catch (error) {
             logger.error('Error processing chunk:', error);
@@ -140,7 +116,9 @@ export class DefaultModelOpenaiService extends BaseModelService implements Model
 
         res.end = function (chunk?: any, encodingOrCallback?: BufferEncoding | (() => void), callback?: () => void): Response {
           if (chunk) {
-            res.write(chunk);
+            const ollamaResponse = JSON.parse(chunk.toString());
+            const openAIResponse = OpenAIOllamaAdapter.toOpenAIStreamingResponse(ollamaResponse, 'completion');
+            res.write(JSON.stringify(openAIResponse));
           }
           return originalEnd(undefined, encodingOrCallback as BufferEncoding, callback);
         };
