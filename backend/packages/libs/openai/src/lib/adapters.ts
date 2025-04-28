@@ -112,6 +112,7 @@ export class OpenAIOllamaAdapter {
       id: 'chat-' + Date.now(),
       object: 'chat.completion',
       created: Math.floor(Date.now() / 1000),
+      done: ollamaResponse.done,
       choices: [{
         message: {
           role: 'assistant',
@@ -138,6 +139,7 @@ export class OpenAIOllamaAdapter {
       created: Math.floor(Date.now() / 1000),
       model: ollamaResponse.model || 'unknown',
       system_fingerprint: 'fp_' + Date.now(),
+      done: ollamaResponse.done,
       choices: [{
         text: ollamaResponse.response || '',
         index: 0,
@@ -201,6 +203,7 @@ export class OpenAIOllamaAdapter {
         object: 'chat.completion.chunk',
         created: Math.floor(Date.now() / 1000),
         model: ollamaResponse.model,
+        done: ollamaResponse.done,
         choices: [{
           delta: {
             role: 'assistant',
@@ -216,6 +219,7 @@ export class OpenAIOllamaAdapter {
         object: 'text_completion',
         created: Math.floor(Date.now() / 1000),
         model: ollamaResponse.model,
+        done: ollamaResponse.done,
         choices: [{
           text: ollamaResponse.response || '',
           index: 0,

@@ -89,6 +89,8 @@ export const OpenAIChatResponse = z.object({
     completion_tokens: z.number(),
     total_tokens: z.number(),
   }),
+  //custom
+  done: z.boolean(),
 });
 
 // OpenAI completion response
@@ -109,6 +111,8 @@ export const OpenAICompletionResponse = z.object({
     completion_tokens: z.number(),
     total_tokens: z.number(),
   }),
+  //custom
+  done: z.boolean(),
 });
 
 // OpenAI embedding response
