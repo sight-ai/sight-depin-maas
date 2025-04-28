@@ -10,8 +10,9 @@ import {
 } from "@saito/models";
 import { Response } from 'express';
 import { z } from 'zod';
+import { BaseModelService } from "./base-model.service";
 
-export abstract class OllamaService {
+export abstract class OllamaService extends BaseModelService {
   abstract complete(args: z.infer<typeof OllamaGenerateRequest>, res: Response): Promise<void>;
   abstract chat(args: z.infer<typeof OllamaChatRequest>, res: Response): Promise<void>;
   abstract checkStatus(): Promise<boolean>;
