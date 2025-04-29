@@ -12,7 +12,6 @@ import { TunnelModule } from "@saito/tunnel";
 import { TaskSyncModule } from '@saito/task-sync';
 import { OpenAIController } from "./controllers/openai.controller";
 import { ModelOpenaiModule } from '@saito/openai';
-import { EventEmitterModule } from '@nestjs/event-emitter';
 @Module({
   imports: [
     forwardRef(() => OllamaModule), 
@@ -20,8 +19,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
     DeviceStatusModule, 
     forwardRef(() => TunnelModule), 
     TaskSyncModule,
-    ModelOpenaiModule,
-    EventEmitterModule.forRoot()
+    ModelOpenaiModule
   ],
   controllers: [IndexController, ModelController, MinerController, DeviceStatusController, OpenAIController],
   providers: [
