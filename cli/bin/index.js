@@ -725,21 +725,10 @@ const registerDevice = async (options) => {
   }
 };
 
-// Download docker-compose.yml file with caching
+// Download docker-compose.yml file
 const downloadComposeFile = async () => {
   const composeUrl = CONFIG.urls.compose;
   const composeFile = 'docker-compose.yml';
-  const cacheFile = path.join(CONFIG.paths.cache, 'docker-compose.yml');
-  
-  logInfo(`Checking for cached ${composeFile}...`);
-  
-  // Check if file exists in cache
-  if (fs.existsSync(cacheFile)) {
-    logInfo(`Found cached ${composeFile}, copying to current directory...`);
-    fs.copyFileSync(cacheFile, composeFile);
-    logSuccess(`${composeFile} copied from cache successfully`);
-    return true;
-  }
   
   logInfo(`Downloading ${composeFile}...`);
   
@@ -753,11 +742,10 @@ const downloadComposeFile = async () => {
     
     const content = await response.text();
     
-    // Save to both current directory and cache
+    // Save to current directory
     fs.writeFileSync(composeFile, content);
-    fs.writeFileSync(cacheFile, content);
     
-    logSuccess(`${composeFile} downloaded and cached successfully`);
+    logSuccess(`${composeFile} downloaded successfully`);
     return true;
   } catch (error) {
     logError(`Failed to download ${composeFile}: ${error.message}`);
