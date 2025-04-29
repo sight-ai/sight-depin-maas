@@ -1,0 +1,49 @@
+{
+  "name": "sight-ai-miner-cli",
+  "version": "1.0.3",
+  "description": "Sight AI Miner CLI - A tool for running and managing the Sight AI Miner",
+  "main": "bin/index.js",
+  "bin": {
+    "sight-miner": "./bin/index.js"
+  },
+  "preferGlobal": true,
+  "scripts": {
+    "start": "node bin/index.js"
+  },
+  "keywords": [
+    "sight-ai",
+    "miner",
+    "cli",
+    "ai",
+    "deepscaler",
+    "ollama"
+  ],
+  "author": "Sight AI",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "cli-spinners": "^3.2.0",
+    "cli-table3": "^0.6.5",
+    "commander": "^10.0.1",
+    "gradient-string": "^3.0.0",
+    "inquirer": "^8.2.5",
+    "node-fetch": "^2.6.9",
+    "ora": "^5.4.1",
+    "shelljs": "^0.8.5",
+    "systeminformation": "^5.17.12"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sight-ai/miner-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sight-ai/miner-cli/issues"
+  },
+  "homepage": "https://github.com/sight-ai/miner-cli#readme",
+  "publishConfig": {
+    "access": "public"
+  }
+}
