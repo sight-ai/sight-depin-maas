@@ -211,7 +211,7 @@ export default function HistoryPage() {
                                                             minWidth: 100,
                                                             justifyContent: 'center',
                                                             background: item.status === 'In-Progress'
-                                                                ? 'linear-gradient(90deg, #B06AB3, #FFA07A)'
+                                                                ? 'conic-gradient(from 0deg at 50% 50%, #F7D046 0deg, #E7337A 117.69deg, #6D20F5 240.58deg, #F7D046 360deg)'
                                                                 : isDark ? '#1a1a1a' : '#efefef',
                                                             color: isDark 
                                                                 ? item.status === 'In-Progress' ? '#fff' : '#fff' 
@@ -287,12 +287,12 @@ export default function HistoryPage() {
                                                     {new Date(item.updated_at).toLocaleString('en-US', {
                                                         hour: '2-digit',
                                                         minute: '2-digit',
-                                                        hour12: false,
+                                                        hour12: true,
                                                     })}
                                                     <br />
                                                     {new Date(item.updated_at).toLocaleDateString('en-US', {
-                                                        month: '2-digit',
-                                                        day: '2-digit',
+                                                        month: 'short',
+                                                        day: 'numeric',
                                                         year: 'numeric'
                                                     })}
                                                 </motion.td>

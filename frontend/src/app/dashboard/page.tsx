@@ -30,10 +30,14 @@ const staggerContainer = {
 
 export default function DashboardPage() {
     const [timeRange, setTimeRange] = useState<'daily' | 'weekly' | 'monthly'>('daily')
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear().toString();
+    const currentMonth = currentDate.toLocaleString('en-US', { month: 'short' });
+
     const [filter, setFilter] = useState<{ year?: string; month?: string; view?: 'Month' | 'Year' }>({
-        year: '2025',
-        month: 'Mar',
-        view: 'Year'
+        year: currentYear,
+        month: currentMonth,
+        view: 'Month'
     })
     const { summary, loading, error, refreshStatistics } = useDashboard(timeRange, filter)
     const { isDark } = useThemeCus()
