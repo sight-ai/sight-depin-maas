@@ -1,3 +1,5 @@
+'use client'
+
 import { useThemeCus } from '@/hooks/useTheme';
 import ReactECharts, { EChartsOption } from 'echarts-for-react';
 import { SummaryResponse } from '@/types/api';
@@ -7,13 +9,14 @@ export default function ({summary, type = 'earnings', timeRange}: {summary: Summ
   const { isDark } = useThemeCus()
   const statistics = summary?.statistics
 
-  const formatDate = (date: Date, range: 'daily' | 'weekly' | 'monthly' = 'daily') => {
+  const formatDate = (date: Date, range: 'daily' | 'weekly' | 'monthly' = 'daily'): string => {
     if (range === 'daily') {
-      return `${date.getHours().toString().padStart(2, '0')}:00`;
-    } else if (range === 'weekly') {
-      return `${date.getDate().toString().padStart(2, '0')} ${date.toLocaleString('default', { month: 'short' })}`;
+      return date.toLocaleString('en-US', { hour: 'numeric', hour12: true }); // "3 PM"
     } else {
-      return `${date.getDate().toString().padStart(2, '0')} ${date.toLocaleString('default', { month: 'short' })}`;
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric'
+      }); // "Apr 29"
     }
   };
 
@@ -103,7 +106,7 @@ export default function ({summary, type = 'earnings', timeRange}: {summary: Summ
       },
       yAxis: {
         type: 'value',
-        min: 0,
+        min: 10,
         max: maxValue * 1.2,
         interval: interval,
         axisLabel: {

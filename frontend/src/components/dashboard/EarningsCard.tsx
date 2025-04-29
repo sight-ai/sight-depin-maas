@@ -17,23 +17,33 @@ export function EarningsCard({
 
     return (
         <div className='flex-1'>
-            <h2 className="text-2xl mb-3 text-black" style={{
+            <h2 className="text-2xl mb-3" style={{
                 color: isDark ? '#fff' : '#000'
             }}>Earnings</h2>
             <Card style={{
-                // backgroundColor: isDark ? '#1a1a1a' : '#f6f6f6',
-                borderRadius: '1rem'
+                borderRadius: '1.375rem',
+                padding: '0.5rem'
             }}>
-
-                <div className="flex gap-10 mt-5">
+                <div className="flex gap-10">
                     <div className='flex items-center flex-1' style={{
-                        background: 'linear-gradient(90deg, #F6A355 0%, #E94B81 50%, #7B61FF 100%)',
+                        background: `radial-gradient(circle at -30% 78%, #F7D046 17.5%, #E7337A 58.4%, #6D20F5 95%)`,
                         padding: '2rem',
-                        borderRadius: '1rem',
-                        minHeight: '120px'
+                        borderRadius: '1.375rem',
+                        minHeight: '120px',
+                        position: 'relative',
                     }}>
+                        {/* Add overlay for the dark gradient */}
+                        <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                            borderRadius: '1.375rem',
+                        }} />
 
-                        <div className="flex flex-row flex-1 justify-between items-center">
+                        <div className="flex flex-row flex-1 justify-between items-center relative z-10">
                             <div className="text-base text-white mb-2" style={{
                                 fontSize: '1rem',
                                 fontWeight: '500',
