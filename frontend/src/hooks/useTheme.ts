@@ -8,7 +8,9 @@ export const useThemeCus = () => {
         const savedTheme = localStorage.getItem('theme')
         // 从 localStorage 读取主题
         if (savedTheme && theme !== savedTheme) {
-            setTheme(savedTheme)
+            setTheme('light')
+        } else {
+            setTheme('light')
         }
     }, [])
 
