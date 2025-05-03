@@ -79,7 +79,11 @@ export const Task = z.object({
   eval_count: z.number().nullable(),
   eval_duration: z.number().nullable(),
   source: z.enum(['local', 'gateway']).default('local'),
-  device_id: z.string().uuid().nullable()
+  device_id: z.string().uuid().nullable(),
+  // 新增字段，用于处理任务收益
+  earnings: z.number().optional(),
+  block_rewards: z.number().optional(),
+  job_rewards: z.number().optional()
 });
 
 export const Earning = z.object({
@@ -90,7 +94,13 @@ export const Earning = z.object({
   updated_at: z.string().datetime(),
   source: z.enum(['local', 'gateway']).default('local'),
   device_id: z.string().uuid().nullable(),
-  task_id: z.string().uuid().nullable()
+  task_id: z.string().uuid().nullable(),
+  // 新增字段，用于处理收益详情
+  amount: z.number().optional(),
+  type: z.enum(['task', 'block', 'referral']).optional(),
+  status: z.enum(['pending', 'confirmed', 'rejected']).optional(),
+  transaction_hash: z.string().optional(),
+  description: z.string().optional()
 });
 
 export const TaskResult = z.object({
