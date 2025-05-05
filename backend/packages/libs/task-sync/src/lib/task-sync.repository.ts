@@ -139,6 +139,11 @@ export class TaskSyncRepository {
         updated_at = ${earning.updated_at}
       `;
 
+      // 添加task_id字段（如果存在）
+      if (earning.task_id !== undefined && earning.task_id !== null) {
+        updateFields = SQL.unsafe`${updateFields}, task_id = ${earning.task_id}`;
+      }
+
       // 添加新字段（如果存在）
       if (earning.amount !== undefined) {
         updateFields = SQL.unsafe`${updateFields}, amount = ${earning.amount}`;
@@ -172,10 +177,16 @@ export class TaskSyncRepository {
    */
   async createEarning(conn: DatabaseTransactionConnection, earning: z.infer<typeof Earning>): Promise<void> {
     try {
-      // 构建字段和值列表
-      let fields = SQL.unsafe`id, block_rewards, job_rewards, created_at, updated_at, source, device_id, task_id`;
+      // 构建基础字段和值列表
+      let fields = SQL.unsafe`id, block_rewards, job_rewards, created_at, updated_at, source, device_id`;
       let values = SQL.unsafe`${earning.id}, ${earning.block_rewards}, ${earning.job_rewards},
-          ${earning.created_at}, ${earning.updated_at}, 'gateway', ${earning.device_id}, ${earning.task_id}`;
+          ${earning.created_at}, ${earning.updated_at}, 'gateway', ${earning.device_id}`;
+
+      // 添加task_id字段（如果存在）
+      if (earning.task_id !== undefined && earning.task_id !== null) {
+        fields = SQL.unsafe`${fields}, task_id`;
+        values = SQL.unsafe`${values}, ${earning.task_id}`;
+      }
 
       // 添加新字段（如果存在）
       if (earning.amount !== undefined) {
