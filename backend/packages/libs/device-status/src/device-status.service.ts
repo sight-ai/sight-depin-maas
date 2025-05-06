@@ -121,10 +121,39 @@ const getSystemInfo = async (logger: Logger): Promise<SystemInfo> => {
     };
 
     // 处理内存信息
+    // 在Linux上，memInfo.used包括缓存和缓冲区，这会导致显示的内存使用率过高
+    // 实际可用内存应该是 free + buffers + cached
+    // 实际使用内存应该是 total - (free + buffers + cached)
+    let memUsed = memInfo.used || 0;
+    let memTotal = memInfo.total || 1;
+    let memFree = (memInfo as any).free || 0;
+
+    // 使用更准确的内存计算方法
+    // 尝试使用不同的属性来计算实际使用的内存
+    if ((memInfo as any).available !== undefined) {
+      // 如果有available字段，使用它来计算实际使用的内存
+      memUsed = memTotal - (memInfo as any).available;
+    }
+    else if ((memInfo as any).free !== undefined) {
+      // 如果有free字段，使用它
+      memUsed = memTotal - (memInfo as any).free;
+
+      // 如果有buffers和cached字段，进一步调整
+      if ((memInfo as any).buffers !== undefined && (memInfo as any).cached !== undefined) {
+        memUsed = memUsed - (memInfo as any).buffers - (memInfo as any).cached;
+      }
+    }
+
+    // 确保使用率不会超过100%或小于0%
+    const memUsage = Math.min(100, Math.max(0, formatNumber((memUsed / memTotal) * 100)));
+
+    // 记录详细的内存信息以便调试
+    logger.debug(`Memory details: total=${bytesToGB(memTotal)}GB, used=${bytesToGB(memUsed)}GB, free=${bytesToGB(memFree)}GB, available=${(memInfo as any).available ? bytesToGB((memInfo as any).available) : 'N/A'}GB, buffers=${(memInfo as any).buffers ? bytesToGB((memInfo as any).buffers) : 'N/A'}GB, cached=${(memInfo as any).cached ? bytesToGB((memInfo as any).cached) : 'N/A'}GB`);
+
     const memory = {
-      total: bytesToGB(memInfo.total || 0),
-      used: bytesToGB(memInfo.used || 0),
-      usage: formatNumber(((memInfo.used || 0) / (memInfo.total || 1)) * 100)
+      total: bytesToGB(memTotal),
+      used: bytesToGB(memUsed),
+      usage: memUsage
     };
 
     // 处理 GPU 信息
@@ -273,11 +302,39 @@ const createHeartbeatData = (systemInfo: SystemInfo, deviceConfig: any, ipAddres
   // 获取主要 GPU 信息（如果有多个，使用第一个）
   const primaryGpu = systemInfo.gpu.length > 0 ? systemInfo.gpu[0] : null;
 
+  // 确保 GPU 数据有效
+  const gpuUsagePercent = primaryGpu && primaryGpu.usage > 0 ? primaryGpu.usage : 0.1;
+  const gpuTemperature = primaryGpu && primaryGpu.temperature && primaryGpu.temperature > 0 ? primaryGpu.temperature : 30; // 默认温度30°C
+
+  // 确保网络流量数据有效
+  const networkInKbps = systemInfo.network.inbound > 0
+    ? systemInfo.network.inbound * 1024  // 转换 Mbps 到 kbps
+    : 0.1;  // 使用一个小的非零值
+
+  const networkOutKbps = systemInfo.network.outbound > 0
+    ? systemInfo.network.outbound * 1024  // 转换 Mbps 到 kbps
+    : 0.1;  // 使用一个小的非零值
+
+  // 计算可用内存（GB和百分比）
+  const ramTotal = systemInfo.memory.total;
+  const ramUsed = systemInfo.memory.used;
+  const ramAvailable = ramTotal - ramUsed;
+  const ramAvailablePercent = 100 - systemInfo.memory.usage;
+
+  // 计算可用磁盘空间（GB和百分比）
+  const diskTotal = systemInfo.disk.total;
+  const diskUsed = systemInfo.disk.used;
+  const diskAvailable = diskTotal - diskUsed;
+  const diskAvailablePercent = 100 - systemInfo.disk.usage;
+
   return {
     code: deviceConfig.code,
     cpu_usage: systemInfo.cpu.usage,
     memory_usage: systemInfo.memory.usage,
-    gpu_usage: primaryGpu ? primaryGpu.usage : 0,
+    gpu_usage: gpuUsagePercent,
+    gpu_temperature: gpuTemperature,
+    network_in_kbps: networkInKbps,
+    network_out_kbps: networkOutKbps,
     ip: ipAddress,
     timestamp: Math.floor(Date.now() / 1000).toString(),
     type: deviceType,
@@ -287,46 +344,23 @@ const createHeartbeatData = (systemInfo: SystemInfo, deviceConfig: any, ipAddres
       cpu_cores: systemInfo.cpu.cores,
       cpu_threads: systemInfo.cpu.threads,
       ram_total: systemInfo.memory.total,
+      ram_used: systemInfo.memory.used,
+      ram_available: formatNumber(ramAvailable),
+      ram_available_percent: formatNumber(ramAvailablePercent),
       gpu_model: primaryGpu ? primaryGpu.model : '',
+      gpu_vendor: primaryGpu ? primaryGpu.vendor : '',
       gpu_count: systemInfo.gpu.length,
       gpu_memory: primaryGpu ? primaryGpu.memory : 0,
+      gpu_temperature: gpuTemperature,
       disk_total: systemInfo.disk.total,
-      os_info: `${systemInfo.os.name} ${systemInfo.os.version} (${systemInfo.os.arch})`
+      disk_used: systemInfo.disk.used,
+      disk_available: formatNumber(diskAvailable),
+      disk_available_percent: formatNumber(diskAvailablePercent),
+      network_in_kbps: networkInKbps,
+      network_out_kbps: networkOutKbps,
+      os_info: `${systemInfo.os.name} ${systemInfo.os.version} (${systemInfo.os.arch})`,
+      uptime_seconds: systemInfo.os.uptime
     }
-  };
-};
-
-/**
- * 创建旧版 API 的心跳数据（向后兼容）
- */
-const createLegacyHeartbeatData = (systemInfo: SystemInfo, deviceConfig: any, deviceModel: string): any => {
-  // 获取主要 GPU 信息（如果有多个，使用第一个）
-  const primaryGpu = systemInfo.gpu.length > 0 ? systemInfo.gpu[0] : null;
-
-  // 确保网络流量数据有效
-  const networkInKbps = systemInfo.network.inbound > 0
-    ? systemInfo.network.inbound * 1024  // 转换 Mbps 到 kbps
-    : 0;
-
-  const networkOutKbps = systemInfo.network.outbound > 0
-    ? systemInfo.network.outbound * 1024  // 转换 Mbps 到 kbps
-    : 0;
-
-  // 确保 GPU 数据有效
-  const gpuUsagePercent = primaryGpu && primaryGpu.usage > 0 ? primaryGpu.usage : 0;
-  const gpuTemperature = primaryGpu && primaryGpu.temperature && primaryGpu.temperature > 0 ? primaryGpu.temperature : 0;
-
-  return {
-    node_id: deviceConfig.deviceId,
-    status: 'connected',
-    cpu_usage_percent: systemInfo.cpu.usage,
-    ram_usage_percent: systemInfo.memory.usage,
-    gpu_usage_percent: gpuUsagePercent,
-    gpu_temperature: gpuTemperature,
-    network_in_kbps: networkInKbps,
-    network_out_kbps: networkOutKbps,
-    uptime_seconds: systemInfo.os.uptime,
-    model: deviceModel
   };
 };
 
