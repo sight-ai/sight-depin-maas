@@ -10,8 +10,10 @@ import { env } from '../env'
 import { DeviceStatusService } from "./device-status.interface";
 import { TunnelService } from "@saito/tunnel";
 import {
-  ModelOfMiner
+  ModelOfMiner,
+  OllamaModelList
 } from "@saito/models";
+import { z } from "zod";
 
 const STATUS_CHECK_TIMEOUT = 2000;
 
@@ -426,6 +428,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
           device_type: deviceType,
           gpu_type: deviceModel,
           ip: ipAddress,
+          local_models: await this.getLocalModels()
         },
       }).json() as {
         success: boolean;
@@ -1265,6 +1268,25 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     } catch (error: any) {
       this.logger.warn(`Ollama service unavailable: ${error.message}`);
       return false;
+    }
+  }
+  async getLocalModels(): Promise<z.infer<typeof OllamaModelList>> {
+    try {
+      const url = new URL(`api/tags`, env().OLLAMA_API_URL);
+      const response = await got.get(url.toString(), {
+        timeout: {
+          request: STATUS_CHECK_TIMEOUT,
+        },
+        retry: {
+          limit: 0
+        }
+      }).json();
+      return response as Promise<z.infer<typeof OllamaModelList>>;
+    } catch (error: any) {
+      this.logger.warn(`Failed to get local models: ${error.message}`);
+      return {
+        models: []
+      };
     }
   }
 

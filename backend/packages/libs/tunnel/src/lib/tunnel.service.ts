@@ -128,12 +128,6 @@ export class DefaultTunnelService implements TunnelService {
           case 'generate_request_no_stream':
             await this.handleGenerateRequestNoStream(taskId, taskData);
             break;
-          case 'model_list_request':
-            await this.handleModelListRequest(taskId, taskData);
-            break;
-          case 'model_info_request':
-            await this.handleModelInfoRequest(taskId, taskData);
-            break;
           case 'proxy_request':
             await this.handleProxyRequest(taskId, taskData);
             break;
@@ -631,66 +625,6 @@ export class DefaultTunnelService implements TunnelService {
   }
 
   /**
-   * 处理模型列表请求
-   * @param taskId 任务ID
-   * @param _ 请求数据（未使用）
-   */
-  private async handleModelListRequest(taskId: string, _: any): Promise<void> {
-    try {
-      this.logger.debug(`处理模型列表请求: ${taskId}`);
-
-      // 调用 Ollama API 处理请求
-      const response = await this.makeOllamaRequest('GET', '/api/tags');
-
-      // 发送响应
-      this.socket.emit('task_response', {
-        taskId,
-        message: response
-      });
-
-      this.logger.debug(`模型列表请求完成: ${taskId}`);
-    } catch (error) {
-      this.logger.error(`处理模型列表请求错误: ${error instanceof Error ? error.message : '未知错误'}`);
-      this.socket.emit('task_error', {
-        taskId,
-        error: error instanceof Error ? error.message : '未知错误'
-      });
-    }
-  }
-
-  /**
-   * 处理模型信息请求
-   * @param taskId 任务ID
-   * @param data 请求数据
-   */
-  private async handleModelInfoRequest(taskId: string, data: any): Promise<void> {
-    try {
-      this.logger.debug(`处理模型信息请求: ${taskId}`);
-
-      if (!data.name) {
-        throw new Error('缺少模型名称');
-      }
-
-      // 调用 Ollama API 处理请求
-      const response = await this.makeOllamaRequest('POST', '/api/show', { name: data.name });
-
-      // 发送响应
-      this.socket.emit('task_response', {
-        taskId,
-        message: response
-      });
-
-      this.logger.debug(`模型信息请求完成: ${taskId}`);
-    } catch (error) {
-      this.logger.error(`处理模型信息请求错误: ${error instanceof Error ? error.message : '未知错误'}`);
-      this.socket.emit('task_error', {
-        taskId,
-        error: error instanceof Error ? error.message : '未知错误'
-      });
-    }
-  }
-
-  /**
    * 处理代理请求
    * @param taskId 任务ID
    * @param data 请求数据
@@ -729,6 +663,9 @@ export class DefaultTunnelService implements TunnelService {
         targetPath = '/api/show';
       } else if (path.includes('/api/version')) {
         targetPath = '/api/version';
+        targetMethod = 'GET';
+      } else if (path.includes('/openai/v1/models')) {
+        targetPath = '/v1/models';
         targetMethod = 'GET';
       } else {
         throw new Error(`不支持的API路径: ${path}`);
