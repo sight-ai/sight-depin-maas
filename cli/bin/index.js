@@ -70,21 +70,21 @@ class Logger {
       maxFiles: 5,
       ...options
     };
-    
+
     this.initializeLogFiles();
   }
-  
+
   initializeLogFiles() {
     // Ensure log directory exists
     const logDir = path.dirname(this.options.logFile);
     if (!fs.existsSync(logDir)) {
       fs.mkdirSync(logDir, { recursive: true });
     }
-    
+
     // Rotate logs if needed
     this.rotateLogs();
   }
-  
+
   rotateLogs() {
     const rotateFile = (filePath) => {
       if (fs.existsSync(filePath)) {
@@ -103,16 +103,16 @@ class Logger {
         }
       }
     };
-    
+
     rotateFile(this.options.logFile);
     rotateFile(this.options.errorFile);
   }
-  
+
   formatMessage(level, message) {
     const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
     return `${timestamp} [${level}] ${message}\n`;
   }
-  
+
   writeToFile(file, message) {
     try {
       fs.appendFileSync(file, message);
@@ -120,10 +120,10 @@ class Logger {
       console.error(`Failed to write to log file: ${error.message}`);
     }
   }
-  
+
   log(level, message) {
     const formattedMessage = this.formatMessage(level, message);
-    
+
     // Console output with colors
     switch (level) {
       case LogLevel.DEBUG:
@@ -142,32 +142,32 @@ class Logger {
         console.error(chalk.red(formattedMessage));
         break;
     }
-    
+
     // Write to log file
     this.writeToFile(this.options.logFile, formattedMessage);
-    
+
     // Write errors to separate error log
     if (level === LogLevel.ERROR) {
       this.writeToFile(this.options.errorFile, formattedMessage);
     }
   }
-  
+
   debug(message) {
     this.log(LogLevel.DEBUG, message);
   }
-  
+
   info(message) {
     this.log(LogLevel.INFO, message);
   }
-  
+
   success(message) {
     this.log(LogLevel.SUCCESS, message);
   }
-  
+
   warning(message) {
     this.log(LogLevel.WARNING, message);
   }
-  
+
   error(message) {
     this.log(LogLevel.ERROR, message);
     return false;
@@ -186,15 +186,15 @@ const logError = (message) => logger.error(message);
 const versionGt = (v1, v2) => {
   const v1Parts = v1.split('.').map(Number);
   const v2Parts = v2.split('.').map(Number);
-  
+
   for (let i = 0; i < v1Parts.length; i++) {
     const part1 = v1Parts[i] || 0;
     const part2 = v2Parts[i] || 0;
-    
+
     if (part1 > part2) return true;
     if (part1 < part2) return false;
   }
-  
+
   return false;
 };
 
@@ -211,7 +211,7 @@ const isDockerRunning = () => {
 // Check system requirements
 const checkRequirements = async () => {
   logInfo('Checking system requirements...');
-  
+
   // Check Docker installation
   if (!shell.which('docker')) {
     logError('Docker is not installed. Please follow these steps:\n' +
@@ -221,18 +221,18 @@ const checkRequirements = async () => {
       '4. Run this command again');
     return false;
   }
-  
+
   // Check Docker version
   const dockerVersionOutput = shell.exec('docker --version', { silent: true }).stdout;
   const dockerVersionMatch = dockerVersionOutput.match(/Docker version ([0-9.]+)/);
-  
+
   if (!dockerVersionMatch) {
     logError('Unable to determine Docker version. Please ensure Docker is properly installed.');
     return false;
   }
-  
+
   const dockerVersion = dockerVersionMatch[1];
-  
+
   if (versionGt(CONFIG.minDockerVersion, dockerVersion)) {
     logError(`Docker version ${dockerVersion} is too old. Please update Docker:\n` +
       `1. Current version: ${dockerVersion}\n` +
@@ -240,7 +240,7 @@ const checkRequirements = async () => {
       `3. Visit https://docs.docker.com/get-docker/ to download the latest version`);
     return false;
   }
-  
+
   // Check Docker Compose installation
   if (!shell.which('docker-compose')) {
     logError('Docker Compose is not installed. Please follow these steps:\n' +
@@ -250,7 +250,7 @@ const checkRequirements = async () => {
       '4. Run this command again');
     return false;
   }
-  
+
   // Check Docker Compose version
   const composeVersionOutput = shell.exec('docker-compose --version', { silent: true }).stdout;
   let composeVersion;
@@ -268,7 +268,7 @@ const checkRequirements = async () => {
     logError('Unable to determine Docker Compose version. Please ensure Docker Compose is properly installed.');
     return false;
   }
-  
+
   if (versionGt(CONFIG.minDockerComposeVersion, composeVersion)) {
     logError(`Docker Compose version ${composeVersion} is too old. Please update Docker Compose:\n` +
       `1. Current version: ${composeVersion}\n` +
@@ -276,7 +276,7 @@ const checkRequirements = async () => {
       `3. Visit https://docs.docker.com/compose/install/ to download the latest version`);
     return false;
   }
-  
+
   // Check if Docker daemon is running
   if (!isDockerRunning()) {
     logError('Docker daemon is not running. Please follow these steps:\n' +
@@ -286,7 +286,7 @@ const checkRequirements = async () => {
       '4. Run this command again');
     return false;
   }
-  
+
   logSuccess('System requirements check passed');
   return true;
 };
@@ -294,7 +294,7 @@ const checkRequirements = async () => {
 // Check if Ollama service is running
 const checkOllamaService = async () => {
   logInfo('Checking Ollama service...');
-  
+
   try {
     const response = await fetch(`http://localhost:${CONFIG.ports.ollama}`, { timeout: CONFIG.ollamaTimeout });
     if (response.ok) {
@@ -314,50 +314,50 @@ const checkOllamaService = async () => {
       '4. Run this command again');
     return false;
   }
-  
+
   return false;
 };
 
 // Pull deepscaler model with progress indication
 const pullDeepseekModel = async () => {
   logInfo('Pulling deepscaler model...');
-  
+
   const spinner = ora('Pulling deepscaler model...').start();
-  
+
   const pullWithTimeout = (retryCount = 0) => {
     return new Promise((resolve, reject) => {
       const ollamaProcess = spawn('ollama', ['pull', 'deepscaler'], {
         stdio: ['ignore', 'pipe', 'pipe']
       });
-      
+
       let output = '';
       let errorOutput = '';
-      
+
       // Set timeout
       const timeoutId = setTimeout(() => {
         ollamaProcess.kill();
         reject(new Error('Model pull timed out after 5 minutes'));
       }, CONFIG.modelPullTimeout);
-      
+
       // Handle stdout
       ollamaProcess.stdout.on('data', (data) => {
         const chunk = data.toString();
         output += chunk;
-        
+
         // Update spinner with progress
         if (chunk.includes('pulling')) {
           spinner.text = `Pulling deepscaler model... ${chunk.trim()}`;
         }
       });
-      
+
       // Handle stderr
       ollamaProcess.stderr.on('data', (data) => {
         errorOutput += data.toString();
       });
-      
+
       ollamaProcess.on('close', (code) => {
         clearTimeout(timeoutId);
-        
+
         if (code === 0) {
           spinner.succeed('Successfully pulled deepscaler model');
           logSuccess('Successfully pulled deepscaler model');
@@ -371,7 +371,7 @@ const pullDeepseekModel = async () => {
       });
     });
   };
-  
+
   try {
     for (let attempt = 1; attempt <= CONFIG.maxRetries; attempt++) {
       try {
@@ -381,16 +381,16 @@ const pullDeepseekModel = async () => {
         if (attempt === CONFIG.maxRetries) {
           throw error;
         }
-        
+
         spinner.warn(`Attempt ${attempt} failed, retrying...`);
         await new Promise(resolve => setTimeout(resolve, CONFIG.retryDelay));
       }
     }
   } catch (error) {
     spinner.fail('Failed to pull deepscaler model');
-    
+
     let errorMessage = 'Failed to pull deepscaler model.\n\n';
-    
+
     // Handle specific error cases
     if (error.message.includes('timed out')) {
       errorMessage += 'The operation timed out. This could be due to:\n' +
@@ -421,7 +421,7 @@ const pullDeepseekModel = async () => {
         'Error details:\n' +
         (error.errorOutput || error.message);
     }
-    
+
     logError(errorMessage);
     return false;
   }
@@ -430,7 +430,7 @@ const pullDeepseekModel = async () => {
 // Get GPU information
 const getGpuInfo = async () => {
   logInfo('Detecting GPU on system...');
-  
+
   try {
     // Get detailed system information
     const [graphics, cpu, osInfo] = await Promise.all([
@@ -438,7 +438,7 @@ const getGpuInfo = async () => {
       si.cpu(),
       si.osInfo()
     ]);
-    
+
     let gpuInfo = {
       brand: 'Unknown',
       model: 'Unknown',
@@ -447,7 +447,7 @@ const getGpuInfo = async () => {
       platform: process.platform,
       os: osInfo.distro
     };
-    
+
     // Handle Apple Silicon (M1/M2/M3)
     if (process.platform === 'darwin' && cpu.manufacturer.toLowerCase().includes('apple')) {
       const mChipMatch = cpu.model.match(/M[1-3](?: Pro| Max| Ultra)?/i);
@@ -464,11 +464,11 @@ const getGpuInfo = async () => {
         return gpuInfo;
       }
     }
-    
+
     // Handle other platforms
     if (graphics.controllers && graphics.controllers.length > 0) {
       const mainGpu = graphics.controllers[0];
-      
+
       // Determine GPU brand
       if (mainGpu.vendor.toLowerCase().includes('nvidia')) {
         gpuInfo.brand = 'NVIDIA';
@@ -477,10 +477,10 @@ const getGpuInfo = async () => {
       } else if (mainGpu.vendor.toLowerCase().includes('intel')) {
         gpuInfo.brand = 'Intel';
       }
-      
+
       // Set GPU model
       gpuInfo.model = mainGpu.model || 'Unknown';
-      
+
       // Determine GPU type
       if (mainGpu.type) {
         gpuInfo.type = mainGpu.type;
@@ -489,24 +489,24 @@ const getGpuInfo = async () => {
       } else {
         gpuInfo.type = 'Discrete';
       }
-      
+
       // Get memory information
       if (mainGpu.memoryTotal) {
         gpuInfo.memory = `${Math.round(mainGpu.memoryTotal / 1024)}GB`;
       }
-      
+
       // Log detailed information
       logInfo(`Detected GPU Brand: ${gpuInfo.brand}`);
       logInfo(`Detected GPU Model: ${gpuInfo.model}`);
       logInfo(`GPU Type: ${gpuInfo.type}`);
       logInfo(`GPU Memory: ${gpuInfo.memory}`);
-      
+
       // Additional platform-specific information
       if (process.platform === 'win32') {
         logInfo('Windows Platform: Checking for NVIDIA Optimus...');
         // Check for NVIDIA Optimus on Windows
         if (gpuInfo.brand === 'NVIDIA' && graphics.controllers.length > 1) {
-          const intelGpu = graphics.controllers.find(gpu => 
+          const intelGpu = graphics.controllers.find(gpu =>
             gpu.vendor.toLowerCase().includes('intel')
           );
           if (intelGpu) {
@@ -526,7 +526,7 @@ const getGpuInfo = async () => {
         os: osInfo.distro
       };
     }
-    
+
     return gpuInfo;
   } catch (error) {
     logWarning(`Error detecting GPU: ${error.message}`);
@@ -544,19 +544,19 @@ const getGpuInfo = async () => {
 // Open URL in default browser
 const openBrowser = (url) => {
   logInfo(`Opening ${url} in default browser...`);
-  
+
   const command = process.platform === 'win32' ? 'start' :
                   process.platform === 'darwin' ? 'open' : 'xdg-open';
-  
+
   shell.exec(`${command} ${url}`, { silent: true });
 };
 
 // Create docker-compose.override.yml file
 const createOverrideFile = (mode, options) => {
   logInfo(`Creating docker-compose.override.yml for ${mode} mode...`);
-  
+
   let content;
-  
+
   if (mode === 'local') {
     content = `version: '3'
 services:
@@ -586,66 +586,131 @@ services:
       - API_SERVER_BASE_PATH=${options.apiBasePath}
 `;
   }
-  
+
   fs.writeFileSync('docker-compose.override.yml', content);
   logSuccess('Created docker-compose.override.yml successfully');
 };
 
+// Execute Docker command with visible progress
+const executeDockerCommandWithProgress = (command, args, successMessage) => {
+  return new Promise((resolve, reject) => {
+    logInfo(`Running: ${command} ${args.join(' ')}...`);
+
+    const dockerProcess = spawn(command, args, {
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    let output = '';
+    let errorOutput = '';
+
+    // Handle stdout
+    dockerProcess.stdout.on('data', (data) => {
+      const chunk = data.toString();
+      output += chunk;
+
+      // Display progress output
+      process.stdout.write(chunk);
+    });
+
+    // Handle stderr
+    dockerProcess.stderr.on('data', (data) => {
+      const chunk = data.toString();
+      errorOutput += chunk;
+
+      // Display progress output (Docker often sends progress to stderr)
+      process.stdout.write(chunk);
+    });
+
+    dockerProcess.on('close', (code) => {
+      if (code === 0) {
+        logSuccess(successMessage);
+        resolve(true);
+      } else {
+        const error = new Error(`Process exited with code ${code}`);
+        error.output = output;
+        error.errorOutput = errorOutput;
+        reject(error);
+      }
+    });
+  });
+};
+
 // Start services
-const startServices = async () => {
+const startServices = async (options = {}) => {
   logInfo('Starting services...');
-  
+
   // Start docker-compose
   logInfo('Starting docker-compose...');
-  const composeResult = shell.exec('docker-compose up --build -d', { silent: true });
-  
-  if (composeResult.code !== 0) {
-    logError(`Failed to start docker-compose: ${composeResult.stderr}`);
+  try {
+    await executeDockerCommandWithProgress(
+      'docker-compose',
+      ['up', '--build', '-d'],
+      'Docker compose services started successfully'
+    );
+  } catch (error) {
+    logError(`Failed to start docker-compose: ${error.message}`);
+    if (error.errorOutput) {
+      logError(`Error details: ${error.errorOutput}`);
+    }
     return false;
   }
-  
-  logSuccess('Docker compose services started successfully');
-  
+
   // Start Open WebUI
   logInfo('Setting up Open WebUI...');
-  shell.exec('docker rm -f open-webui', { silent: true });
-  
+  try {
+    await executeDockerCommandWithProgress(
+      'docker',
+      ['rm', '-f', 'open-webui'],
+      'Removed existing Open WebUI container'
+    );
+  } catch (error) {
+    // Ignore errors if container doesn't exist
+    logInfo('No existing Open WebUI container to remove');
+  }
+
   logInfo('Starting Open WebUI...');
-  const mode = program.opts().mode;
-  const gatewayUrl = program.opts().gatewayUrl || 'http://host.docker.internal:8716';
-  
-  const webUIResult = shell.exec(
-    `docker run -d \
-    -p ${CONFIG.ports.webui}:${CONFIG.ports.webui} \
-    -e OLLAMA_BASE_URL="${mode === 'remote' ? gatewayUrl : 'http://host.docker.internal:8716'}" \
-    --add-host=host.docker.internal:host-gateway \
-    -v ollama:/root/.ollama \
-    -v open-webui:/app/backend/data \
-    --name open-webui \
-    --restart always \
-    ghcr.io/open-webui/open-webui:ollama`,
-    { silent: true }
-  );
-  
-  if (webUIResult.code !== 0) {
-    logError(`Failed to start Open WebUI: ${webUIResult.stderr}`);
+  const mode = options.mode || program.opts().mode;
+  logInfo(`Mode: ${mode}`);
+  const gatewayUrl = options.gatewayUrl || program.opts().gatewayUrl || 'http://host.docker.internal:8716';
+
+  try {
+    const dockerRunArgs = [
+      'run', '-d',
+      '-p', `${CONFIG.ports.webui}:${CONFIG.ports.webui}`,
+      '-e', `OLLAMA_BASE_URL=${mode === 'remote' ? gatewayUrl : 'http://host.docker.internal:8716'}`,
+      '--add-host=host.docker.internal:host-gateway',
+      '-v', 'ollama:/root/.ollama',
+      '-v', 'open-webui:/app/backend/data',
+      '--name', 'open-webui',
+      '--restart', 'always',
+      'ghcr.io/open-webui/open-webui:ollama'
+    ];
+
+    await executeDockerCommandWithProgress(
+      'docker',
+      dockerRunArgs,
+      'Open WebUI started successfully'
+    );
+  } catch (error) {
+    logError(`Failed to start Open WebUI: ${error.message}`);
+    if (error.errorOutput) {
+      logError(`Error details: ${error.errorOutput}`);
+    }
     return false;
   }
-  
-  logSuccess('Open WebUI started successfully');
-  
+
   // Wait for services to start
   logInfo('Waiting for services to initialize...');
   await new Promise(resolve => setTimeout(resolve, 5000));
-  
+
   // Open web interfaces
   logInfo('Opening web interfaces...');
   openBrowser('http://localhost:3000');
   await new Promise(resolve => setTimeout(resolve, 2000));
   openBrowser('http://localhost:8080');
-  
+
   logSuccess('All services started successfully');
-  
+
   // Print prominent success message with port information
   console.log('\n╔════════════════════════════════════════════════════════════╗');
   console.log('║                   Setup Complete! 🎉                        ║');
@@ -661,7 +726,7 @@ const startServices = async () => {
   console.log('║  Both services should open automatically in your browser.  ║');
   console.log('║  If not, you can click or copy the URLs above.            ║');
   console.log('╚════════════════════════════════════════════════════════════╝');
-  
+
   return true;
 };
 
@@ -669,7 +734,7 @@ const startServices = async () => {
 const registerDevice = async (options) => {
   const registerUrl = 'http://localhost:8716/api/v1/device-status/register';
   logInfo('Registering device with server...');
-  
+
   const data = {
     code: options.nodeCode,
     gateway_address: options.gatewayUrl,
@@ -678,9 +743,9 @@ const registerDevice = async (options) => {
     device_type: process.platform,
     gpu_type: options.gpuInfo.model,
   };
-  
+
   logInfo('Sending registration data...');
-  
+
   try {
     const response = await fetch(registerUrl, {
       method: 'POST',
@@ -689,14 +754,14 @@ const registerDevice = async (options) => {
       },
       body: JSON.stringify(data),
     });
-    
+
     if (response.ok) {
       logSuccess('Device registered successfully');
       return true;
     } else {
       const responseText = await response.text();
       let errorMessage = `Failed to register device (Status code: ${response.status})`;
-      
+
       try {
         const errorData = JSON.parse(responseText);
         if (errorData.message) {
@@ -705,7 +770,7 @@ const registerDevice = async (options) => {
       } catch (e) {
         errorMessage += `\nResponse: ${responseText}`;
       }
-      
+
       logError(errorMessage + '\nPlease check:\n' +
         '1. All registration parameters are correct\n' +
         '2. Gateway server is accessible\n' +
@@ -729,22 +794,22 @@ const registerDevice = async (options) => {
 const downloadComposeFile = async () => {
   const composeUrl = CONFIG.urls.compose;
   const composeFile = 'docker-compose.yml';
-  
+
   logInfo(`Downloading ${composeFile}...`);
-  
+
   try {
     const response = await fetch(composeUrl);
-    
+
     if (!response.ok) {
       logError(`Failed to download ${composeFile}: ${response.statusText}`);
       return false;
     }
-    
+
     const content = await response.text();
-    
+
     // Save to current directory
     fs.writeFileSync(composeFile, content);
-    
+
     logSuccess(`${composeFile} downloaded successfully`);
     return true;
   } catch (error) {
@@ -756,43 +821,43 @@ const downloadComposeFile = async () => {
 // Run local mode
 const runLocalMode = async (gpuInfo) => {
   logInfo('Starting local mode setup...');
-  
+
   // Download docker-compose.yml file
   if (!await downloadComposeFile()) {
     return false;
   }
-  
+
   // Create docker-compose.override.yml file
   createOverrideFile('local', { gpuInfo });
-  
+
   // Start services
-  return await startServices();
+  return await startServices({ mode: 'local' });
 };
 
 // Run remote mode
 const runRemoteMode = async (options) => {
   logInfo('Starting remote mode setup...');
-  
+
   // Validate remote mode parameters
-  if (!options.gatewayUrl || !options.nodeCode || !options.gatewayApiKey || 
+  if (!options.gatewayUrl || !options.nodeCode || !options.gatewayApiKey ||
       !options.rewardAddress || !options.apiBasePath) {
     logError('Missing required parameters for remote mode');
     return false;
   }
-  
+
   // Download docker-compose.yml file
   if (!await downloadComposeFile()) {
     return false;
   }
-  
+
   // Create docker-compose.override.yml file
   createOverrideFile('remote', options);
-  
+
   // Start services
-  if (!await startServices()) {
+  if (!await startServices(options)) {
     return false;
   }
-  
+
   // Register device
   return await registerDevice(options);
 };
@@ -804,33 +869,95 @@ const checkMinerStatus = () => {
 };
 
 // Stop miner
-const stopMiner = () => {
+const stopMiner = async () => {
   logInfo('Stopping miner...');
-  shell.exec('docker-compose down');
-  shell.exec('docker rm -f open-webui');
-  logSuccess('Miner stopped successfully');
+
+  try {
+    await executeDockerCommandWithProgress(
+      'docker-compose',
+      ['down'],
+      'Docker compose services stopped successfully'
+    );
+
+    try {
+      await executeDockerCommandWithProgress(
+        'docker',
+        ['rm', '-f', 'open-webui'],
+        'Open WebUI container removed successfully'
+      );
+    } catch (error) {
+      // Ignore errors if container doesn't exist
+      logInfo('No Open WebUI container to remove');
+    }
+
+    logSuccess('Miner stopped successfully');
+    return true;
+  } catch (error) {
+    logError(`Failed to stop miner: ${error.message}`);
+    if (error.errorOutput) {
+      logError(`Error details: ${error.errorOutput}`);
+    }
+    return false;
+  }
 };
 
 // Show logs
-const showLogs = () => {
-  logInfo('Showing miner logs...');
-  shell.exec('docker-compose logs --tail=100');
+const showLogs = async (lines = 100, follow = false) => {
+  logInfo(`Showing miner logs (${follow ? 'following' : 'last ' + lines + ' lines'})...`);
+
+  try {
+    const args = ['logs'];
+    if (follow) {
+      args.push('-f');
+    }
+    args.push(`--tail=${lines}`);
+
+    await executeDockerCommandWithProgress(
+      'docker-compose',
+      args,
+      'Logs displayed successfully'
+    );
+    return true;
+  } catch (error) {
+    logError(`Failed to show logs: ${error.message}`);
+    if (error.errorOutput) {
+      logError(`Error details: ${error.errorOutput}`);
+    }
+    return false;
+  }
 };
 
 // Update miner
-const updateMiner = () => {
+const updateMiner = async () => {
   logInfo('Updating miner...');
-  
+
   logInfo('Stopping current services...');
   shell.exec('docker-compose down');
-  
+
   logInfo('Pulling latest images...');
-  shell.exec('docker-compose pull');
-  
-  logInfo('Starting updated services...');
-  shell.exec('docker-compose up -d');
-  
-  logSuccess('Miner updated successfully');
+  try {
+    await executeDockerCommandWithProgress(
+      'docker-compose',
+      ['pull'],
+      'Latest images pulled successfully'
+    );
+
+    logInfo('Starting updated services...');
+    await executeDockerCommandWithProgress(
+      'docker-compose',
+      ['up', '-d'],
+      'Updated services started successfully'
+    );
+
+    logSuccess('Miner updated successfully');
+    return true;
+  } catch (error) {
+    logError(`Failed to update miner: ${error.message}`);
+    if (error.errorOutput) {
+      logError(`Error details: ${error.errorOutput}`);
+    }
+    return false;
+  }
 };
 
 // Error handling
@@ -874,7 +1001,7 @@ const handleError = (error) => {
       logError(error.stack);
     }
   }
-  
+
   // Log to file
   const errorLog = {
     timestamp: new Date().toISOString(),
@@ -886,37 +1013,37 @@ const handleError = (error) => {
       details: error.details || {}
     }
   };
-  
+
   fs.appendFileSync(
     path.join(CONFIG.paths.log, 'error.log'),
     JSON.stringify(errorLog, null, 2) + '\n'
   );
-  
+
   return false;
 };
 
 // Main run function
 const run = async (options) => {
-  
+
   // Check system requirements
   if (!await checkRequirements()) {
     return false;
   }
-  
+
   // Check Ollama service
   if (!await checkOllamaService()) {
     return false;
   }
-  
+
   // Pull deepscaler model
   // if (!await pullDeepseekModel()) {
   //   return false;
   // }
-  
+
   // Get GPU info
   const gpuInfo = await getGpuInfo();
   options.gpuInfo = gpuInfo;
-  
+
   // Run according to selected mode
   if (options.mode === 'local') {
     return await runLocalMode(gpuInfo);
@@ -941,9 +1068,9 @@ const selectMode = async () => {
       ]
     }
   ]);
-  
+
   let options = { mode: answers.mode };
-  
+
   if (answers.mode === 'remote') {
     const remoteParams = await inquirer.prompt([
       {
@@ -977,10 +1104,10 @@ const selectMode = async () => {
         validate: input => input ? true : 'API server base path is required'
       }
     ]);
-    
+
     options = { ...options, ...remoteParams };
   }
-  
+
   return options;
 };
 
@@ -990,14 +1117,14 @@ class CLI {
     this.program = program;
     this.setupCommands();
   }
-  
+
   setupCommands() {
     // Main program setup
     this.program
       .name('sight-miner')
       .description('Sight AI Miner CLI - A tool for running and managing the Sight AI Miner')
       .version(CONFIG.version);
-    
+
     // Run command
     this.program
       .command('run')
@@ -1011,12 +1138,12 @@ class CLI {
       .action(async (cmdOptions) => {
         try {
           let options = { ...cmdOptions };
-          
+
           if (!options.mode) {
             options = await selectMode();
           } else if (options.mode === 'remote') {
             // Validate required parameters for remote mode
-            if (!options.gatewayUrl || !options.nodeCode || !options.gatewayApiKey || 
+            if (!options.gatewayUrl || !options.nodeCode || !options.gatewayApiKey ||
                 !options.rewardAddress || !options.apiBasePath) {
               const missingParams = [];
               if (!options.gatewayUrl) missingParams.push('--gateway-url');
@@ -1024,7 +1151,7 @@ class CLI {
               if (!options.gatewayApiKey) missingParams.push('--gateway-api-key');
               if (!options.rewardAddress) missingParams.push('--reward-address');
               if (!options.apiBasePath) missingParams.push('--api-base-path');
-              
+
               throw new MinerError(
                 `Missing required parameters for remote mode: ${missingParams.join(', ')}`,
                 ErrorCodes.DEVICE_REGISTRATION_FAILED,
@@ -1032,13 +1159,13 @@ class CLI {
               );
             }
           }
-          
+
           await run(options);
         } catch (error) {
           handleError(error);
         }
       });
-    
+
     // Status command
     this.program
       .command('status')
@@ -1050,26 +1177,26 @@ class CLI {
           handleError(error);
         }
       });
-    
+
     // Stop command
     this.program
       .command('stop')
       .description('Stop the miner')
-      .action(() => {
+      .action(async () => {
         try {
-          stopMiner();
+          await stopMiner();
         } catch (error) {
           handleError(error);
         }
       });
-    
+
     // Logs command
     this.program
       .command('logs')
       .description('View miner logs')
       .option('-f, --follow', 'Follow log output')
       .option('-n, --lines <number>', 'Number of lines to show', '100')
-      .action((options) => {
+      .action(async (options) => {
         try {
           const lines = parseInt(options.lines, 10);
           if (isNaN(lines) || lines < 1) {
@@ -1079,17 +1206,13 @@ class CLI {
               { lines: options.lines }
             );
           }
-          
-          if (options.follow) {
-            shell.exec(`docker-compose logs -f --tail=${lines}`);
-          } else {
-            shell.exec(`docker-compose logs --tail=${lines}`);
-          }
+
+          await showLogs(lines, options.follow);
         } catch (error) {
           handleError(error);
         }
       });
-    
+
     // Update command
     this.program
       .command('update')
@@ -1106,19 +1229,19 @@ class CLI {
                 default: false
               }
             ]);
-            
+
             if (!confirm) {
               logInfo('Update cancelled by user');
               return;
             }
           }
-          
-          updateMiner();
+
+          await updateMiner();
         } catch (error) {
           handleError(error);
         }
       });
-    
+
     // Clean command
     this.program
       .command('clean')
@@ -1135,27 +1258,56 @@ class CLI {
                 default: false
               }
             ]);
-            
+
             if (!confirm) {
               logInfo('Clean operation cancelled by user');
               return;
             }
-            
+
             logInfo('Cleaning all resources...');
-            shell.exec('docker-compose down -v');
-            shell.exec('docker volume rm ollama open-webui');
-            logSuccess('All resources cleaned successfully');
+            try {
+              await executeDockerCommandWithProgress(
+                'docker-compose',
+                ['down', '-v'],
+                'Docker compose services and volumes removed successfully'
+              );
+
+              await executeDockerCommandWithProgress(
+                'docker',
+                ['volume', 'rm', 'ollama', 'open-webui'],
+                'Volumes removed successfully'
+              );
+
+              logSuccess('All resources cleaned successfully');
+            } catch (error) {
+              logError(`Failed to clean resources: ${error.message}`);
+              if (error.errorOutput) {
+                logError(`Error details: ${error.errorOutput}`);
+              }
+              return false;
+            }
           } else {
             logInfo('Cleaning up containers...');
-            shell.exec('docker-compose down');
-            logSuccess('Containers cleaned successfully');
+            try {
+              await executeDockerCommandWithProgress(
+                'docker-compose',
+                ['down'],
+                'Containers cleaned successfully'
+              );
+            } catch (error) {
+              logError(`Failed to clean containers: ${error.message}`);
+              if (error.errorOutput) {
+                logError(`Error details: ${error.errorOutput}`);
+              }
+              return false;
+            }
           }
         } catch (error) {
           handleError(error);
         }
       });
   }
-  
+
   showBanner() {
     console.log(chalk.blue(`
     ╔═══════════════════════════════════════╗
@@ -1163,10 +1315,10 @@ class CLI {
     ║              v${CONFIG.version}                   ║
     ╚═══════════════════════════════════════╝`));
   }
-  
+
   start() {
     this.showBanner();
-    
+
     // If no args, show help
     if (!process.argv.slice(2).length) {
       this.program.outputHelp();
@@ -1178,4 +1330,4 @@ class CLI {
 
 // Start the CLI
 const cli = new CLI();
-cli.start(); 
+cli.start();

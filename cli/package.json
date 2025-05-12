@@ -1,6 +1,6 @@
 {
   "name": "sight-ai-miner-cli",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Sight AI Miner CLI - A tool for running and managing the Sight AI Miner",
   "main": "bin/index.js",
   "bin": {
