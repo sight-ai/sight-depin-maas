@@ -48,7 +48,6 @@ export class DefaultTaskSyncService implements TaskSyncService {
    */
   private parseGatewayResponse<T>(response: any, endpointName: string): T[] {
     if (!response) {
-      this.logger.warn(`Gateway ${endpointName} response is null or undefined`);
       return [];
     }
 
@@ -107,7 +106,6 @@ export class DefaultTaskSyncService implements TaskSyncService {
           }
         }).json() as GatewayResponse<z.infer<typeof Task>>;
 
-        this.logger.debug('Raw tasks response from gateway:', response);
 
         const gatewayTasks = this.parseGatewayResponse<z.infer<typeof Task>>(response, 'tasks');
 
@@ -122,10 +120,8 @@ export class DefaultTaskSyncService implements TaskSyncService {
 
             if (exists) {
               await this.repository.updateExistingTask(conn, task);
-              this.logger.debug(`Updated task: ${task.id}`);
             } else {
               await this.repository.createTask(conn, task);
-              this.logger.debug(`Created new task: ${task.id}`);
             }
           } catch (error) {
             this.logger.error(`Error processing task ${task.id}:`, error);
@@ -173,7 +169,6 @@ export class DefaultTaskSyncService implements TaskSyncService {
           }
         }).json() as GatewayResponse<z.infer<typeof Earning>>;
 
-        this.logger.debug('Raw earnings response from gateway:', earningsResponse);
 
         if (!earningsResponse.success || !earningsResponse.data) {
           this.logger.warn('Invalid response format from gateway earnings endpoint');
@@ -187,29 +182,24 @@ export class DefaultTaskSyncService implements TaskSyncService {
         await Promise.all(gatewayEarnings.map(async (earning) => {
           try {
             // 记录原始收益数据
-            this.logger.debug(`Processing earning ${earning.id}: ${JSON.stringify(earning)}`);
 
             // 确保收益记录有设备ID
             if (!earning.device_id) {
               earning.device_id = deviceId;
-              this.logger.debug(`Added device_id ${deviceId} to earning ${earning.id}`);
             }
 
             // 确保日期字段是有效的ISO日期字符串
             if (earning.created_at && !(typeof earning.created_at === 'string' && earning.created_at.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/))) {
               earning.created_at = new Date(earning.created_at).toISOString();
-              this.logger.debug(`Normalized created_at date for earning ${earning.id}: ${earning.created_at}`);
             }
 
             if (earning.updated_at && !(typeof earning.updated_at === 'string' && earning.updated_at.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/))) {
               earning.updated_at = new Date(earning.updated_at).toISOString();
-              this.logger.debug(`Normalized updated_at date for earning ${earning.id}: ${earning.updated_at}`);
             }
 
             // 如果没有updated_at，使用created_at或当前时间
             if (!earning.updated_at) {
               earning.updated_at = earning.created_at || new Date().toISOString();
-              this.logger.debug(`Set missing updated_at for earning ${earning.id}: ${earning.updated_at}`);
             }
 
             // 检查收益记录是否已存在
@@ -217,10 +207,8 @@ export class DefaultTaskSyncService implements TaskSyncService {
 
             if (exists) {
               await this.repository.updateExistingEarning(conn, earning);
-              this.logger.debug(`Updated earning: ${earning.id}`);
             } else {
               await this.repository.createEarning(conn, earning);
-              this.logger.debug(`Created new earning: ${earning.id}`);
               syncedEarnings++;
             }
           } catch (error) {
@@ -230,7 +218,6 @@ export class DefaultTaskSyncService implements TaskSyncService {
           }
         }));
 
-        this.logger.debug(`Synced ${syncedEarnings} earnings from gateway`);
 
         // // 同时从任务中获取收益信息（兼容旧版本）
         // const tasksResponse = await got.get(`${gatewayAddress}/node/devices/${deviceId}/tasks`, {

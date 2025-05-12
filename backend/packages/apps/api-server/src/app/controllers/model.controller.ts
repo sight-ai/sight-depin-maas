@@ -27,7 +27,7 @@ const handleApiError = (res: Response, error: unknown, model?: string) => {
   }
 };
 
-@Controller('/api/')
+@Controller(['/api/', 'ollama/api/'])
 export class ModelController {
   private readonly logger = new Logger(ModelController.name);
   constructor(

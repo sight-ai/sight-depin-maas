@@ -15,7 +15,9 @@ import {
   OllamaEmbeddingsRequest,
   OllamaEmbeddingsResponse,
   OllamaRunningModels,
-  OllamaVersionResponse
+  OllamaVersionResponse,
+  OpenAICompletionRequest,
+  OpenAIChatCompletionRequest
 } from '@saito/models';
 
 // Default timeout values
@@ -39,7 +41,7 @@ export class DefaultOllamaService extends BaseModelService implements OllamaServ
   /**
    * 处理流式响应
    */
-  private async handleStream(stream: any, res: Response, taskId: string) {
+  private async handleStream(stream: any, res: Response, taskId: string, endpoint: string = '') {
     let hasReceivedData = false;
     const streamTimeout = setTimeout(() => {
       if (!hasReceivedData) {
@@ -47,24 +49,89 @@ export class DefaultOllamaService extends BaseModelService implements OllamaServ
       }
     }, 10000);
 
+    // Check if this is an OpenAI format request
+    const isOpenAIFormat = endpoint.includes('openai') || endpoint.includes('v1');
+
     stream.on('data', async (chunk: any) => {
       try {
         hasReceivedData = true;
-        const part = JSON.parse(chunk.toString());
-        res.write(chunk);
+        const chunkStr = chunk.toString();
+        this.logger.debug(`Received stream data: ${chunkStr}`);
 
-        if (part.done) {
-          clearTimeout(streamTimeout);
-          await this.updateTask(taskId, {
-            status: 'completed',
-            total_duration: part.total_duration ?? null,
-            load_duration: part.load_duration ?? null,
-            prompt_eval_count: part.prompt_eval_count ?? null,
-            prompt_eval_duration: part.prompt_eval_duration ?? null,
-            eval_count: part.eval_count ?? null,
-            eval_duration: part.eval_duration ?? null
-          });
-          await this.createEarnings(taskId, part, part.device_id);
+        // For OpenAI format, we need to handle the SSE format differently
+        if (isOpenAIFormat) {
+          // If it's already in SSE format (starts with "data: "), pass it through
+          if (chunkStr.startsWith('data: ')) {
+            res.write(chunkStr);
+            return;
+          }
+
+          // Otherwise, try to parse and convert to OpenAI format
+          try {
+            const part = JSON.parse(chunkStr);
+
+            // If this is the final chunk (done=true), add token usage information
+            if (part.done) {
+              // Create a final message with token usage information
+              const finalMessage = {
+                id: part.id || `chatcmpl-${Date.now()}`,
+                object: part.object || "chat.completion.chunk",
+                created: part.created || Math.floor(Date.now() / 1000),
+                model: part.model || "unknown",
+                system_fingerprint: part.system_fingerprint || "fp_ollama",
+                choices: [
+                  {
+                    index: 0,
+                    delta: {},
+                    finish_reason: "stop"
+                  }
+                ],
+                usage: {
+                  prompt_tokens: part.prompt_eval_count || 0,
+                  completion_tokens: part.eval_count || 0,
+                  total_tokens: (part.prompt_eval_count || 0) + (part.eval_count || 0)
+                }
+              };
+
+              // Write the final message with usage information
+              res.write(`data: ${JSON.stringify(finalMessage)}\n\n`);
+              // Write the [DONE] marker
+              res.write('data: [DONE]\n\n');
+              res.end();
+            } else {
+              // For non-final chunks, just pass through
+              res.write(`data: ${JSON.stringify(part)}\n\n`);
+            }
+          } catch (parseError) {
+            this.logger.warn(`Failed to parse OpenAI format chunk: ${parseError}`);
+            // If parsing fails, just pass through the chunk
+            res.write(chunkStr);
+          }
+        } else {
+          // Regular Ollama format
+          try {
+            const part = JSON.parse(chunkStr);
+            res.write(chunk);
+
+            if (part.done) {
+              clearTimeout(streamTimeout);
+              await this.updateTask(taskId, {
+                status: 'completed',
+                total_duration: part.total_duration ?? null,
+                load_duration: part.load_duration ?? null,
+                prompt_eval_count: part.prompt_eval_count ?? null,
+                prompt_eval_duration: part.prompt_eval_duration ?? null,
+                eval_count: part.eval_count ?? null,
+                eval_duration: part.eval_duration ?? null
+              });
+              await this.createEarnings(taskId, part, part.device_id);
+              res.end()
+            }
+          } catch (parseError) {
+            this.logger.warn(`Failed to parse Ollama format chunk: ${parseError}`);
+            // For Ollama format, we still need to write the chunk even if parsing fails
+            res.write(chunk);
+          }
         }
       } catch (err) {
         this.logger.warn(`Error processing stream chunk: ${err}`);
@@ -124,7 +191,39 @@ export class DefaultOllamaService extends BaseModelService implements OllamaServ
         await this.createEarnings(taskId, responseBody);
 
         if (!res.headersSent) {
-          res.status(200).json(responseBody);
+          // Check if this is an OpenAI format request
+          const isOpenAIFormat = endpoint.includes('openai') || endpoint.includes('v1');
+
+          if (isOpenAIFormat) {
+            // For OpenAI format, ensure we include token usage information
+            const openAIResponse = {
+              id: responseBody.id || `chatcmpl-${Date.now()}`,
+              object: responseBody.object || (endpoint.includes('chat') ? 'chat.completion' : 'text_completion'),
+              created: responseBody.created || Math.floor(Date.now() / 1000),
+              model: responseBody.model || args.model || 'unknown',
+              system_fingerprint: responseBody.system_fingerprint || "fp_ollama",
+              choices: responseBody.choices || [
+                {
+                  index: 0,
+                  message: {
+                    role: responseBody.message?.role || 'assistant',
+                    content: responseBody.message?.content || responseBody.response || '',
+                  },
+                  finish_reason: 'stop',
+                }
+              ],
+              usage: {
+                prompt_tokens: responseBody.prompt_eval_count || 0,
+                completion_tokens: responseBody.eval_count || 0,
+                total_tokens: (responseBody.prompt_eval_count || 0) + (responseBody.eval_count || 0)
+              }
+            };
+
+            res.status(200).json(openAIResponse);
+          } else {
+            // For Ollama format, return the original response
+            res.status(200).json(responseBody);
+          }
         }
       } catch (error: any) {
         if (retries < MAX_RETRIES && this.isRetryableError(error)) {
@@ -168,14 +267,19 @@ export class DefaultOllamaService extends BaseModelService implements OllamaServ
       this.logger.log(`Created task with ID: ${task.id} for model: ${processedArgs.model} stream: ${processedArgs.stream}`);
       // 处理请求
       if (processedArgs.stream) {
-        const url = new URL(`api/${endpoint}`, this.baseUrl);
+        // Ensure we have the correct URL format
+        const url = new URL(endpoint, this.baseUrl);
+
+        this.logger.debug(`Streaming request to ${url.toString()} with endpoint ${endpoint}`);
         res.status(200);
+
         const stream = got.stream(url.toString(), {
           method: 'POST',
           json: processedArgs,
           timeout: { request: DEFAULT_REQUEST_TIMEOUT }
         });
-        await this.handleStream(stream, res, task.id);
+
+        await this.handleStream(stream, res, task.id, endpoint);
       } else {
         await this.handleNonStream(processedArgs, res, task.id, endpoint);
       }
@@ -188,15 +292,27 @@ export class DefaultOllamaService extends BaseModelService implements OllamaServ
   /**
    * 文本生成请求
    */
-  async complete(args: z.infer<typeof OllamaGenerateRequest>, res: Response): Promise<void> {
-    await this.handleModelRequest(args, res, 'generate');
+  async complete(args: z.infer<typeof OllamaGenerateRequest | typeof OpenAICompletionRequest>, res: Response, pathname = 'api/generate'): Promise<void> {
+    // Process OpenAI-specific parameters if needed
+    const processedArgs = { ...args };
+
+    // Log the request type
+    this.logger.debug(`Complete request with pathname: ${pathname}`);
+
+    await this.handleModelRequest(processedArgs, res, pathname);
   }
 
   /**
    * 聊天请求
    */
-  async chat(args: z.infer<typeof OllamaChatRequest>, res: Response): Promise<void> {
-    await this.handleModelRequest(args, res, 'chat');
+  async chat(args: z.infer<typeof OllamaChatRequest | typeof OpenAIChatCompletionRequest>, res: Response, pathname = 'api/chat'): Promise<void> {
+    // Process OpenAI-specific parameters if needed
+    const processedArgs = { ...args };
+
+    // Log the request type
+    this.logger.debug(`Chat request with pathname: ${pathname}`);
+
+    await this.handleModelRequest(processedArgs, res, pathname);
   }
 
   /**

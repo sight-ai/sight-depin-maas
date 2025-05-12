@@ -8,6 +8,7 @@ import { ModelController } from "./controllers/model.controller";
 import { MinerController } from "./controllers/miner.controller";
 import { MinerModule } from "@saito/miner";
 import { DeviceStatusController } from "./controllers/device-status.controller";
+import { OpenAIController } from "./controllers/openai.controller";
 import { TunnelModule } from "@saito/tunnel";
 import { TaskSyncModule } from '@saito/task-sync';
 @Module({
@@ -18,7 +19,7 @@ import { TaskSyncModule } from '@saito/task-sync';
     forwardRef(() => TunnelModule),
     TaskSyncModule
   ],
-  controllers: [IndexController, ModelController, MinerController, DeviceStatusController],
+  controllers: [IndexController, ModelController, MinerController, DeviceStatusController, OpenAIController],
   providers: [
     {
       provide: APP_PIPE,

@@ -1,4 +1,4 @@
-import { 
+import {
   OllamaGenerateRequest,
   OllamaChatRequest,
   OllamaModelList,
@@ -6,15 +6,17 @@ import {
   OllamaVersionResponse,
   OllamaEmbeddingsRequest,
   OllamaEmbeddingsResponse,
-  OllamaRunningModels
+  OllamaRunningModels,
+  OpenAICompletionRequest,
+  OpenAIChatCompletionRequest
 } from "@saito/models";
 import { Response } from 'express';
 import { z } from 'zod';
 import { BaseModelService } from "./base-model.service";
 
 export abstract class OllamaService extends BaseModelService {
-  abstract complete(args: z.infer<typeof OllamaGenerateRequest>, res: Response): Promise<void>;
-  abstract chat(args: z.infer<typeof OllamaChatRequest>, res: Response): Promise<void>;
+  abstract complete(args: z.infer<typeof OllamaGenerateRequest | typeof OpenAICompletionRequest>, res: Response, pathname?: string): Promise<void>;
+  abstract chat(args: z.infer<typeof OllamaChatRequest |typeof OpenAIChatCompletionRequest>, res: Response, pathname?: string): Promise<void>;
   abstract checkStatus(): Promise<boolean>;
   abstract listModelTags(): Promise<z.infer<typeof OllamaModelList>>;
   abstract showModelInformation(args: { name: string }): Promise<z.infer<typeof OllamaModelInfo>>;
