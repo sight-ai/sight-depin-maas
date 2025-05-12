@@ -10,18 +10,15 @@ import { MinerModule } from "@saito/miner";
 import { DeviceStatusController } from "./controllers/device-status.controller";
 import { TunnelModule } from "@saito/tunnel";
 import { TaskSyncModule } from '@saito/task-sync';
-import { OpenAIController } from "./controllers/openai.controller";
-import { ModelOpenaiModule } from '@saito/openai';
 @Module({
   imports: [
-    forwardRef(() => OllamaModule), 
-    forwardRef(() => MinerModule), 
-    DeviceStatusModule, 
-    forwardRef(() => TunnelModule), 
-    TaskSyncModule,
-    ModelOpenaiModule
+    forwardRef(() => OllamaModule),
+    forwardRef(() => MinerModule),
+    DeviceStatusModule,
+    forwardRef(() => TunnelModule),
+    TaskSyncModule
   ],
-  controllers: [IndexController, ModelController, MinerController, DeviceStatusController, OpenAIController],
+  controllers: [IndexController, ModelController, MinerController, DeviceStatusController],
   providers: [
     {
       provide: APP_PIPE,

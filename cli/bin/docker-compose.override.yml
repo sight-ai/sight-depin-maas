@@ -1,0 +1,12 @@
+version: '3'
+services:
+  sight-miner-backend:
+    environment:
+      - NODE_CODE=fitbjxeyu
+      - GATEWAY_API_URL=https://sightai.io/api/model/gateway-benchmark
+      - GATEWAY_API_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIweGJhZmY4MkIyNjQ2NGVmNTBDZGNDODEwZDE1ODhEQTU2MTM3MzNCRjQiLCJpc3MiOiJodHRwczovL3NpZ2h0YWkuaW8iLCJhdWQiOiJodHRwczovL3NpZ2h0YWkuaW8iLCJhZGRyZXNzIjoiMHhiYWZmODJCMjY0NjRlZjUwQ2RjQzgxMGQxNTg4REE1NjEzNzMzQkY0IiwidXNlcklkIjoiMDQ2NWY2NzctNWM3OC00MzZmLTg0MWYtYWQ5NmIwMjY0MmI5IiwiaWF0IjoxNzQ2NjcyMTIwLCJleHAiOjE3NDkyNjQxMjB9.ksSSUcZedY8RnxPTEej2Bcj_wzlXIPiA8zfTtfASISw
+      - GPU_BRAND="Intel"
+      - DEVICE_TYPE="linux"
+      - GPU_MODEL="183"
+      - REWARD_ADDRESS=undefined
+      - API_SERVER_BASE_PATH=/api/model/gateway-benchmark

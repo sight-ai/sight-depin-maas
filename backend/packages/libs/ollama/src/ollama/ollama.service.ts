@@ -6,7 +6,6 @@ import { MinerService } from '@saito/miner';
 import { Response } from 'express';
 import { DeviceStatusService } from '@saito/device-status';
 import { z } from 'zod';
-import * as R from 'ramda';
 import { BaseModelService } from './base-model.service';
 import {
   OllamaChatRequest,
@@ -16,13 +15,11 @@ import {
   OllamaEmbeddingsRequest,
   OllamaEmbeddingsResponse,
   OllamaRunningModels,
-  OllamaVersionResponse,
-  Task
+  OllamaVersionResponse
 } from '@saito/models';
 
 // Default timeout values
 const DEFAULT_REQUEST_TIMEOUT = 60000; // 60 seconds
-const STATUS_CHECK_TIMEOUT = 2000; // 2 seconds
 const MAX_RETRIES = 3;
 
 @Injectable()
@@ -39,12 +36,13 @@ export class DefaultOllamaService extends BaseModelService implements OllamaServ
     this.logger.log(`Initialized OllamaService with baseUrl: ${this.baseUrl}`);
   }
 
-  protected async handleStream(stream: any, res: Response, taskId: string, isChat: boolean) {
+  /**
+   * 处理流式响应
+   */
+  private async handleStream(stream: any, res: Response, taskId: string) {
     let hasReceivedData = false;
-
-    const streamErrorTimeout = setTimeout(() => {
+    const streamTimeout = setTimeout(() => {
       if (!hasReceivedData) {
-        this.logger.warn(`No data received for task ${taskId} after 10 seconds, closing stream`);
         stream.destroy(new Error('Stream timeout: No data received'));
       }
     }, 10000);
@@ -53,12 +51,10 @@ export class DefaultOllamaService extends BaseModelService implements OllamaServ
       try {
         hasReceivedData = true;
         const part = JSON.parse(chunk.toString());
-        if (part instanceof Object) {
-          res.write(chunk);
-        }
+        res.write(chunk);
 
         if (part.done) {
-          clearTimeout(streamErrorTimeout);
+          clearTimeout(streamTimeout);
           await this.updateTask(taskId, {
             status: 'completed',
             total_duration: part.total_duration ?? null,
@@ -71,67 +67,50 @@ export class DefaultOllamaService extends BaseModelService implements OllamaServ
           await this.createEarnings(taskId, part, part.device_id);
         }
       } catch (err) {
-        this.logger.warn(`Error processing stream chunk for task ${taskId}:`, err);
+        this.logger.warn(`Error processing stream chunk: ${err}`);
       }
     });
 
     stream.on('error', async (error: any) => {
-      clearTimeout(streamErrorTimeout);
-      this.logger.error(`Stream error for task ${taskId}:`, error);
+      clearTimeout(streamTimeout);
       await this.updateTask(taskId, { status: 'failed' });
-      
+
       if (!res.headersSent) {
-        res.status(400).json({ 
+        res.status(400).json({
           error: error.message || 'Stream error occurred',
-          model: isChat ? 'unknown' : 'unknown',
+          model: 'unknown',
           created_at: new Date().toISOString(),
           done: true
         });
       }
-      
-      if (!res.writableEnded) {
-        res.end();
-      }
+
+      if (!res.writableEnded) res.end();
     });
 
     stream.on('end', () => {
-      clearTimeout(streamErrorTimeout);
-      this.logger.debug(`Stream ended for task ${taskId}`);
-      
-      if (!res.writableEnded) {
-        res.end();
-      }
+      clearTimeout(streamTimeout);
+      if (!res.writableEnded) res.end();
     });
   }
 
-  protected async handleNonStream(args: any, res: Response, taskId: string, endpoint: string) {
+  /**
+   * 处理非流式响应
+   */
+  private async handleNonStream(args: any, res: Response, taskId: string, endpoint: string) {
     let retries = 0;
-    
+
     const attemptRequest = async (): Promise<void> => {
       try {
         const url = new URL(`api/${endpoint}`, this.baseUrl);
-        
-        this.logger.debug(`Making non-stream request to ${url.toString()} for task ${taskId}`);
-        const ollResponse = await got.post(url.toString(), {
+        const response = await got.post(url.toString(), {
           json: { ...args },
-          responseType: 'json' as const,
-          timeout: {
-            request: DEFAULT_REQUEST_TIMEOUT
-          },
-          retry: {
-            limit: 0
-          }
+          responseType: 'json',
+          timeout: { request: DEFAULT_REQUEST_TIMEOUT },
+          retry: { limit: 0 }
         });
-        
-        const responseBody = ollResponse.body as {
-          total_duration?: number;
-          load_duration?: number;
-          prompt_eval_count?: number;
-          prompt_eval_duration?: number;
-          eval_count?: number;
-          eval_duration?: number;
-        };
-        
+
+        const responseBody = response.body as any;
+
         await this.updateTask(taskId, {
           status: 'completed',
           total_duration: responseBody.total_duration ?? null,
@@ -141,9 +120,9 @@ export class DefaultOllamaService extends BaseModelService implements OllamaServ
           eval_count: responseBody.eval_count ?? null,
           eval_duration: responseBody.eval_duration ?? null
         });
-        
+
         await this.createEarnings(taskId, responseBody);
-        
+
         if (!res.headersSent) {
           res.status(200).json(responseBody);
         }
@@ -151,244 +130,173 @@ export class DefaultOllamaService extends BaseModelService implements OllamaServ
         if (retries < MAX_RETRIES && this.isRetryableError(error)) {
           retries++;
           const backoffTime = Math.pow(2, retries) * 1000;
-          this.logger.warn(`Retrying request for task ${taskId} (attempt ${retries}/${MAX_RETRIES}) after ${backoffTime}ms`);
-          
           await new Promise(resolve => setTimeout(resolve, backoffTime));
           return attemptRequest();
         }
-        
+
         await this.updateTask(taskId, { status: 'failed' });
         this.handleErrorResponse(error, res, args?.model);
       }
     };
-    
+
     await attemptRequest();
   }
 
+  /**
+   * 处理模型请求的通用方法
+   */
+  private async handleModelRequest(args: any, res: Response, endpoint: string): Promise<void> {
+    const processedArgs = { ...args, stream: args.stream !== false };
+
+    try {
+      // 检查服务是否可用
+      if (!await this.checkStatus()) {
+        if (!res.headersSent) {
+          res.status(400).json({
+            error: 'Ollama service is not available',
+            model: processedArgs.model,
+            created_at: new Date().toISOString(),
+            done: true
+          });
+        }
+        return;
+      }
+
+      // 创建任务
+      const task = await this.createTask(processedArgs.model, processedArgs.task_id, processedArgs.device_id);
+      await this.updateTask(task.id, { status: 'running' });
+      this.logger.log(`Created task with ID: ${task.id} for model: ${processedArgs.model} stream: ${processedArgs.stream}`);
+      // 处理请求
+      if (processedArgs.stream) {
+        const url = new URL(`api/${endpoint}`, this.baseUrl);
+        res.status(200);
+        const stream = got.stream(url.toString(), {
+          method: 'POST',
+          json: processedArgs,
+          timeout: { request: DEFAULT_REQUEST_TIMEOUT }
+        });
+        await this.handleStream(stream, res, task.id);
+      } else {
+        await this.handleNonStream(processedArgs, res, task.id, endpoint);
+      }
+    } catch (error: any) {
+      this.logger.error(`Error in ${endpoint} request:`, error);
+      this.handleErrorResponse(error, res, args.model);
+    }
+  }
+
+  /**
+   * 文本生成请求
+   */
   async complete(args: z.infer<typeof OllamaGenerateRequest>, res: Response): Promise<void> {
-    const processedArgs = R.mergeRight({ stream: true }, args);
-    
-    try {
-      const isAvailable = await this.checkStatus();
-      if (!isAvailable) {
-        if (!res.headersSent) {
-          this.logger.warn('Ollama service is not available for complete request');
-          res.status(400).json({
-            error: 'Ollama service is not available',
-            model: processedArgs.model,
-            created_at: new Date().toISOString(),
-            done: true
-          });
-        }
-        return;
-      }
-
-      const task = await this.createTask(processedArgs.model, processedArgs.task_id, processedArgs.device_id);
-      const taskId = task.id;
-      await this.updateTask(taskId, { status: 'running' });
-      
-      try {
-        if (processedArgs.stream) {
-          const url = new URL('api/generate', this.baseUrl);
-          res.status(200);
-          
-          const stream = got.stream(url.toString(), {
-            method: 'POST',
-            json: processedArgs,
-            timeout: {
-              request: DEFAULT_REQUEST_TIMEOUT
-            }
-          });
-          await this.handleStream(stream, res, taskId, false);
-        } else {
-          await this.handleNonStream(processedArgs, res, taskId, 'generate');
-        }
-      } catch (error: any) {
-        this.logger.error(`Error in complete request for task ${taskId}:`, error);
-        await this.updateTask(taskId, { status: 'failed' });
-        this.handleErrorResponse(error, res, processedArgs.model);
-      }
-    } catch (error: any) {
-      this.logger.error('Error in complete request:', error);
-      this.handleErrorResponse(error, res, args.model);
-    }
+    await this.handleModelRequest(args, res, 'generate');
   }
 
+  /**
+   * 聊天请求
+   */
   async chat(args: z.infer<typeof OllamaChatRequest>, res: Response): Promise<void> {
-    const processedArgs = R.mergeRight({ stream: true }, args);
-    
-    try {
-      const isAvailable = await this.checkStatus();
-      if (!isAvailable) {
-        if (!res.headersSent) {
-          this.logger.warn('Ollama service is not available for chat request');
-          res.status(400).json({
-            error: 'Ollama service is not available',
-            model: processedArgs.model,
-            created_at: new Date().toISOString(),
-            done: true
-          });
-        }
-        return;
-      }
-
-      const task = await this.createTask(processedArgs.model, processedArgs.task_id, processedArgs.device_id);
-      const taskId = task.id;
-      await this.updateTask(taskId, { status: 'running' });
-      
-      try {
-        if (processedArgs.stream) {
-          const url = new URL('api/chat', this.baseUrl);
-          res.status(200);
-          
-          const stream = got.stream(url.toString(), {
-            method: 'POST',
-            json: processedArgs,
-            timeout: {
-              request: DEFAULT_REQUEST_TIMEOUT
-            }
-          });
-          await this.handleStream(stream, res, taskId, true);
-        } else {
-          await this.handleNonStream(processedArgs, res, taskId, 'chat');
-        }
-      } catch (error: any) {
-        this.logger.error(`Error in chat request for task ${taskId}:`, error);
-        await this.updateTask(taskId, { status: 'failed' });
-        this.handleErrorResponse(error, res, processedArgs.model);
-      }
-    } catch (error: any) {
-      this.logger.error('Error in chat request:', error);
-      this.handleErrorResponse(error, res, args.model);
-    }
+    await this.handleModelRequest(args, res, 'chat');
   }
 
+  /**
+   * 检查服务状态
+   */
   async checkStatus(): Promise<boolean> {
     try {
       const url = new URL('api/version', this.baseUrl);
       const response = await got.get(url.toString(), {
-        timeout: {
-          request: DEFAULT_REQUEST_TIMEOUT
-        },
-        retry: {
-          limit: 0
-        }
+        timeout: { request: 5000 },
+        retry: { limit: 0 }
       });
-      
       return response.statusCode === 200;
     } catch (error) {
-      this.logger.error('Failed to check Ollama status:', error);
       return false;
     }
   }
 
-  async listModelTags(): Promise<z.infer<typeof OllamaModelList>> {
+  /**
+   * 获取API响应的通用方法
+   */
+  private async getApiResponse<T>(endpoint: string, method: 'GET' | 'POST' = 'GET', data?: any, defaultValue?: T): Promise<T> {
     try {
-      const url = new URL('api/tags', this.baseUrl);
-      return await got.get(url.toString(), {
-        timeout: {
-          request: DEFAULT_REQUEST_TIMEOUT
-        },
-        retry: {
-          limit: MAX_RETRIES
-        }
-      }).json();
-    } catch (error) {
-      this.logger.error('Failed to list model tags:', error);
-      return { models: [] };
-    }
-  }
-
-  async showModelInformation(args: { name: string }): Promise<z.infer<typeof OllamaModelInfo>> {
-    try {
-      const url = new URL('api/show', this.baseUrl);
-      return await got.post(url.toString(), {
-        json: args,
-        timeout: {
-          request: DEFAULT_REQUEST_TIMEOUT
-        },
-        retry: {
-          limit: MAX_RETRIES
-        }
-      }).json();
-    } catch (error) {
-      this.logger.error('Failed to show model information:', error);
-      return {
-        template: '',
-        parameters: '',
-        modelfile: '',
-        details: {
-          format: '',
-          parent_model: '',
-          family: '',
-          families: [],
-          parameter_size: '',
-          quantization_level: ''
-        },
-        model_info: {},
+      const url = new URL(`api/${endpoint}`, this.baseUrl);
+      const options = {
+        timeout: { request: DEFAULT_REQUEST_TIMEOUT },
+        retry: { limit: MAX_RETRIES }
       };
-    }
-  }
 
-  async showModelVersion(): Promise<z.infer<typeof OllamaVersionResponse>> {
-    try {
-      const url = new URL('api/version', this.baseUrl);
-      return await got.get(url.toString(), {
-        timeout: {
-          request: DEFAULT_REQUEST_TIMEOUT
-        },
-        retry: {
-          limit: MAX_RETRIES
-        }
-      }).json();
+      if (method === 'GET') {
+        return await got.get(url.toString(), options).json();
+      } else {
+        return await got.post(url.toString(), {
+          ...options,
+          json: data
+        }).json();
+      }
     } catch (error) {
-      this.logger.error('Failed to show model version:', error);
-      return { version: 'unknown' };
+      this.logger.error(`Failed to get ${endpoint}:`, error);
+      return defaultValue as T;
     }
   }
 
+  /**
+   * 获取模型标签
+   */
+  async listModelTags(): Promise<z.infer<typeof OllamaModelList>> {
+    return this.getApiResponse<z.infer<typeof OllamaModelList>>('tags', 'GET', null, { models: [] });
+  }
+
+  /**
+   * 获取模型信息
+   */
+  async showModelInformation(args: { name: string }): Promise<z.infer<typeof OllamaModelInfo>> {
+    return this.getApiResponse<z.infer<typeof OllamaModelInfo>>('show', 'POST', args, {
+      template: '',
+      parameters: '',
+      modelfile: '',
+      details: {
+        format: '',
+        parent_model: '',
+        family: '',
+        families: [],
+        parameter_size: '',
+        quantization_level: ''
+      },
+      model_info: {},
+    });
+  }
+
+  /**
+   * 获取模型版本
+   */
+  async showModelVersion(): Promise<z.infer<typeof OllamaVersionResponse>> {
+    return this.getApiResponse<z.infer<typeof OllamaVersionResponse>>('version', 'GET', null, { version: 'unknown' });
+  }
+
+  /**
+   * 获取模型列表
+   */
   async listModels(): Promise<z.infer<typeof OllamaModelList>> {
     return this.listModelTags();
   }
 
+  /**
+   * 生成嵌入向量
+   */
   async generateEmbeddings(args: z.infer<typeof OllamaEmbeddingsRequest>): Promise<z.infer<typeof OllamaEmbeddingsResponse>> {
-    try {
-      const url = new URL('api/embeddings', this.baseUrl);
-      const response = await got.post(url.toString(), {
-        json: args,
-        timeout: {
-          request: DEFAULT_REQUEST_TIMEOUT
-        },
-        retry: {
-          limit: MAX_RETRIES
-        }
-      }).json<z.infer<typeof OllamaEmbeddingsResponse>>();
-
-      return {
-        model: response.model,
-        embeddings: response.embeddings,
-      };
-    } catch (error) {
-      this.logger.error('Failed to generate embeddings:', error);
-      throw error;
+    const response = await this.getApiResponse<z.infer<typeof OllamaEmbeddingsResponse>>('embeddings', 'POST', args);
+    if (!response) {
+      throw new Error('Failed to generate embeddings');
     }
+    return response;
   }
 
+  /**
+   * 获取运行中的模型列表
+   */
   async listRunningModels(): Promise<z.infer<typeof OllamaRunningModels>> {
-    try {
-      const url = new URL('api/running', this.baseUrl);
-      return await got.get(url.toString(), {
-        timeout: {
-          request: DEFAULT_REQUEST_TIMEOUT
-        },
-        retry: {
-          limit: MAX_RETRIES
-        }
-      }).json();
-    } catch (error) {
-      this.logger.error('Failed to list running models:', error);
-      return { models: [] };
-    }
+    return this.getApiResponse<z.infer<typeof OllamaRunningModels>>('running', 'GET', null, { models: [] });
   }
 }
 

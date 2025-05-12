@@ -11,5 +11,10 @@ export interface TaskSyncService {
 export interface GatewayResponse<T> {
   success: boolean;
   error?: string;
-  data?: T[];
-} 
+  data?: {
+    data: T[];
+    total: number;
+    page: number;
+    pageSize: number;
+  };
+}

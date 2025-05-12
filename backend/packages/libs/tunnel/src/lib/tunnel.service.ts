@@ -1,11 +1,12 @@
 import { TunnelService } from "./tunnel.interface";
 import { Injectable, Logger } from "@nestjs/common";
 import { io, Socket } from "socket.io-client";
-import got from "got-cjs";
-import { OllamaChatRequest, OllamaGenerateRequest } from '@saito/models';
-import * as R from 'ramda';
-import { z } from 'zod';
 import { env } from "../env";
+import * as http from 'http';
+import { URL } from 'url';
+
+// Ollama API 接口地址
+const OLLAMA_API_URL = 'http://localhost:8716';
 
 /**
  * 隧道服务
@@ -18,14 +19,20 @@ export class DefaultTunnelService implements TunnelService {
   node_id: string = '';
   private reconnectAttempts: number = 0;
   private readonly maxReconnectAttempts: number = 10;
-  private readonly reconnectDelay: number = 2000; // 1秒，与测试一致
+  private readonly reconnectDelay: number = 2000;
   gatewayUrl: string = '';
 
-  // 用于存储消息回调
-  private messageCallbacks: Array<(message: unknown) => void> = [];
+  // 存储已连接的设备
+  private connectedDevices: Set<string> = new Set<string>();
 
-  constructor(
-  ) {
+  // 存储任务处理器
+  private streamHandlers: Map<string, (message: any) => Promise<void>> = new Map();
+  private noStreamHandlers: Map<string, (message: any) => Promise<any>> = new Map();
+
+  // 存储设备与任务的映射关系
+  private deviceTaskMap: Map<string, Set<string>> = new Map();
+
+  constructor() {
     this.socket = io();
   }
 
@@ -33,36 +40,42 @@ export class DefaultTunnelService implements TunnelService {
    * 创建Socket连接
    * @param gatewayAddress 网关地址
    * @param key 认证密钥
-   * @param code 一次性认证码
+   * @param code 一次性认证码（可选）
    */
-  async createSocket(gatewayAddress: string, key: string, code: string): Promise<void> {
+  async createSocket(gatewayAddress: string, key: string, code?: string): Promise<void> {
     try {
       // 从完整地址中提取基础URL
       const url = new URL(gatewayAddress);
       this.gatewayUrl = `${url.protocol}//${url.host}`;
-      const basePath = env().API_SERVER_BASE_PATH;  // 代理转发的基础路径
-      const socketPath = `${basePath}/socket.io`;  // 完整的socket.io路径
+      const basePath = env().API_SERVER_BASE_PATH;
+      const socketPath = `${basePath}/socket.io`;
 
       this.logger.debug('Socket连接配置信息:');
       this.logger.debug(`基础URL: ${this.gatewayUrl}`);
       this.logger.debug(`Socket.IO路径: ${socketPath}`);
+      if (code) {
+        this.logger.debug(`使用认证码: ${code}`);
+      }
 
-      // 创建Socket连接
+      // 创建Socket连接，使用API文档中推荐的配置
       this.socket = io(this.gatewayUrl, {
         path: socketPath,
         reconnection: true,
-        reconnectionAttempts: this.maxReconnectAttempts,
-        reconnectionDelay: this.reconnectDelay,
-        timeout: 60000,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 60000,
+        timeout: 20000,
         transports: ['polling', 'websocket'],
         forceNew: true,
         secure: true,
         rejectUnauthorized: false,
         extraHeaders: {
           'Origin': this.gatewayUrl,
-          'Authorization': `Bearer ${key}`
+          'Authorization': `Bearer ${key}`,
+          ...(code ? { 'X-Auth-Code': code } : {})
         }
       });
+
       // 设置Socket事件监听器
       this.setupSocketListeners();
     } catch (error) {
@@ -79,39 +92,147 @@ export class DefaultTunnelService implements TunnelService {
     this.socket.on('connect', () => {
       this.logger.log('Socket连接成功');
       this.logger.log(`Socket ID: ${this.socket.id}`);
-      this.logger.debug(`Socket路径: ${this.socket.io.opts.path}`);
-      this.logger.debug(`使用URL: ${this.gatewayUrl}`);
       this.reconnectAttempts = 0;
     });
 
-    // 设备连接确认
-    this.socket.on('connected', (deviceId: string) => {
-      this.logger.log(`设备已连接，ID: ${deviceId}`);
+    // 设备注册确认
+    this.socket.on('register_device_ack', (data: { success: boolean, deviceId?: string, error?: string }) => {
+      if (data.success && data.deviceId) {
+        this.logger.log(`设备注册成功，ID: ${data.deviceId}`);
+        this.connectedDevices.add(data.deviceId);
+      } else {
+        this.logger.error(`设备注册失败: ${data.error || '未知错误'}`);
+      }
+    });
+
+    // 任务请求
+    this.socket.on('task_request', async (data: { message: string }) => {
+      try {
+        const { message } = data;
+        const parsedMessage = JSON.parse(message);
+        const { type, taskId, data: taskData } = parsedMessage;
+
+        this.logger.debug(`收到任务请求: ${type}, taskId: ${taskId}`);
+
+        // 处理任务
+        switch (type) {
+          case 'chat_request_stream':
+            await this.handleChatRequestStream(taskId, taskData);
+            break;
+          case 'chat_request_no_stream':
+            await this.handleChatRequestNoStream(taskId, taskData);
+            break;
+          case 'generate_request_stream':
+            await this.handleGenerateRequestStream(taskId, taskData);
+            break;
+          case 'generate_request_no_stream':
+            await this.handleGenerateRequestNoStream(taskId, taskData);
+            break;
+          case 'model_list_request':
+            await this.handleModelListRequest(taskId, taskData);
+            break;
+          case 'model_info_request':
+            await this.handleModelInfoRequest(taskId, taskData);
+            break;
+          case 'proxy_request':
+            await this.handleProxyRequest(taskId, taskData);
+            break;
+          default:
+            this.logger.warn(`未知任务类型: ${type}`);
+            this.socket.emit('task_error', {
+              taskId,
+              error: `不支持的任务类型: ${type}`
+            });
+        }
+      } catch (error) {
+        this.logger.error(`处理任务请求错误: ${error instanceof Error ? error.message : '未知错误'}`);
+      }
+    });
+
+    // 任务响应（非流式）
+    this.socket.on('task_response', async (data: { taskId: string, message: any }) => {
+      try {
+        const { taskId, message } = data;
+        this.logger.debug(`收到任务响应: ${taskId}`);
+
+        const handler = this.noStreamHandlers.get(taskId);
+        if (handler) {
+          await handler(message);
+          // 处理完成后删除处理器
+          this.noStreamHandlers.delete(taskId);
+        } else {
+          this.logger.warn(`未找到任务处理器: ${taskId}`);
+        }
+      } catch (error) {
+        this.logger.error(`处理任务响应错误: ${error instanceof Error ? error.message : '未知错误'}`);
+      }
+    });
+
+    // 任务流式响应
+    this.socket.on('task_stream', async (data: { taskId: string, message: string }) => {
+      try {
+        const { taskId, message } = data;
+
+        const handler = this.streamHandlers.get(taskId);
+        if (handler) {
+          // 解析消息（如果是字符串）
+          let parsedMessage;
+          try {
+            parsedMessage = typeof message === 'string' ? JSON.parse(message) : message;
+          } catch (e) {
+            parsedMessage = message;
+          }
+
+          await handler(parsedMessage);
+
+          // 如果消息中包含完成标志，删除处理器
+          if (typeof parsedMessage === 'object' && parsedMessage.done) {
+            this.streamHandlers.delete(taskId);
+          }
+        } else {
+          this.logger.warn(`未找到流式任务处理器: ${taskId}`);
+        }
+      } catch (error) {
+        this.logger.error(`处理流式任务响应错误: ${error instanceof Error ? error.message : '未知错误'}`);
+      }
+    });
+
+    // 任务错误
+    this.socket.on('task_error', async (data: { taskId: string, error: string }) => {
+      try {
+        const { taskId, error } = data;
+        this.logger.error(`任务错误: ${taskId}, ${error}`);
+
+        // 尝试调用流式和非流式处理器
+        const streamHandler = this.streamHandlers.get(taskId);
+        if (streamHandler) {
+          await streamHandler({ error });
+          this.streamHandlers.delete(taskId);
+        }
+
+        const noStreamHandler = this.noStreamHandlers.get(taskId);
+        if (noStreamHandler) {
+          await noStreamHandler({ error });
+          this.noStreamHandlers.delete(taskId);
+        }
+      } catch (error) {
+        this.logger.error(`处理任务错误响应失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      }
     });
 
     // 连接错误
     this.socket.on('connect_error', (error: Error) => {
       this.logger.error(`Socket连接错误: ${error.message}`);
-      this.logger.error('详细错误:', error);
-      this.logger.debug(`Socket路径: ${this.socket.io.opts.path}`);
-      this.logger.debug(`尝试连接的URL: ${this.gatewayUrl}`);
     });
 
     // 重连尝试
     this.socket.on('reconnect_attempt', (attemptNumber: number) => {
-      this.logger.log(`尝试重新连接 (${attemptNumber}/${this.maxReconnectAttempts})`);
-      // 在重连时切换传输方式
-      this.socket.io.opts.transports = ['polling', 'websocket'];
+      this.logger.log(`尝试重新连接 (${attemptNumber})`);
     });
-
-    // 服务器消息
-    this.socket.on('messageFromServer', this.handleServerMessage.bind(this));
 
     // 连接断开
     this.socket.on('disconnect', (reason: string) => {
       this.logger.warn(`Socket连接断开: ${reason}`);
-      this.logger.debug(`最后一次ping时间: ${this.socket}`);
-      this.logger.debug(`连接状态: ${this.socket.connected}`);
       this.handleDisconnect();
     });
 
@@ -119,55 +240,6 @@ export class DefaultTunnelService implements TunnelService {
     this.socket.on('error', (error: Error) => {
       this.logger.error(`Socket错误: ${error.message}`);
     });
-  }
-
-  /**
-   * 处理来自服务器的消息
-   * @param message 消息内容
-   */
-  async handleServerMessage(message: string): Promise<void | undefined> {
-    try {
-      const serverData = JSON.parse(message);
-
-      // 根据消息类型调用相应的处理方法
-      const messageType = R.prop('type', serverData);
-      const taskId = R.prop('taskId', serverData);
-
-      this.logger.debug(`收到服务器消息，类型: ${messageType}, 任务ID: ${taskId}`);
-
-      switch (messageType) {
-        case 'chat_request_stream':
-          return this.chatRequestStream(serverData);
-        case 'chat_request_no_stream':
-          return this.chatRequestNoStream(serverData);
-        case 'generate_request_stream':
-          return this.generateRequestStream(serverData);
-        case 'generate_request_no_stream':
-          return this.generateRequestNoStream(serverData);
-        case 'proxy_request':
-          return this.proxyRequest(serverData);
-        case 'openai_chat_request':
-          return this.openaiChatRequest(serverData);
-        case 'openai_completion_request':
-          return this.openaiCompletionRequest(serverData);
-        case 'openai_embedding_request':
-          return this.openaiEmbeddingRequest(serverData);
-        case 'openai_models_request':
-          return this.openaiModelsRequest(serverData);
-        case 'openai_model_tags_request':
-          return this.openaiModelTagsRequest(serverData);
-        case 'openai_model_info_request':
-          return this.openaiModelInfoRequest(serverData);
-        case 'openai_version_request':
-          return this.openaiVersionRequest(serverData);
-        default:
-          this.logger.warn(`未知的消息类型: ${messageType}`);
-          return Promise.resolve();
-      }
-    } catch (error) {
-      this.logger.error(`处理消息时出错: ${error instanceof Error ? error.message : '未知错误'}`);
-      return Promise.resolve();
-    }
   }
 
   /**
@@ -179,8 +251,12 @@ export class DefaultTunnelService implements TunnelService {
       this.logger.log(`尝试重新连接 (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
 
       setTimeout(() => {
-        this.connectSocket(this.node_id);
-      }, this.reconnectDelay * this.reconnectAttempts); // 使用退避算法增加延迟
+        if (this.node_id) {
+          this.connectSocket(this.node_id);
+        } else {
+          this.socket.connect();
+        }
+      }, this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1)); // 使用指数退避算法
     } else {
       this.logger.error('达到最大重连尝试次数');
     }
@@ -195,8 +271,10 @@ export class DefaultTunnelService implements TunnelService {
     if (!this.socket.connected) {
       this.socket.connect();
     }
-    this.socket.emit('connectSocket', { deviceId: node_id });
-    this.logger.log(`尝试连接节点，ID: ${node_id}`);
+
+    // 发送设备注册请求
+    this.socket.emit('register_device', { deviceId: node_id });
+    this.logger.log(`发送设备注册请求，ID: ${node_id}`);
   }
 
   /**
@@ -205,532 +283,492 @@ export class DefaultTunnelService implements TunnelService {
   async disconnectSocket(): Promise<void> {
     this.socket.disconnect();
     this.logger.log('Socket连接已断开');
+
+    // 清理状态
+    this.connectedDevices.clear();
+    this.streamHandlers.clear();
+    this.noStreamHandlers.clear();
+    this.deviceTaskMap.clear();
   }
 
   /**
-   * 发送消息到服务器
+   * 发送消息
    * @param message 消息内容
    */
   sendMessage(message: unknown): void {
     try {
       const messageString = typeof message === 'string' ? message : JSON.stringify(message);
-      this.socket.emit('messageFromServer', messageString);
-      this.logger.debug('消息已发送到服务器');
+      this.socket.emit('message', messageString);
+      this.logger.debug('消息已发送');
     } catch (error) {
       this.logger.error(`发送消息失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   }
 
   /**
-   * 注册消息处理回调
-   * @param callback 消息处理回调函数
+   * 向设备发送消息
+   * @param params 发送消息的参数
    */
-  onMessage(callback: (message: unknown) => void): void {
-    this.messageCallbacks.push(callback);
-
-    this.socket.on('messageFromServer', (message: string) => {
-      try {
-        const data = JSON.parse(message);
-        callback(data);
-      } catch (error) {
-        this.logger.error(`解析消息失败: ${error instanceof Error ? error.message : '未知错误'}`);
-      }
-    });
-  }
-
-  /**
-   * 获取一次性认证码
-   */
-  getOneTimeCode(): string {
-    return this.node_id;
-  }
-
-  /**
-   * 创建HTTP请求选项
-   * @param baseUrl 基础URL
-   * @param endpoint 端点路径
-   */
-  private createRequestOptions(baseUrl: string, endpoint: string) {
-    return {
-      url: `${baseUrl}${endpoint}`,
-      timeout: { request: 30000 }
-    };
-  }
-
-  /**
-   * 处理请求错误
-   * @param taskId 任务ID
-   * @param error 错误
-   * @param eventName 事件名称
-   */
-  private handleRequestError(taskId: string, error: unknown, eventName: string): void {
-    const errorMessage = error instanceof Error ? error.message : '未知错误';
-    this.logger.error(`请求处理错误: ${errorMessage}`);
-
-    const errorResponse = {
-      taskId,
-      error: errorMessage
-    };
-
-    this.socket.emit(eventName, errorResponse);
-  }
-
-  /**
-   * 处理非流式聊天请求
-   * @param serverData 服务器数据
-   */
-  async chatRequestNoStream(serverData: { taskId: string, data: z.infer<typeof OllamaChatRequest> }): Promise<void> {
+  async handleSendToDevice(params: { deviceId: string; message: string }): Promise<void> {
     try {
-      const { taskId, data } = serverData;
-      this.logger.debug(`处理非流式聊天请求: ${taskId}`);
+      const { deviceId, message } = params;
 
-      // 构建请求选项
-      const requestOptions = this.createRequestOptions('http://localhost:8716', '/api/chat');
+      // 检查设备是否已连接
+      if (!await this.isDeviceConnected(deviceId)) {
+        throw new Error(`设备未连接: ${deviceId}`);
+      }
 
-      // 添加任务ID到请求数据
-      const requestData = {
-        ...data,
-        taskId
-      };
-
-      // 发送请求并获取响应
-      const responseData = await got.post(requestOptions.url, {
-        json: requestData,
-        timeout: requestOptions.timeout
-      }).json();
-
-      // 发送响应到Socket
-      this.socket.emit('register_stream_no_handler', {
-        taskId,
-        content: JSON.stringify(responseData)
+      // 发送任务请求
+      this.socket.emit('task_request', {
+        deviceId,
+        message
       });
+
+      this.logger.debug(`向设备 ${deviceId} 发送任务请求`);
     } catch (error) {
-      this.handleRequestError(serverData.taskId, error, 'register_stream_no_handler');
+      this.logger.error(`向设备发送消息失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      throw error;
     }
   }
 
   /**
-   * 处理流式聊天请求
-   * @param serverData 服务器数据
+   * 为任务注册流式处理器
+   * @param params 注册流式处理器的参数
    */
-  async chatRequestStream(serverData: { taskId: string, data: z.infer<typeof OllamaChatRequest> }): Promise<void> {
+  async handleRegisterStreamHandler(params: {
+    taskId: string;
+    targetDeviceId: string;
+    onMessage: (message: any) => Promise<void>;
+  }): Promise<void> {
     try {
-      const { taskId, data } = serverData;
-      this.logger.debug(`处理流式聊天请求: ${taskId}`);
+      const { taskId, targetDeviceId, onMessage } = params;
 
-      // 构建请求选项
-      const requestOptions = this.createRequestOptions('http://localhost:8716', '/api/chat');
+      // 存储处理器
+      this.streamHandlers.set(taskId, onMessage);
 
-      // 添加任务ID到请求数据
-      const requestData = {
-        ...data,
-        taskId
+      // 更新设备任务映射
+      if (!this.deviceTaskMap.has(targetDeviceId)) {
+        this.deviceTaskMap.set(targetDeviceId, new Set<string>());
+      }
+      this.deviceTaskMap.get(targetDeviceId)?.add(taskId);
+
+      this.logger.debug(`为任务 ${taskId} 注册流式处理器，目标设备: ${targetDeviceId}`);
+    } catch (error) {
+      this.logger.error(`注册流式处理器失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      throw error;
+    }
+  }
+
+  /**
+   * 为任务注册非流式处理器
+   * @param params 注册非流式处理器的参数
+   */
+  async handleRegisterNoStreamHandler(params: {
+    taskId: string;
+    targetDeviceId: string;
+    onMessage: (message: any) => Promise<any>;
+  }): Promise<void> {
+    try {
+      const { taskId, targetDeviceId, onMessage } = params;
+
+      // 存储处理器
+      this.noStreamHandlers.set(taskId, onMessage);
+
+      // 更新设备任务映射
+      if (!this.deviceTaskMap.has(targetDeviceId)) {
+        this.deviceTaskMap.set(targetDeviceId, new Set<string>());
+      }
+      this.deviceTaskMap.get(targetDeviceId)?.add(taskId);
+
+      this.logger.debug(`为任务 ${taskId} 注册非流式处理器，目标设备: ${targetDeviceId}`);
+    } catch (error) {
+      this.logger.error(`注册非流式处理器失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取所有已连接设备
+   * @returns 已连接设备ID列表
+   */
+  async getConnectedDevices(): Promise<string[]> {
+    return Array.from(this.connectedDevices);
+  }
+
+  /**
+   * 检查设备是否已连接
+   * @param deviceId 设备ID
+   * @returns 设备是否已连接
+   */
+  async isDeviceConnected(deviceId: string): Promise<boolean> {
+    return this.connectedDevices.has(deviceId);
+  }
+
+  /**
+   * 发送HTTP请求到Ollama API
+   * @param method HTTP方法
+   * @param path API路径
+   * @param data 请求数据
+   * @param isStream 是否为流式请求
+   * @returns Promise<响应>
+   */
+  private makeOllamaRequest(method: string, path: string, data?: any, isStream: boolean = false): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const url = new URL(`${OLLAMA_API_URL}${path}`);
+      const options: http.RequestOptions = {
+        method: method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
       };
 
-      // 创建流式请求
-      const stream = got.stream(requestOptions.url, {
-        method: 'POST',
-        json: requestData,
-        timeout: requestOptions.timeout
+      let requestBody: string | undefined;
+      if (data) {
+        requestBody = JSON.stringify(data);
+        options.headers = {
+          ...options.headers,
+          'Content-Length': Buffer.byteLength(requestBody).toString(),
+        };
+      }
+
+      const req = http.request(url, options, (res) => {
+        if (isStream) {
+          resolve(res);
+          return;
+        }
+
+        let responseData = '';
+        res.on('data', (chunk) => {
+          responseData += chunk;
+        });
+
+        res.on('end', () => {
+          try {
+            if (responseData.trim()) {
+              const parsedData = JSON.parse(responseData);
+              resolve(parsedData);
+            } else {
+              resolve({});
+            }
+          } catch (error) {
+            reject(new Error(`解析响应失败: ${error instanceof Error ? error.message : '未知错误'}`));
+          }
+        });
       });
 
-      // 处理流错误
+      req.on('error', (error) => {
+        reject(error);
+      });
+
+      if (requestBody) {
+        req.write(requestBody);
+      }
+      req.end();
+    });
+  }
+
+  /**
+   * 处理流式聊天请求
+   * @param taskId 任务ID
+   * @param data 请求数据
+   */
+  private async handleChatRequestStream(taskId: string, data: any): Promise<void> {
+    try {
+      this.logger.debug(`处理流式聊天请求: ${taskId}`);
+
+      // 调用 Ollama API 处理请求
+      const stream = await this.makeOllamaRequest('POST', '/api/chat', data, true);
+
+      stream.on('data', (chunk: Buffer) => {
+        try {
+          const content = chunk.toString();
+          const lines = content.split('\n').filter(line => line.trim());
+          this.logger.debug(`流式数据: ${lines}`);
+          // for (const line of lines) {
+          //   this.logger.debug(`流式数据line: ${line}`);
+            try {
+              // 发送流式响应
+              this.socket.emit('task_stream', {
+                taskId,
+                message: chunk
+              });
+            } catch (e) {
+              this.logger.error(`解析 JSON 错误: ${e instanceof Error ? e.message : '未知错误'}`);
+            // }
+          }
+        } catch (error) {
+          this.logger.error(`处理流数据错误: ${error instanceof Error ? error.message : '未知错误'}`);
+        }
+      });
+
       stream.on('error', (error: Error) => {
         this.logger.error(`流错误: ${error.message}`);
-        this.socket.emit('chat_stream', {
+        this.socket.emit('task_error', {
           taskId,
           error: error.message
         });
       });
 
-      // 处理流数据
-      stream.on('data', (data: Buffer) => {
-        try {
-          const content = data.toString();
-          this.socket.emit('chat_stream', {
-            taskId,
-            content
-          });
-        } catch (error) {
-          this.logger.error(`处理流数据错误: ${error instanceof Error ? error.message : '未知错误'}`);
-        }
+      stream.on('end', () => {
+        this.logger.debug(`流式聊天请求完成: ${taskId}`);
       });
     } catch (error) {
-      this.handleRequestError(serverData.taskId, error, 'chat_stream');
+      this.logger.error(`处理流式聊天请求错误: ${error instanceof Error ? error.message : '未知错误'}`);
+      this.socket.emit('task_error', {
+        taskId,
+        error: error instanceof Error ? error.message : '未知错误'
+      });
     }
   }
 
   /**
-   * 处理非流式生成请求
-   * @param serverData 服务器数据
+   * 处理非流式聊天请求
+   * @param taskId 任务ID
+   * @param data 请求数据
    */
-  async generateRequestNoStream(serverData: { taskId: string, data: z.infer<typeof OllamaGenerateRequest> }): Promise<void> {
+  private async handleChatRequestNoStream(taskId: string, data: any): Promise<void> {
     try {
-      const { taskId, data } = serverData;
-      this.logger.debug(`处理非流式生成请求: ${taskId}`);
+      this.logger.debug(`处理非流式聊天请求: ${taskId}`);
 
-      // 构建请求选项
-      const requestOptions = this.createRequestOptions('http://localhost:8716', '/api/generate');
+      // 调用 Ollama API 处理请求
+      const response = await this.makeOllamaRequest('POST', '/api/chat', data);
 
-      // 添加任务ID到请求数据
-      const requestData = {
-        ...data,
-        taskId
-      };
-
-      // 发送请求并获取响应
-      const responseData = await got.post(requestOptions.url, {
-        json: requestData,
-        timeout: requestOptions.timeout
-      }).json();
-
-      // 发送响应到Socket
-      this.socket.emit('register_stream_no_handler', {
+      // 发送非流式响应
+      this.socket.emit('task_response', {
         taskId,
-        content: JSON.stringify(responseData)
+        message: response
       });
+
+      this.logger.debug(`非流式聊天请求完成: ${taskId}`);
     } catch (error) {
-      this.handleRequestError(serverData.taskId, error, 'register_stream_no_handler');
+      this.logger.error(`处理非流式聊天请求错误: ${error instanceof Error ? error.message : '未知错误'}`);
+      this.socket.emit('task_error', {
+        taskId,
+        error: error instanceof Error ? error.message : '未知错误'
+      });
     }
   }
 
   /**
    * 处理流式生成请求
-   * @param serverData 服务器数据
+   * @param taskId 任务ID
+   * @param data 请求数据
    */
-  async generateRequestStream(serverData: { taskId: string, data: z.infer<typeof OllamaGenerateRequest> }): Promise<void> {
+  private async handleGenerateRequestStream(taskId: string, data: any): Promise<void> {
     try {
-      const { taskId, data } = serverData;
       this.logger.debug(`处理流式生成请求: ${taskId}`);
 
-      // 构建请求选项
-      const requestOptions = this.createRequestOptions('http://localhost:8716', '/api/generate');
+      // 调用 Ollama API 处理请求
+      const stream = await this.makeOllamaRequest('POST', '/api/generate', data, true);
 
-      // 添加任务ID到请求数据
-      const requestData = {
-        ...data,
-        taskId
-      };
+      stream.on('data', (chunk: Buffer) => {
+        try {
+          const content = chunk.toString();
+          const lines = content.split('\n').filter(line => line.trim());
 
-      // 创建流式请求
-      const stream = got.stream(requestOptions.url, {
-        method: 'POST',
-        json: requestData,
-        timeout: requestOptions.timeout
+          for (const line of lines) {
+            try {
+              // 发送流式响应
+              this.socket.emit('task_stream', {
+                taskId,
+                message: line
+              });
+            } catch (e) {
+              this.logger.error(`解析 JSON 错误: ${e instanceof Error ? e.message : '未知错误'}`);
+            }
+          }
+        } catch (error) {
+          this.logger.error(`处理流数据错误: ${error instanceof Error ? error.message : '未知错误'}`);
+        }
       });
 
-      // 处理流错误
       stream.on('error', (error: Error) => {
         this.logger.error(`流错误: ${error.message}`);
-        this.socket.emit('generate_stream', {
+        this.socket.emit('task_error', {
           taskId,
           error: error.message
         });
       });
 
-      // 处理流数据
-      stream.on('data', (data: Buffer) => {
-        try {
-          const content = data.toString();
-          this.socket.emit('generate_stream', {
-            taskId,
-            content
-          });
-        } catch (error) {
-          this.logger.error(`处理流数据错误: ${error instanceof Error ? error.message : '未知错误'}`);
-        }
+      stream.on('end', () => {
+        this.logger.debug(`流式生成请求完成: ${taskId}`);
       });
     } catch (error) {
-      this.handleRequestError(serverData.taskId, error, 'generate_stream');
+      this.logger.error(`处理流式生成请求错误: ${error instanceof Error ? error.message : '未知错误'}`);
+      this.socket.emit('task_error', {
+        taskId,
+        error: error instanceof Error ? error.message : '未知错误'
+      });
+    }
+  }
+
+  /**
+   * 处理非流式生成请求
+   * @param taskId 任务ID
+   * @param data 请求数据
+   */
+  private async handleGenerateRequestNoStream(taskId: string, data: any): Promise<void> {
+    try {
+      this.logger.debug(`处理非流式生成请求: ${taskId}`);
+
+      // 调用 Ollama API 处理请求
+      const response = await this.makeOllamaRequest('POST', '/api/generate', data);
+
+      // 发送非流式响应
+      this.socket.emit('task_response', {
+        taskId,
+        message: response
+      });
+
+      this.logger.debug(`非流式生成请求完成: ${taskId}`);
+    } catch (error) {
+      this.logger.error(`处理非流式生成请求错误: ${error instanceof Error ? error.message : '未知错误'}`);
+      this.socket.emit('task_error', {
+        taskId,
+        error: error instanceof Error ? error.message : '未知错误'
+      });
+    }
+  }
+
+  /**
+   * 处理模型列表请求
+   * @param taskId 任务ID
+   * @param _ 请求数据（未使用）
+   */
+  private async handleModelListRequest(taskId: string, _: any): Promise<void> {
+    try {
+      this.logger.debug(`处理模型列表请求: ${taskId}`);
+
+      // 调用 Ollama API 处理请求
+      const response = await this.makeOllamaRequest('GET', '/api/tags');
+
+      // 发送响应
+      this.socket.emit('task_response', {
+        taskId,
+        message: response
+      });
+
+      this.logger.debug(`模型列表请求完成: ${taskId}`);
+    } catch (error) {
+      this.logger.error(`处理模型列表请求错误: ${error instanceof Error ? error.message : '未知错误'}`);
+      this.socket.emit('task_error', {
+        taskId,
+        error: error instanceof Error ? error.message : '未知错误'
+      });
+    }
+  }
+
+  /**
+   * 处理模型信息请求
+   * @param taskId 任务ID
+   * @param data 请求数据
+   */
+  private async handleModelInfoRequest(taskId: string, data: any): Promise<void> {
+    try {
+      this.logger.debug(`处理模型信息请求: ${taskId}`);
+
+      if (!data.name) {
+        throw new Error('缺少模型名称');
+      }
+
+      // 调用 Ollama API 处理请求
+      const response = await this.makeOllamaRequest('POST', '/api/show', { name: data.name });
+
+      // 发送响应
+      this.socket.emit('task_response', {
+        taskId,
+        message: response
+      });
+
+      this.logger.debug(`模型信息请求完成: ${taskId}`);
+    } catch (error) {
+      this.logger.error(`处理模型信息请求错误: ${error instanceof Error ? error.message : '未知错误'}`);
+      this.socket.emit('task_error', {
+        taskId,
+        error: error instanceof Error ? error.message : '未知错误'
+      });
     }
   }
 
   /**
    * 处理代理请求
-   * @param serverData 服务器数据
+   * @param taskId 任务ID
+   * @param data 请求数据
    */
-  async proxyRequest(serverData: any): Promise<void> {
+  private async handleProxyRequest(taskId: string, data: any): Promise<void> {
     try {
-      const { taskId, data } = serverData;
       this.logger.debug(`处理代理请求: ${taskId}`);
 
-      const baseUrl = 'http://localhost:8716';
-      const url = `${baseUrl}${data.url}`;
-      const method = data.method.toLowerCase();
-
-      this.logger.debug(`代理请求信息: ${method} ${url}`);
-
-      // 通用请求配置
-      const baseOptions = {
-        timeout: { request: 30000 },
-        headers: data.headers
-      };
-
-      // 根据HTTP方法发送请求
-      let responseData;
-
-      switch (method) {
-        case 'get':
-          responseData = await got.get(url, baseOptions).json();
-          break;
-        case 'post':
-          responseData = await got.post(url, {
-            ...baseOptions,
-            json: data.body
-          }).json();
-          break;
-        case 'put':
-          responseData = await got.put(url, {
-            ...baseOptions,
-            json: data.body
-          }).json();
-          break;
-        case 'delete':
-          responseData = await got.delete(url, {
-            ...baseOptions,
-            json: data.body
-          }).json();
-          break;
-        default:
-          throw new Error(`不支持的HTTP方法: ${method}`);
+      if (!data || !data.method || !data.url) {
+        throw new Error('请求数据不完整');
       }
 
-      // 发送响应到Socket
-      this.socket.emit('proxy_response', {
-        taskId,
-        content: JSON.stringify(responseData)
-      });
-    } catch (error) {
-      this.handleRequestError(serverData.taskId, error, 'proxy_response');
-    }
-  }
+      // 解析请求数据
+      const { method, url, headers, body, userId } = data;
 
-  /**
-   * 处理OpenAI聊天请求
-   * @param serverData 服务器数据
-   */
-  async openaiChatRequest(serverData: { taskId: string, data: any }): Promise<void> {
-    try {
-      const { taskId, data } = serverData;
-      this.logger.debug(`处理OpenAI聊天请求: ${taskId}`);
-      console.log(data)
-      const requestOptions = this.createRequestOptions('http://localhost:8716', '/openai/chat/completions');
-      if (data.stream) {
-        const stream = got.stream(requestOptions.url, {
-          method: 'POST',
-          json: data,
-          timeout: requestOptions.timeout
-        });
+      // 提取路径和查询参数
+      const parsedUrl = new URL(url, 'http://localhost');
+      const path = parsedUrl.pathname;
 
-        stream.on('error', (error: Error) => {
-          this.logger.error(`流错误: ${error.message}`);
-          this.socket.emit('openai_chat_response', {
-            taskId,
-            error: error.message
-          });
-        });
+      // 确定目标API
+      let targetPath = '';
+      let targetMethod = method;
+      let targetBody = body;
 
-        stream.on('data', (data: Buffer) => {
-          try {
-            const content = data.toString();
-            this.socket.emit('openai_chat_response', {
-              taskId,
-              content
-            });
-          } catch (error) {
-            this.logger.error(`处理流数据错误: ${error instanceof Error ? error.message : '未知错误'}`);
-          }
-        });
+      // 根据路径确定目标Ollama API
+      if (path.includes('/api/chat')) {
+        targetPath = '/api/chat';
+      } else if (path.includes('/api/generate')) {
+        targetPath = '/api/generate';
+      } else if (path.includes('/api/embeddings')) {
+        targetPath = '/api/embeddings';
+      } else if (path.includes('/api/tags')) {
+        targetPath = '/api/tags';
+        targetMethod = 'GET';
+      } else if (path.includes('/api/show')) {
+        targetPath = '/api/show';
+      } else if (path.includes('/api/version')) {
+        targetPath = '/api/version';
+        targetMethod = 'GET';
       } else {
-        let response = await got.post(requestOptions.url, {
-          json: data
-        }).json()
-        console.log(response)
-        this.socket.emit('openai_chat_response', {
-          taskId,
-          content: response
-        });
+        throw new Error(`不支持的API路径: ${path}`);
       }
-    } catch (error) {
-      this.handleRequestError(serverData.taskId, error, 'openai_chat_response');
-    }
-  }
 
-  /**
-   * 处理OpenAI补全请求
-   * @param serverData 服务器数据
-   */
-  async openaiCompletionRequest(serverData: { taskId: string, data: any }): Promise<void> {
-    try {
-      const { taskId, data } = serverData;
-      this.logger.debug(`处理OpenAI补全请求: ${taskId}`);
+      // 如果有用户ID，可以在这里处理
+      if (userId) {
+        this.logger.debug(`处理用户ID: ${userId} 的请求`);
+        // 可以在这里添加用户相关的逻辑
+      }
 
-      const requestOptions = this.createRequestOptions('http://localhost:8716', '/openai/completions');
-  
-      if (data.stream) {
-        const stream = got.stream(requestOptions.url, {
-          method: 'POST',
-          json: data,
-          timeout: requestOptions.timeout
-        });
-
-        stream.on('error', (error: Error) => {
-          this.logger.error(`流错误: ${error.message}`);
-          this.socket.emit('openai_completion_response', {
-            taskId,
-            error: error.message
-          });
-        });
-
-        stream.on('data', (data: Buffer) => {
-          try {
-            const content = data.toString();
-            this.socket.emit('openai_completion_response', {
-              taskId,
-              content
-            });
-          } catch (error) {
-            this.logger.error(`处理流数据错误: ${error instanceof Error ? error.message : '未知错误'}`);
-          }
-        });
+      // 调用Ollama API
+      let response;
+      if (targetMethod === 'GET') {
+        response = await this.makeOllamaRequest('GET', targetPath);
       } else {
-        let response = await got.post(requestOptions.url, {
-          json: data
-        }).json()
-        console.log(response)
-        this.socket.emit('openai_completion_response', {
-          taskId,
-          content: response
-        });
+        response = await this.makeOllamaRequest('POST', targetPath, targetBody);
       }
-    } catch (error) {
-      this.handleRequestError(serverData.taskId, error, 'openai_completion_response');
-    }
-  }
 
-  /**
-   * 处理OpenAI嵌入请求
-   * @param serverData 服务器数据
-   */
-  async openaiEmbeddingRequest(serverData: { taskId: string, data: any }): Promise<void> {
-    try {
-      const { taskId, data } = serverData;
-      this.logger.debug(`处理OpenAI嵌入请求: ${taskId}`);
-
-      const requestOptions = this.createRequestOptions('http://localhost:8716', '/openai/embeddings');
-
-      const responseData = await got.post(requestOptions.url, {
-        json: data,
-        timeout: requestOptions.timeout
-      }).json();
-
-      this.socket.emit('openai_embedding_response', {
+      // 发送响应
+      this.socket.emit('task_response', {
         taskId,
-        content: JSON.stringify(responseData)
+        message: response
       });
+
+      this.logger.debug(`代理请求完成: ${taskId}`);
     } catch (error) {
-      this.handleRequestError(serverData.taskId, error, 'openai_embedding_response');
-    }
-  }
-
-  /**
-   * 处理OpenAI模型列表请求
-   * @param serverData 服务器数据
-   */
-  async openaiModelsRequest(serverData: { taskId: string }): Promise<void> {
-    try {
-      const { taskId } = serverData;
-      this.logger.debug(`处理OpenAI模型列表请求: ${taskId}`);
-
-      const requestOptions = this.createRequestOptions('http://localhost:8716', '/openai/models');
-
-      const responseData = await got.get(requestOptions.url, {
-        timeout: requestOptions.timeout
-      }).json();
-
-      this.socket.emit('openai_models_response', {
+      this.logger.error(`处理代理请求错误: ${error instanceof Error ? error.message : '未知错误'}`);
+      this.socket.emit('task_error', {
         taskId,
-        content: JSON.stringify(responseData)
+        error: error instanceof Error ? error.message : '未知错误'
       });
-    } catch (error) {
-      this.handleRequestError(serverData.taskId, error, 'openai_models_response');
-    }
-  }
-
-  /**
-   * 处理OpenAI模型标签请求
-   * @param serverData 服务器数据
-   */
-  async openaiModelTagsRequest(serverData: { taskId: string }): Promise<void> {
-    try {
-      const { taskId } = serverData;
-      this.logger.debug(`处理OpenAI模型标签请求: ${taskId}`);
-
-      const requestOptions = this.createRequestOptions('http://localhost:8716', '/openai/models/tags');
-
-      const responseData = await got.get(requestOptions.url, {
-        timeout: requestOptions.timeout
-      }).json();
-
-      this.socket.emit('openai_model_tags_response', {
-        taskId,
-        content: JSON.stringify(responseData)
-      });
-    } catch (error) {
-      this.handleRequestError(serverData.taskId, error, 'openai_model_tags_response');
-    }
-  }
-
-  /**
-   * 处理OpenAI模型信息请求
-   * @param serverData 服务器数据
-   */
-  async openaiModelInfoRequest(serverData: { taskId: string, data: { name: string } }): Promise<void> {
-    try {
-      const { taskId, data } = serverData;
-      this.logger.debug(`处理OpenAI模型信息请求: ${taskId}`);
-
-      const requestOptions = this.createRequestOptions('http://localhost:8716', `/openai/models/${data.name}`);
-
-      const responseData = await got.get(requestOptions.url, {
-        timeout: requestOptions.timeout
-      }).json();
-
-      this.socket.emit('openai_model_info_response', {
-        taskId,
-        content: JSON.stringify(responseData)
-      });
-    } catch (error) {
-      this.handleRequestError(serverData.taskId, error, 'openai_model_info_response');
-    }
-  }
-
-  /**
-   * 处理OpenAI版本请求
-   * @param serverData 服务器数据
-   */
-  async openaiVersionRequest(serverData: { taskId: string }): Promise<void> {
-    try {
-      const { taskId } = serverData;
-      this.logger.debug(`处理OpenAI版本请求: ${taskId}`);
-
-      const requestOptions = this.createRequestOptions('http://localhost:8716', '/openai/version');
-
-      const responseData = await got.get(requestOptions.url, {
-        timeout: requestOptions.timeout
-      }).json();
-
-      this.socket.emit('openai_version_response', {
-        taskId,
-        content: JSON.stringify(responseData)
-      });
-    } catch (error) {
-      this.handleRequestError(serverData.taskId, error, 'openai_version_response');
     }
   }
 }
 
+// 提供TunnelService的Provider
 export const TunnelServiceProvider = {
   provide: TunnelService,
   useClass: DefaultTunnelService,
 };
+
+export { TunnelService };

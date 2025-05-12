@@ -31,12 +31,12 @@ export class TaskSyncRepository {
   async getCurrentDeviceId(conn: DatabaseTransactionConnection): Promise<string> {
     const result = await conn.maybeOne(SQL.unsafe`
       SELECT id
-      FROM saito_miner.device_status 
-      WHERE status = 'connected' 
-      ORDER BY created_at DESC 
+      FROM saito_miner.device_status
+      WHERE status = 'connected'
+      ORDER BY created_at DESC
       LIMIT 1;
     `);
-    
+
     return R.propOr('24dea62e-95df-4549-b3ba-c9522cd5d5c1', 'id', result);
   }
 
@@ -45,7 +45,7 @@ export class TaskSyncRepository {
    */
   async findExistingTask(conn: DatabaseTransactionConnection, taskId: string): Promise<boolean> {
     const result = await conn.maybeOne(SQL.unsafe`
-      SELECT id, status FROM saito_miner.tasks 
+      SELECT id, status FROM saito_miner.tasks
       WHERE id = ${taskId} AND source = 'gateway'
     `);
 
@@ -58,8 +58,8 @@ export class TaskSyncRepository {
   async updateExistingTask(conn: DatabaseTransactionConnection, task: z.infer<typeof Task>): Promise<void> {
     try {
       await conn.query(SQL.unsafe`
-        UPDATE saito_miner.tasks 
-        SET 
+        UPDATE saito_miner.tasks
+        SET
           model = ${task.model},
           status = ${task.status},
           total_duration = ${task.total_duration},
@@ -83,7 +83,7 @@ export class TaskSyncRepository {
   async updateExistingTaskStatuses(conn: DatabaseTransactionConnection): Promise<void> {
     try {
       await conn.query(SQL.unsafe`
-        UPDATE saito_miner.tasks 
+        UPDATE saito_miner.tasks
         SET status = 'completed'
         WHERE status = 'succeed' AND source = 'gateway'
       `);
@@ -121,7 +121,7 @@ export class TaskSyncRepository {
    */
   async findExistingEarning(conn: DatabaseTransactionConnection, earningId: string): Promise<boolean> {
     const result = await conn.maybeOne(SQL.unsafe`
-      SELECT id FROM saito_miner.earnings 
+      SELECT id FROM saito_miner.earnings
       WHERE id = ${earningId} AND source = 'gateway'
     `);
     return !!result;
@@ -132,12 +132,38 @@ export class TaskSyncRepository {
    */
   async updateExistingEarning(conn: DatabaseTransactionConnection, earning: z.infer<typeof Earning>): Promise<void> {
     try {
+      // 构建动态更新SQL
+      let updateFields = SQL.unsafe`
+        block_rewards = ${earning.block_rewards},
+        job_rewards = ${earning.job_rewards},
+        updated_at = ${earning.updated_at}
+      `;
+
+      // 添加task_id字段（如果存在）
+      if (earning.task_id !== undefined && earning.task_id !== null) {
+        updateFields = SQL.unsafe`${updateFields}, task_id = ${earning.task_id}`;
+      }
+
+      // 添加新字段（如果存在）
+      if (earning.amount !== undefined) {
+        updateFields = SQL.unsafe`${updateFields}, amount = ${earning.amount}`;
+      }
+      if (earning.type !== undefined) {
+        updateFields = SQL.unsafe`${updateFields}, type = ${earning.type}`;
+      }
+      if (earning.status !== undefined) {
+        updateFields = SQL.unsafe`${updateFields}, status = ${earning.status}`;
+      }
+      if (earning.transaction_hash !== undefined) {
+        updateFields = SQL.unsafe`${updateFields}, transaction_hash = ${earning.transaction_hash}`;
+      }
+      if (earning.description !== undefined) {
+        updateFields = SQL.unsafe`${updateFields}, description = ${earning.description}`;
+      }
+
       await conn.query(SQL.unsafe`
-        UPDATE saito_miner.earnings 
-        SET 
-          block_rewards = ${earning.block_rewards},
-          job_rewards = ${earning.job_rewards},
-          updated_at = ${earning.updated_at}
+        UPDATE saito_miner.earnings
+        SET ${updateFields}
         WHERE id = ${earning.id} AND source = 'gateway'
       `);
     } catch (error) {
@@ -151,17 +177,46 @@ export class TaskSyncRepository {
    */
   async createEarning(conn: DatabaseTransactionConnection, earning: z.infer<typeof Earning>): Promise<void> {
     try {
+      // 构建基础字段和值列表
+      let fields = SQL.unsafe`id, block_rewards, job_rewards, created_at, updated_at, source, device_id`;
+      let values = SQL.unsafe`${earning.id}, ${earning.block_rewards}, ${earning.job_rewards},
+          ${earning.created_at}, ${earning.updated_at}, 'gateway', ${earning.device_id}`;
+
+      // 添加task_id字段（如果存在）
+      if (earning.task_id !== undefined && earning.task_id !== null) {
+        fields = SQL.unsafe`${fields}, task_id`;
+        values = SQL.unsafe`${values}, ${earning.task_id}`;
+      }
+
+      // 添加新字段（如果存在）
+      if (earning.amount !== undefined) {
+        fields = SQL.unsafe`${fields}, amount`;
+        values = SQL.unsafe`${values}, ${earning.amount}`;
+      }
+      if (earning.type !== undefined) {
+        fields = SQL.unsafe`${fields}, type`;
+        values = SQL.unsafe`${values}, ${earning.type}`;
+      }
+      if (earning.status !== undefined) {
+        fields = SQL.unsafe`${fields}, status`;
+        values = SQL.unsafe`${values}, ${earning.status}`;
+      }
+      if (earning.transaction_hash !== undefined) {
+        fields = SQL.unsafe`${fields}, transaction_hash`;
+        values = SQL.unsafe`${values}, ${earning.transaction_hash}`;
+      }
+      if (earning.description !== undefined) {
+        fields = SQL.unsafe`${fields}, description`;
+        values = SQL.unsafe`${values}, ${earning.description}`;
+      }
+
       await conn.query(SQL.unsafe`
-        INSERT INTO saito_miner.earnings (
-          id, block_rewards, job_rewards, created_at, updated_at, source, device_id, task_id
-        ) VALUES (
-          ${earning.id}, ${earning.block_rewards}, ${earning.job_rewards},
-          ${earning.created_at}, ${earning.updated_at}, 'gateway', ${earning.device_id}, ${earning.task_id}
-        )
+        INSERT INTO saito_miner.earnings (${fields})
+        VALUES (${values})
       `);
     } catch (error) {
       this.logger.error(`创建收益记录失败: ${earning.id}`, error);
       throw error;
     }
   }
-} 
+}
