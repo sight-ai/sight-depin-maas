@@ -19,7 +19,7 @@ export * from './handlers/ollama-stream.handler';
 export * from './chat/chat-handler';
 
 // Services
-export { OllamaService } from './services/ollama.service';
+export { OllamaService } from './ollama.service';
 
 // Module
 export * from './ollama.module';

@@ -6,7 +6,7 @@ import { DeviceStatusModule } from '@saito/device-status';
 
 // Import from new folder structure
 import { OllamaRepository } from './ollama.repository';
-import OllamaServiceProvider from './services/ollama.service';
+import OllamaServiceProvider from './ollama.service';
 import { OllamaApiClient } from './api/ollama-api.client';
 import { OllamaRequestHandler } from './handlers/ollama-request.handler';
 import { OllamaStreamHandler } from './handlers/ollama-stream.handler';

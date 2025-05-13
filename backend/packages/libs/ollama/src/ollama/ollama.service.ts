@@ -3,7 +3,7 @@ import { Response } from 'express';
 import { z } from 'zod';
 import { MinerService } from '@saito/miner';
 import { DeviceStatusService } from '@saito/device-status';
-import { BaseModelService } from '../core/base-model.service';
+import { BaseModelService } from './core/base-model.service';
 import {
   OllamaChatRequest,
   OllamaGenerateRequest,
@@ -16,12 +16,12 @@ import {
   OpenAICompletionRequest,
   OpenAIChatCompletionRequest
 } from '@saito/models';
-import { OllamaService } from '../core/ollama.interface';
-import { OllamaApiClient } from '../api/ollama-api.client';
-import { OllamaRequestHandler } from '../handlers/ollama-request.handler';
-import { OllamaStreamHandler } from '../handlers/ollama-stream.handler';
-import { ChatHandler } from '../chat/chat-handler';
-import { TaskUpdateData } from '../types/ollama.types';
+import { OllamaService } from './core/ollama.interface';
+import { OllamaApiClient } from './api/ollama-api.client';
+import { OllamaRequestHandler } from './handlers/ollama-request.handler';
+import { OllamaStreamHandler } from './handlers/ollama-stream.handler';
+import { ChatHandler } from './chat/chat-handler';
+import { TaskUpdateData } from './types/ollama.types';
 
 /**
  * Implementation of the Ollama service
