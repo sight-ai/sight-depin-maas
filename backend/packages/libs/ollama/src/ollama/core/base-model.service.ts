@@ -100,4 +100,4 @@ export abstract class BaseModelService {
     this.logger.error(`Failed to parse ${context}: ${error}`);
     return defaultValue;
   }
-} 
+}

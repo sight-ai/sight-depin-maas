@@ -37,6 +37,10 @@ export class ModelController {
   @Post('/generate')
   async generateResponse(@Body() args: OllamaGenerateRequestDto, @Res() res: Response) {
     try {
+       if (args.stream) {
+        res.setHeader('Content-Type', 'application/x-ndjson');
+        res.flushHeaders();
+      }
       await this.ollamaService.complete(args, res);
     } catch (error) {
       this.logger.error('Error during generate response:', error);

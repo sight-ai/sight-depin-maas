@@ -49,6 +49,11 @@ export const OpenAIChatCompletionChunk = z.object({
     }).optional(),
     finish_reason: z.string().nullable(),
   })),
+  usage: z.object({
+    prompt_tokens: z.number(),
+    completion_tokens: z.number(),
+    total_tokens: z.number(),
+  }),
 });
 
 // OpenAI Completion Request (text completion)
@@ -96,6 +101,11 @@ export const OpenAICompletionChunk = z.object({
     index: z.number(),
     finish_reason: z.string().nullable(),
   })),
+  usage: z.object({
+    prompt_tokens: z.number(),
+    completion_tokens: z.number(),
+    total_tokens: z.number(),
+  })
 });
 
 // OpenAI Embeddings Request
