@@ -79,7 +79,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
   async syncTasks(): Promise<void> {
     const gatewayStatus = await this.deviceStatusService.getGatewayStatus();
     if (!gatewayStatus.isRegistered) {
-      
+
       return;
     }
 
@@ -89,7 +89,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
       const { deviceId, gatewayAddress, key } = await this.getConnectionInfo(conn);
 
       if (!gatewayAddress) {
-        
+
         return;
       }
 
@@ -128,7 +128,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
           }
         }));
 
-        
+
       } catch (error) {
         this.logger.error('Error syncing tasks:', error);
         throw error;
@@ -144,7 +144,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
   async syncEarnings(): Promise<void> {
     const gatewayStatus = await this.deviceStatusService.getGatewayStatus();
     if (!gatewayStatus.isRegistered) {
-      
+
       return;
     }
 
@@ -152,7 +152,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
       const { deviceId, gatewayAddress, key } = await this.getConnectionInfo(conn);
 
       if (!gatewayAddress) {
-        
+
         return;
       }
 
@@ -171,7 +171,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
 
 
         if (!earningsResponse.success || !earningsResponse.data) {
-          
+
           return;
         }
 
@@ -179,10 +179,22 @@ export class DefaultTaskSyncService implements TaskSyncService {
         const gatewayEarnings = earningsResponse.data.data;
         let syncedEarnings = 0;
 
+        // 首先获取所有任务ID，用于验证收益记录中的任务ID
+        const taskIds = new Set<string>();
+        try {
+          // 获取本地任务
+          const localTasks = await conn.any(SQL.unsafe`
+            SELECT id FROM saito_miner.tasks
+            WHERE source = 'gateway'
+          `);
+          localTasks.forEach(task => taskIds.add(task.id));
+
+        } catch (error) {
+          this.logger.warn('Failed to fetch existing tasks for validation:', error);
+        }
+
         await Promise.all(gatewayEarnings.map(async (earning) => {
           try {
-            // 记录原始收益数据
-
             // 确保收益记录有设备ID
             if (!earning.device_id) {
               earning.device_id = deviceId;
@@ -200,6 +212,12 @@ export class DefaultTaskSyncService implements TaskSyncService {
             // 如果没有updated_at，使用created_at或当前时间
             if (!earning.updated_at) {
               earning.updated_at = earning.created_at || new Date().toISOString();
+            }
+
+            // 验证任务ID是否存在
+            if (earning.task_id && !taskIds.has(earning.task_id)) {
+              // 如果任务ID不存在，跳过这个收益记录
+              return; // 直接返回，不处理这个收益记录
             }
 
             // 检查收益记录是否已存在
@@ -264,10 +282,10 @@ export class DefaultTaskSyncService implements TaskSyncService {
 
         //       if (exists) {
         //         await this.repository.updateExistingEarning(conn, taskEarning);
-        //         
+        //
         //       } else {
         //         await this.repository.createEarning(conn, taskEarning);
-        //         
+        //
         //         syncedTaskEarnings++;
         //       }
         //     } catch (error) {
@@ -275,7 +293,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
         //     }
         //   }
 
-        //   
+        //
         // }
       } catch (error) {
         this.logger.error('Error syncing earnings:', error);
