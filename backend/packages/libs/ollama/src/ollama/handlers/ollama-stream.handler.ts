@@ -93,33 +93,85 @@ export class OllamaStreamHandler {
     createEarnings: (taskId: string, data: any, deviceId?: string) => Promise<void>
   ): Promise<void> {
     try {
+      // Pass through the chunk as is
       res.write(chunk);
-      const part: any = JSON.parse(chunkStr);
-      this.logger.debug(`Parsed chunk: ${JSON.stringify(part)}`);
-      if (part.done) {
-        // Update task status
-        await updateTask(taskId, {
-          status: 'completed',
-          total_duration: part.usage.total_duration ?? 0,
-          load_duration: part.usage.load_duration ?? 0,
-          prompt_eval_count: part.usage.prompt_tokens ?? 0,
-          prompt_eval_duration: part.usage.prompt_tokens ?? 0,
-          eval_count: part.usage.completion_tokens ?? 0,
-          eval_duration: part.usage.completion_tokens ?? 0
-        });
 
-        // Log token usage
-        this.logger.debug(`Token usage for task ${taskId}: prompt=${part.prompt_eval_count || 0}, completion=${part.eval_count || 0}`);
+      // Check if this is SSE format (starts with "data: ")
+      if (chunkStr.startsWith('data: ')) {
+        // Extract the JSON part
+        const jsonStr = chunkStr.substring(6); // Remove "data: " prefix
 
-        // Create earnings record
-        await createEarnings(taskId, part, part.device_id);
+        // Check if it's the [DONE] marker
+        if (jsonStr === '[DONE]') {
+          return;
+        }
 
-        res.end();
+        try {
+          // Parse the JSON part
+          const part = JSON.parse(jsonStr);
+          this.logger.debug(`Parsed SSE chunk: ${JSON.stringify(part)}`);
+
+          // Check if this is the final chunk (contains finish_reason: "stop")
+          if (part.choices &&
+              part.choices[0] &&
+              part.choices[0].finish_reason === 'stop') {
+
+            // Update task status with any available usage information
+            const usage = part.usage || {};
+            await updateTask(taskId, {
+              status: 'completed',
+              prompt_eval_count: usage.prompt_tokens ?? 0,
+              eval_count: usage.completion_tokens ?? 0
+            });
+
+            // Log token usage
+            this.logger.debug(`Token usage for task ${taskId}: prompt=${usage.prompt_tokens || 0}, completion=${usage.completion_tokens || 0}`);
+
+            // Create earnings record
+            await createEarnings(taskId, {
+              prompt_eval_count: usage.prompt_tokens || 0,
+              eval_count: usage.completion_tokens || 0
+            });
+          }
+        } catch (jsonError) {
+          this.logger.warn(`Failed to parse SSE JSON data: ${jsonError}`);
+        }
+      } else {
+        // Try to parse as regular JSON
+        try {
+          const part = JSON.parse(chunkStr);
+          this.logger.debug(`Parsed regular JSON chunk: ${JSON.stringify(part)}`);
+
+          if (part.done) {
+            // Update task status
+            await updateTask(taskId, {
+              status: 'completed',
+              total_duration: part.total_duration ?? null,
+              load_duration: part.load_duration ?? null,
+              prompt_eval_count: part.prompt_eval_count ?? null,
+              prompt_eval_duration: part.prompt_eval_duration ?? null,
+              eval_count: part.eval_count ?? null,
+              eval_duration: part.eval_duration ?? null
+            });
+
+            // Log token usage
+            this.logger.debug(`Token usage for task ${taskId}: prompt=${part.prompt_eval_count || 0}, completion=${part.eval_count || 0}`);
+
+            // Create earnings record
+            await createEarnings(taskId, part, part.device_id);
+
+            res.end();
+          }
+        } catch (jsonError) {
+          this.logger.warn(`Failed to parse regular JSON chunk: ${jsonError}`);
+        }
       }
     } catch (error) {
-      this.logger.warn(`Failed to parse OpenAI format chunk: ${error}`);
-      // For OpenAI format, we still need to write the chunk even if parsing fails
-      res.write(chunk);
+      this.logger.warn(`Error in handleOpenAIStreamChunk: ${error}`);
+      // Make sure the chunk is written even if there's an error
+      if (!res.writableEnded) {
+        res.write(chunk);
+      }
     }
 
   }
