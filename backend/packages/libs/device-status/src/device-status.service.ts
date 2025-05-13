@@ -413,8 +413,8 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         this.getDeviceType(),
         this.getDeviceModel(),
       ]);
-      this.logger.debug(JSON.stringify(credentials));
-      this.logger.debug(`Registering device with gateway: ${credentials.gateway_address}`);
+      
+      
 
       // Updated to use the new API endpoint according to the documentation
       const response = await got.post(`${credentials.gateway_address}/node/register`, {
@@ -452,7 +452,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
           code: credentials.code,
           isRegistered: true
         };
-        this.logger.debug(`Device registered: ${JSON.stringify(this.deviceConfig)}`);
+        
         await this.updateDeviceStatus(
           this.deviceConfig.deviceId,
           this.deviceConfig.deviceName,
@@ -471,7 +471,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         // Start heartbeat reporting
         this.heartbeat();
 
-        this.logger.log('Device registration successful');
+        
         return {
           success: true,
           error: '',
@@ -501,7 +501,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
 
   async heartbeat() {
     if (!this.deviceConfig.isRegistered) {
-      this.logger.debug('Skipping heartbeat - device not registered');
+      
       return;
     }
 
@@ -517,47 +517,47 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       ]);
 
       // 记录详细的系统信息日志
-      this.logger.debug('Collected system information for heartbeat');
+      
 
       // CPU信息
-      this.logger.debug(`CPU: ${systemInfo.cpu.model} (${systemInfo.cpu.cores} cores, ${systemInfo.cpu.threads} threads)`);
-      this.logger.debug(`CPU Load: ${systemInfo.cpu.usage}%`);
+      
+      
       if (systemInfo.cpu.temperature) {
-        this.logger.debug(`CPU Temperature: ${systemInfo.cpu.temperature}°C`);
+        
       }
 
       // 内存信息
-      this.logger.debug(`Memory: ${systemInfo.memory.used}GB / ${systemInfo.memory.total}GB (${systemInfo.memory.usage}%)`);
+      
 
       // GPU信息
       if (systemInfo.gpu.length > 0) {
         systemInfo.gpu.forEach((gpu, index) => {
-          this.logger.debug(`GPU ${index + 1}: ${gpu.model} (${gpu.vendor})`);
-          this.logger.debug(`GPU ${index + 1} Usage: ${gpu.usage}%`);
+          
+          
 
           if (gpu.temperature) {
-            this.logger.debug(`GPU ${index + 1} Temperature: ${gpu.temperature}°C`);
+            
           }
 
-          this.logger.debug(`GPU ${index + 1} Memory: ${gpu.memory}GB`);
+          
 
           if (gpu.isAppleSilicon) {
-            this.logger.debug(`GPU ${index + 1} Type: Apple Silicon (Unified Memory)`);
+            
           }
         });
       } else {
-        this.logger.debug('GPU: Not available');
+        
       }
 
       // 磁盘信息
-      this.logger.debug(`Disk: ${systemInfo.disk.used}GB / ${systemInfo.disk.total}GB (${systemInfo.disk.usage}%)`);
+      
 
       // 网络信息
-      this.logger.debug(`Network: In ${systemInfo.network.inbound}Mbps, Out ${systemInfo.network.outbound}Mbps`);
+      
 
       // 操作系统信息
-      this.logger.debug(`OS: ${systemInfo.os.name} ${systemInfo.os.version} (${systemInfo.os.arch})`);
-      this.logger.debug(`Uptime: ${formatNumber(systemInfo.os.uptime / 3600)} hours`);
+      
+      
 
       // 创建心跳数据
       const newHeartbeatData = createHeartbeatData(
@@ -590,7 +590,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       //   json: legacyHeartbeatData,
       // });
 
-      this.logger.debug('Heartbeat sent successfully');
+      
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       this.logger.error(`Heartbeat failed: ${errorMessage}`);
@@ -607,35 +607,35 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       // 并行获取所有系统信息
       const [cpuLoad, cpuInfo, cpuTemp, memInfo, gpuInfo, diskInfo, networkInfo, osInfo] = await Promise.all([
         si.currentLoad().catch(err => {
-          this.logger.warn(`Failed to get CPU load: ${err.message}`);
+          
           return { currentLoad: 0 };
         }),
         si.cpu().catch(err => {
-          this.logger.warn(`Failed to get CPU info: ${err.message}`);
+          
           return { manufacturer: '', brand: '', cores: 0, physicalCores: 0, speed: 0 };
         }),
         si.cpuTemperature().catch(err => {
-          this.logger.warn(`Failed to get CPU temperature: ${err.message}`);
+          
           return { main: 0, cores: [], max: 0 };
         }),
         si.mem().catch(err => {
-          this.logger.warn(`Failed to get memory info: ${err.message}`);
+          
           return { total: 1, used: 0, free: 1 };
         }),
         si.graphics().catch(err => {
-          this.logger.warn(`Failed to get GPU info: ${err.message}`);
+          
           return { controllers: [], displays: [] };
         }),
         si.fsSize().catch(err => {
-          this.logger.warn(`Failed to get disk info: ${err.message}`);
+          
           return [];
         }),
         si.networkStats().catch(err => {
-          this.logger.warn(`Failed to get network info: ${err.message}`);
+          
           return [];
         }),
         si.osInfo().catch(err => {
-          this.logger.warn(`Failed to get OS info: ${err.message}`);
+          
           return { distro: '', release: '', arch: '', platform: '', uptime: 0 };
         })
       ]);
@@ -726,10 +726,10 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       // 记录 GPU 信息
       if (gpu.length > 0) {
         gpu.forEach((gpuInfo, index) => {
-          this.logger.debug(`GPU ${index + 1}: ${gpuInfo.model} (${gpuInfo.vendor}), Usage: ${gpuInfo.usage}%, Temp: ${gpuInfo.temperature}°C, Memory: ${gpuInfo.memory}GB`);
+          
         });
       } else {
-        this.logger.debug('No GPU detected');
+        
       }
 
       // 如果没有检测到 GPU，尝试使用其他方法检测
@@ -753,7 +753,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
               isAppleSilicon: true
             });
 
-            this.logger.debug(`Added Apple Silicon GPU: ${chipModel}${chipVariant ? ' ' + chipVariant : ''}`);
+            
           }
           // 检查是否是 Intel 集成显卡
           else if (cpuInfo.manufacturer?.toLowerCase().includes('intel')) {
@@ -780,7 +780,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                       isAppleSilicon: false
                     });
 
-                    this.logger.debug(`Added Intel Integrated GPU with usage: ${gpuUsage}%`);
+                    
                   } catch (e) {
                     // 解析失败，使用默认值
                     gpu.push({
@@ -792,7 +792,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                       isAppleSilicon: false
                     });
 
-                    this.logger.debug(`Added Intel Integrated GPU with estimated usage`);
+                    
                   }
                 } else {
                   // 没有 intel_gpu_top，使用默认值
@@ -805,10 +805,10 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                     isAppleSilicon: false
                   });
 
-                  this.logger.debug(`Added Intel Integrated GPU (no intel_gpu_top available)`);
+                  
                 }
               } catch (error) {
-                this.logger.warn(`Failed to get Intel GPU info: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                
 
                 // 使用默认值
                 gpu.push({
@@ -820,7 +820,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                   isAppleSilicon: false
                 });
 
-                this.logger.debug(`Added Intel Integrated GPU (fallback)`);
+                
               }
             } else if (osInfo.platform === 'win32') {
               // Windows 平台
@@ -833,7 +833,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                 isAppleSilicon: false
               });
 
-              this.logger.debug(`Added Intel Integrated GPU on Windows`);
+              
             } else if (osInfo.platform === 'darwin') {
               // macOS 平台
               gpu.push({
@@ -845,7 +845,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                 isAppleSilicon: false
               });
 
-              this.logger.debug(`Added Intel Integrated GPU on macOS`);
+              
             }
           }
           // 检查是否是 AMD CPU（可能有集成显卡）
@@ -859,7 +859,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
               isAppleSilicon: false
             });
 
-            this.logger.debug(`Added AMD Integrated GPU`);
+            
           }
           // 如果仍然没有检测到 GPU，添加一个通用的集成显卡
           else if (gpu.length === 0) {
@@ -872,10 +872,10 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
               isAppleSilicon: false
             });
 
-            this.logger.debug(`Added generic Integrated GPU`);
+            
           }
         } catch (error) {
-          this.logger.warn(`Failed to detect integrated GPU: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          
         }
       }
 
@@ -908,9 +908,9 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       try {
         // 记录所有网络接口信息以便调试
         if (Array.isArray(networkInfo)) {
-          this.logger.debug(`Found ${networkInfo.length} network interfaces`);
+          
           networkInfo.forEach((net, idx) => {
-            this.logger.debug(`Network interface ${idx+1}: ${net.iface}, state: ${net.operstate}, rx_sec: ${net.rx_sec}, tx_sec: ${net.tx_sec}`);
+            
           });
         }
 
@@ -945,14 +945,14 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                   totalRx += (rxDiff * 8) / 1000; // kbps
                   totalTx += (txDiff * 8) / 1000; // kbps
 
-                  this.logger.debug(`Interface ${stats1[i].iface}: RX ${totalRx.toFixed(2)} kbps, TX ${totalTx.toFixed(2)} kbps`);
+                  
                 }
               }
             }
 
             return { rx: totalRx, tx: totalTx };
           } catch (error) {
-            this.logger.warn(`Failed to get direct network stats: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            
             return { rx: 0, tx: 0 };
           }
         };
@@ -962,7 +962,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         if (directStats.rx > 0 || directStats.tx > 0) {
           networkInbound = directStats.rx;
           networkOutbound = directStats.tx;
-          this.logger.debug(`Using direct network measurement: RX ${networkInbound.toFixed(2)} kbps, TX ${networkOutbound.toFixed(2)} kbps`);
+          
         } else {
           // 回退到原来的方法
           if (Array.isArray(networkInfo) && networkInfo.length > 0) {
@@ -987,7 +987,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
               });
 
               // 记录找到的网络接口
-              this.logger.debug(`Found ${activeInterfaces.length} active network interfaces: ${activeInterfaces.map(net => net.iface).join(', ')}`);
+              
             } else {
               // 如果没有找到活跃接口，使用所有接口
               networkInfo.forEach(net => {
@@ -1037,12 +1037,12 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                   networkInbound = (rxBytes * 8) / 1000;
                   networkOutbound = (txBytes * 8) / 1000;
 
-                  this.logger.debug(`Using /proc/net/dev for network stats: RX ${networkInbound.toFixed(2)} kbps, TX ${networkOutbound.toFixed(2)} kbps`);
+                  
                 }
               }
             }
           } catch (error) {
-            this.logger.warn(`Failed to get network stats from OS: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            
           }
         }
       } catch (error) {
@@ -1065,7 +1065,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         outbound: kbpsToMbps(networkOutbound / 1024) // 转换为 Mbps
       };
 
-      this.logger.debug(`Network traffic: In ${network.inbound}Mbps, Out ${network.outbound}Mbps`);
+      
 
       // 处理操作系统信息
       const os = {
@@ -1266,7 +1266,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
 
       return response.statusCode === 200;
     } catch (error: any) {
-      this.logger.warn(`Ollama service unavailable: ${error.message}`);
+      
       return false;
     }
   }
@@ -1283,7 +1283,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       }).json();
       return response as Promise<z.infer<typeof OllamaModelList>>;
     } catch (error: any) {
-      this.logger.warn(`Failed to get local models: ${error.message}`);
+      
       return {
         models: []
       };

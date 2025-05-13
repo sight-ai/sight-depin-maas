@@ -64,7 +64,7 @@ export class ModelController {
 
   @Get('/tags')
   async listModelTags() {
-    this.logger.debug('Listing model tags');
+    
     return R.tryCatch(
       () => this.ollamaService.listModelTags(),
       (error) => {

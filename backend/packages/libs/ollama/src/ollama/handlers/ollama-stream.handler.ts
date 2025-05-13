@@ -44,7 +44,7 @@ export class OllamaStreamHandler {
       try {
         hasReceivedData = true;
         const chunkStr = chunk.toString();
-        this.logger.debug(`Stream chunk: ${chunkStr}`);
+        
 
         if (isOpenAI) {
           await this.handleOpenAIStreamChunk(chunk, chunkStr, res, taskId, endpoint, updateTask, createEarnings);
@@ -52,7 +52,7 @@ export class OllamaStreamHandler {
           await this.handleOllamaStreamChunk(chunk, chunkStr, res, taskId, updateTask, createEarnings);
         }
       } catch (err) {
-        this.logger.warn(`Error processing stream chunk: ${err}`);
+        
       }
     });
 
@@ -109,7 +109,7 @@ export class OllamaStreamHandler {
         try {
           // Parse the JSON part
           const part = JSON.parse(jsonStr);
-          this.logger.debug(`Parsed SSE chunk: ${JSON.stringify(part)}`);
+          
 
           // Check if this is the final chunk (contains finish_reason: "stop")
           if (part.choices &&
@@ -125,7 +125,7 @@ export class OllamaStreamHandler {
             });
 
             // Log token usage
-            this.logger.debug(`Token usage for task ${taskId}: prompt=${usage.prompt_tokens || 0}, completion=${usage.completion_tokens || 0}`);
+            
 
             // Create earnings record
             await createEarnings(taskId, {
@@ -134,13 +134,13 @@ export class OllamaStreamHandler {
             });
           }
         } catch (jsonError) {
-          this.logger.warn(`Failed to parse SSE JSON data: ${jsonError}`);
+          
         }
       } else {
         // Try to parse as regular JSON
         try {
           const part = JSON.parse(chunkStr);
-          this.logger.debug(`Parsed regular JSON chunk: ${JSON.stringify(part)}`);
+          
 
           if (part.done) {
             // Update task status
@@ -155,7 +155,7 @@ export class OllamaStreamHandler {
             });
 
             // Log token usage
-            this.logger.debug(`Token usage for task ${taskId}: prompt=${part.prompt_eval_count || 0}, completion=${part.eval_count || 0}`);
+            
 
             // Create earnings record
             await createEarnings(taskId, part, part.device_id);
@@ -163,11 +163,11 @@ export class OllamaStreamHandler {
             res.end();
           }
         } catch (jsonError) {
-          this.logger.warn(`Failed to parse regular JSON chunk: ${jsonError}`);
+          
         }
       }
     } catch (error) {
-      this.logger.warn(`Error in handleOpenAIStreamChunk: ${error}`);
+      
       // Make sure the chunk is written even if there's an error
       if (!res.writableEnded) {
         res.write(chunk);
@@ -206,7 +206,7 @@ export class OllamaStreamHandler {
         });
 
         // Log token usage
-        this.logger.debug(`Token usage for task ${taskId}: prompt=${part.prompt_eval_count || 0}, completion=${part.eval_count || 0}`);
+        
 
         // Create earnings record
         await createEarnings(taskId, part, part.device_id);
@@ -214,7 +214,7 @@ export class OllamaStreamHandler {
         res.end();
       }
     } catch (parseError) {
-      this.logger.warn(`Failed to parse Ollama format chunk: ${parseError}`);
+      
       // For Ollama format, we still need to write the chunk even if parsing fails
       res.write(chunk);
     }

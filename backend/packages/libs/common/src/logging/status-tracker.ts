@@ -6,7 +6,7 @@ export class StatusTracker {
 
   setStatus(status: 'online' | 'offline') {
     if (this.status !== status) {
-      this.logger.log(`status changed to [${status}]...`);
+      
     }
     this.status = status;
   }

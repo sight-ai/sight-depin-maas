@@ -12,7 +12,7 @@ export class OllamaApiClient {
   private readonly baseUrl = env().OLLAMA_API_URL;
 
   constructor() {
-    this.logger.log(`Initialized OllamaApiClient with baseUrl: ${this.baseUrl}`);
+    
   }
 
   /**
@@ -39,8 +39,8 @@ export class OllamaApiClient {
     const apiEndpoint = this.getApiEndpoint(endpoint);
     const url = new URL(apiEndpoint, this.baseUrl);
     
-    this.logger.debug(`Creating stream for ${url.toString()}`);
-    this.logger.debug(`Creating data for ${JSON.stringify(data)}`);
+    
+    
     
     return got.stream(url.toString(), {
       method: 'POST',

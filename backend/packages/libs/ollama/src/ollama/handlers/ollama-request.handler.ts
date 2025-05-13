@@ -46,7 +46,7 @@ export class OllamaRequestHandler {
       // Create task
       const task = await createTask(processedArgs.model, processedArgs.task_id, processedArgs.device_id);
       await updateTask(task.id, { status: 'running' });
-      this.logger.log(`Created task with ID: ${task.id} for model: ${processedArgs.model} stream: ${processedArgs.stream}`);
+      
 
       // Handle streaming or non-streaming request
       if (processedArgs.stream) {
@@ -118,7 +118,7 @@ export class OllamaRequestHandler {
         if (!res.headersSent) {
           // Log token usage information if available
           if (responseBody.prompt_eval_count || responseBody.eval_count) {
-            this.logger.debug(`Token usage for task ${taskId}: prompt=${responseBody.prompt_eval_count || 0}, completion=${responseBody.eval_count || 0}`);
+            
           }
 
           // Return the response as is, without any format conversion

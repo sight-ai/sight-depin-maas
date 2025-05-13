@@ -61,7 +61,7 @@ export class MinerController {
 
   @Get('/summary')
   async getSummary(@Query() query: SummaryQueryDto = { timeRange: { request_serials: 'daily', filteredTaskActivity: {} } }) {
-    this.logger.log(`Getting summary with timeRange: ${JSON.stringify(query.timeRange)}`);
+    
     try {
       return await this.minerService.getSummary(query.timeRange);
     } catch (error) {

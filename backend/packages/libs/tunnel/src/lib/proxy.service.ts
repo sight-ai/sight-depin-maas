@@ -45,9 +45,9 @@ export class ProxyService {
    */
   async proxyRequest(req: Request): Promise<any> {
     try {
-      this.logger.debug('proxyRequest: getTargetNode');
+      
       const idleNode = await this.getTargetNode();
-      this.logger.debug('proxyRequest: getTargetNode', idleNode);
+      
       
       // 确保idleNode不为空
       if (!idleNode) {
@@ -64,8 +64,8 @@ export class ProxyService {
         userId = 'anonymous';
       }
       
-      this.logger.debug('idleNode proxyRequest userId:', userId);
-      this.logger.debug('userID proxyRequest:', userId);
+      
+      
       
       return new Promise((resolve, reject) => {
         // 注册响应处理器

@@ -12,7 +12,7 @@ export class OllamaRepository {
     @Inject(PersistentService)
     private readonly persistentService: PersistentService,
   ) { 
-    this.logger.log('OllamaRepository initialized');
+    
   }
 
   /**

@@ -35,7 +35,7 @@ export class OpenAIController {
   @Post('/chat/completions')
   async chatCompletions(@Body() args: OpenAIChatCompletionRequestDto, @Res() res: Response) {
     try {
-      this.logger.debug('OpenAI chat completions request:', args);
+      
 
       if (args.stream) {
         res.setHeader('Content-Type', 'text/event-stream');
@@ -55,7 +55,7 @@ export class OpenAIController {
   @Post('/completions')
   async completions(@Body() args: OpenAICompletionRequestDto, @Res() res: Response) {
     try {
-      this.logger.debug('OpenAI completions request:', args);
+      
 
       if (args.stream) {
         res.setHeader('Content-Type', 'text/event-stream');
@@ -75,7 +75,7 @@ export class OpenAIController {
   @Post('/embeddings')
   async embeddings(@Body() args: OpenAIEmbeddingsRequestDto, @Res() res: Response) {
     try {
-      this.logger.debug('OpenAI embeddings request:', args);
+      
 
       // Convert OpenAI format to Ollama format
       const ollamaRequest = {
@@ -121,7 +121,7 @@ export class OpenAIController {
   @Get('/models')
   async listModels(@Res() res: Response) {
     try {
-      this.logger.debug('OpenAI list models request');
+      
 
       const ollamaModels = await this.ollamaService.listModelTags();
 
@@ -146,7 +146,7 @@ export class OpenAIController {
   @Get('/models/:model')
   async getModel(@Param('model') modelName: string, @Res() res: Response) {
     try {
-      this.logger.debug(`OpenAI get model request: ${modelName}`);
+      
 
       const modelInfo = await this.ollamaService.showModelInformation({ name: modelName });
 
@@ -170,7 +170,7 @@ export class OpenAIController {
   @Get('/version')
   async getVersion(@Res() res: Response) {
     try {
-      this.logger.debug('OpenAI version request');
+      
 
       const versionInfo = await this.ollamaService.showModelVersion();
 

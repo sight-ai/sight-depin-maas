@@ -18,7 +18,7 @@ export class DeviceStatusController {
   async register(@Res() res: Response, @Body() body: RegisterDeviceDto) {
     try {
       const data = await this.deviceStatusService.register(body);
-      this.logger.debug('register', data);
+      
       
       if (data.success) {
         res.status(200).send('Registration successful, starting heartbeat');

@@ -47,7 +47,7 @@ export class DefaultOllamaService extends BaseModelService implements OllamaServ
     this.requestHandler = new OllamaRequestHandler(this.apiClient, this.streamHandler);
     this.chatHandler = new ChatHandler(this.apiClient, this.streamHandler);
     
-    this.logger.log('Initialized DefaultOllamaService');
+    
   }
 
   // Public API methods
@@ -60,7 +60,7 @@ export class DefaultOllamaService extends BaseModelService implements OllamaServ
     res: Response, 
     pathname = 'api/generate'
   ): Promise<void> {
-    this.logger.debug(`Complete request with pathname: ${pathname}`);
+    
     await this.chatHandler.handleCompletionRequest(
       args, 
       res, 
@@ -79,7 +79,7 @@ export class DefaultOllamaService extends BaseModelService implements OllamaServ
     res: Response, 
     pathname = 'api/chat'
   ): Promise<void> {
-    this.logger.debug(`Chat request with pathname: ${pathname}`);
+    
     await this.chatHandler.handleChatRequest(
       args, 
       res, 

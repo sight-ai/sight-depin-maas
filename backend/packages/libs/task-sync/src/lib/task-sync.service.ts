@@ -79,7 +79,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
   async syncTasks(): Promise<void> {
     const gatewayStatus = await this.deviceStatusService.getGatewayStatus();
     if (!gatewayStatus.isRegistered) {
-      this.logger.debug('Device not registered, skipping task sync');
+      
       return;
     }
 
@@ -89,7 +89,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
       const { deviceId, gatewayAddress, key } = await this.getConnectionInfo(conn);
 
       if (!gatewayAddress) {
-        this.logger.warn('Gateway address not available, skipping task sync');
+        
         return;
       }
 
@@ -128,7 +128,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
           }
         }));
 
-        this.logger.debug(`Synced ${gatewayTasks.length} tasks from gateway`);
+        
       } catch (error) {
         this.logger.error('Error syncing tasks:', error);
         throw error;
@@ -144,7 +144,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
   async syncEarnings(): Promise<void> {
     const gatewayStatus = await this.deviceStatusService.getGatewayStatus();
     if (!gatewayStatus.isRegistered) {
-      this.logger.debug('Device not registered, skipping earnings sync');
+      
       return;
     }
 
@@ -152,7 +152,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
       const { deviceId, gatewayAddress, key } = await this.getConnectionInfo(conn);
 
       if (!gatewayAddress) {
-        this.logger.warn('Gateway address not available, skipping earnings sync');
+        
         return;
       }
 
@@ -171,7 +171,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
 
 
         if (!earningsResponse.success || !earningsResponse.data) {
-          this.logger.warn('Invalid response format from gateway earnings endpoint');
+          
           return;
         }
 
@@ -264,10 +264,10 @@ export class DefaultTaskSyncService implements TaskSyncService {
 
         //       if (exists) {
         //         await this.repository.updateExistingEarning(conn, taskEarning);
-        //         this.logger.debug(`Updated task earning: ${taskEarning.id}`);
+        //         
         //       } else {
         //         await this.repository.createEarning(conn, taskEarning);
-        //         this.logger.debug(`Created new task earning: ${taskEarning.id}`);
+        //         
         //         syncedTaskEarnings++;
         //       }
         //     } catch (error) {
@@ -275,7 +275,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
         //     }
         //   }
 
-        //   this.logger.debug(`Synced ${syncedTaskEarnings} task earnings from gateway`);
+        //   
         // }
       } catch (error) {
         this.logger.error('Error syncing earnings:', error);
