@@ -181,6 +181,7 @@ export class TaskSyncRepository {
       let fields = SQL.unsafe`id, block_rewards, job_rewards, created_at, updated_at, source, device_id`;
       let values = SQL.unsafe`${earning.id}, ${earning.block_rewards}, ${earning.job_rewards},
           ${earning.created_at}, ${earning.updated_at}, 'gateway', ${earning.device_id}`;
+      this.logger.debug(`${JSON.stringify(earning)}`);
 
       // 添加task_id字段（如果存在）
       if (earning.task_id !== undefined && earning.task_id !== null) {
@@ -209,7 +210,7 @@ export class TaskSyncRepository {
         fields = SQL.unsafe`${fields}, description`;
         values = SQL.unsafe`${values}, ${earning.description}`;
       }
-
+     
       await conn.query(SQL.unsafe`
         INSERT INTO saito_miner.earnings (${fields})
         VALUES (${values})

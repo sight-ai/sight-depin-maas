@@ -441,7 +441,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         };
         message?: string;
       };
-
+      this.logger.debug(`Register response: ${JSON.stringify(response)}`);
       if (response.success && response.data) {
         this.deviceConfig = {
           deviceId: response.data.node_id || '',
