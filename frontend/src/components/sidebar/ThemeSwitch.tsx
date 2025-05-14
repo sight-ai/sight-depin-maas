@@ -7,7 +7,7 @@ export function ThemeSwitch() {
 
     return (
         <div className="p-5 ">
-            <div className="flex items-center justify-between">
+            {/* <div className="flex items-center justify-between">
                 <div className='flex flex-col '>
                     <span className="text-base font-medium">DAYTIME</span>
                     <span className="text-base font-medium">THEME</span>
@@ -19,7 +19,7 @@ export function ThemeSwitch() {
                     <div className="switch-bg"></div>
                     <div className="switch-thumb"></div>
                 </div>
-            </div>
+            </div> */}
         </div>
     )
 }

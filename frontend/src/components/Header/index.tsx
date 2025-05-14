@@ -41,7 +41,7 @@ export const Header = () => {
                 <span className="font-medium flex items-center gap-2" style={{
                     color: isDark ? '#000' : '#fff'
                 }}>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 font-ibm-mono">
                         <div className="flex items-center gap-1">
                             <div 
                                 className="w-2 h-2 rounded-full" 
@@ -78,7 +78,7 @@ export const Header = () => {
                 <span className="font-medium flex items-center gap-2" style={{
                     color: isDark ? '#000' : '#fff'
                 }}>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 font-ibm-mono">
                     Active Devices 
                     </div>
                 </span>
@@ -95,7 +95,7 @@ export const Header = () => {
                 <span className="font-medium flex items-center gap-2" style={{
                     color: isDark ? '#000' : '#fff'
                 }}>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 font-ibm-mono">
                         {formatAddress(data?.reward_address || '')}
                     </div>
                 </span>

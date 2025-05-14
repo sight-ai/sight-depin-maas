@@ -26,10 +26,13 @@ export function DeviceCard({
     error: string | null;
     onFilterChange: (filter: { year?: string; month?: string; view?: 'Month' | 'Year' }) => void;
 }) {
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear().toString();
+    const currentMonth = currentDate.toLocaleString('en-US', { month: 'short' });
     const { isDark } = useThemeCus()
-    const [selectedYear, setSelectedYear] = useState('2025')
-    const [selectedMonth, setSelectedMonth] = useState('Mar')
-    const [view, setView] = useState<'Month' | 'Year'>('Year')
+    const [selectedYear, setSelectedYear] = useState(currentYear)
+    const [selectedMonth, setSelectedMonth] = useState(currentMonth)
+    const [view, setView] = useState<'Month' | 'Year'>('Month')
 
     const deviceInfo = summary?.device_info
     const {
@@ -284,8 +287,8 @@ export function DeviceCard({
 
 // Helper function to determine color based on activity level
 function getColorForActivity(count: number, isDark: boolean) {
-    if (count === 0) return isDark ? '#333' : '#E5E7EB';
-    if (count < 5) return '#c0befe';
-    if (count < 10) return '#807cfc';
-    return '#0800ff';
+    if (count === 0) return isDark ? '#333' : '#C9C9C9';
+    if (count < 5) return '#7D7D7D';
+    if (count < 10) return '#000000';
+    return '#7D7D7D';
 }
