@@ -1280,7 +1280,7 @@ const handleReportModelsCommand = async (options) => {
   try {
     logInfo('Reporting selected models...');
     // Choose the appropriate endpoint based on registration status
-    const endpoint = isRegistered = 'http://localhost:8716/api/v1/models/report'  // Use registered endpoint if registered
+    const endpoint = 'http://localhost:8716/api/v1/models/report'  // Use registered endpoint if registered
 
     const response = await fetch(endpoint, {
       method: 'POST',
