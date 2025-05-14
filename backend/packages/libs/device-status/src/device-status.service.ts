@@ -428,7 +428,10 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
           device_type: deviceType,
           gpu_type: deviceModel,
           ip: ipAddress,
-          local_models: await this.getLocalModels()
+          local_models: {
+            models: []
+          }
+          // local_models: await this.getLocalModels()
         },
       }).json() as {
         success: boolean;

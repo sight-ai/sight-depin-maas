@@ -1,0 +1,29 @@
+{
+  "name": "lib-model-reporting",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/libs/model-reporting/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/libs/model-reporting",
+        "main": "packages/libs/model-reporting/src/index.ts",
+        "tsConfig": "packages/libs/model-reporting/tsconfig.lib.json",
+        "assets": ["packages/libs/model-reporting/*.md"]
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "packages/libs/model-reporting/**/*.ts",
+          "packages/libs/model-reporting/package.json"
+        ]
+      }
+    }
+  },
+  "tags": []
+}

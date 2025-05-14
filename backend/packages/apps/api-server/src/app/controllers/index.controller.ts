@@ -14,4 +14,13 @@ export class IndexController {
   health(): string {
     return 'OK';
   }
+
+  @ApiExcludeEndpoint()
+  @Get('/api/v1/health')
+  apiHealth(): { status: string, timestamp: string } {
+    return {
+      status: 'OK',
+      timestamp: new Date().toISOString()
+    };
+  }
 }

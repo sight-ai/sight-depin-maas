@@ -546,7 +546,7 @@ const openBrowser = (url) => {
   logInfo(`Opening ${url} in default browser...`);
 
   const command = process.platform === 'win32' ? 'start' :
-                  process.platform === 'darwin' ? 'open' : 'xdg-open';
+    process.platform === 'darwin' ? 'open' : 'xdg-open';
 
   shell.exec(`${command} ${url}`, { silent: true });
 };
@@ -757,6 +757,8 @@ const registerDevice = async (options) => {
 
     if (response.ok) {
       logSuccess('Device registered successfully');
+      logInfo('Starting heartbeat reporting...');
+      await handleReportModelsCommand(options);
       return true;
     } else {
       const responseText = await response.text();
@@ -840,7 +842,7 @@ const runRemoteMode = async (options) => {
 
   // Validate remote mode parameters
   if (!options.gatewayUrl || !options.nodeCode || !options.gatewayApiKey ||
-      !options.rewardAddress || !options.apiBasePath) {
+    !options.rewardAddress || !options.apiBasePath) {
     logError('Missing required parameters for remote mode');
     return false;
   }
@@ -960,6 +962,29 @@ const updateMiner = async () => {
   }
 };
 
+// Check if device is registered to the gateway
+const checkGatewayRegistration = async () => {
+  logInfo('Checking if device is registered to the gateway...');
+
+  try {
+    const response = await fetch('http://localhost:8716/api/v1/device-status/gateway-status', {
+      method: 'GET',
+      timeout: 5000
+    });
+
+    if (!response.ok) {
+      logWarning('Failed to check gateway registration status');
+      return false;
+    }
+
+    const data = await response.json();
+    return data.isRegistered;
+  } catch (error) {
+    logWarning(`Failed to check gateway registration: ${error.message}`);
+    return false;
+  }
+};
+
 // Error handling
 class MinerError extends Error {
   constructor(message, code, details = {}) {
@@ -1036,9 +1061,9 @@ const run = async (options) => {
   }
 
   // Pull deepscaler model
-  // if (!await pullDeepseekModel()) {
-  //   return false;
-  // }
+  if (!await pullDeepseekModel()) {
+    return false;
+  }
 
   // Get GPU info
   const gpuInfo = await getGpuInfo();
@@ -1111,6 +1136,185 @@ const selectMode = async () => {
   return options;
 };
 
+// Fetch models from backend API
+const fetchModels = async () => {
+  logInfo('Fetching models from backend API...');
+
+  try {
+    // Try to fetch from the local API server
+    const response = await fetch('http://localhost:8716/api/v1/models/list', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      timeout: 5000
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch models: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    logSuccess('Successfully fetched models from backend');
+    return data.models || [];
+  } catch (error) {
+    // If the first attempt fails, try the Ollama API directly
+    try {
+      logInfo('Trying to fetch models directly from Ollama API...');
+      const ollamaResponse = await fetch(`http://localhost:${CONFIG.ports.ollama}/api/tags`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        timeout: 5000
+      });
+
+      if (!ollamaResponse.ok) {
+        throw new Error(`Failed to fetch models from Ollama: ${ollamaResponse.statusText}`);
+      }
+
+      const ollamaData = await ollamaResponse.json();
+      logSuccess('Successfully fetched models from Ollama API');
+      return ollamaData.models || [];
+    } catch (ollamaError) {
+      logError(`Failed to fetch models: ${error.message}`);
+      logError(`Ollama API error: ${ollamaError.message}`);
+      return [];
+    }
+  }
+};
+
+// Handle report models command
+const handleReportModelsCommand = async (options) => {
+  // Check if backend is running
+  logInfo('Checking if backend service is running...');
+
+  try {
+    const response = await fetch('http://localhost:8716/api/v1/health', {
+      method: 'GET',
+      timeout: 3000
+    });
+
+    if (!response.ok) {
+      logError('Backend service is not running. Please start the miner first.');
+      return false;
+    }
+  } catch (error) {
+    logError('Backend service is not running. Please start the miner first.');
+    return false;
+  }
+
+  // Check if device is registered to the gateway
+  const isRegistered = await checkGatewayRegistration();
+  if (!isRegistered) {
+    logWarning('Device is not registered to the gateway. Models will not be reported.');
+    return
+  }
+
+  let selectedModels = [];
+  // Fetch models and allow selection
+  const spinner = ora('Fetching available models...').start();
+  const models = await fetchModels();
+  spinner.stop();
+
+  if (models.length === 0) {
+    logError('No models found. Please ensure Ollama is running and has models installed.');
+    return false;
+  }
+
+  // Display models and allow selection
+  logSuccess(`Found ${models.length} models`);
+
+  // Format model information for display
+  const modelChoices = models.map(model => {
+    const size = model.size ? `(${(model.size / (1024 * 1024 * 1024)).toFixed(2)} GB)` : '';
+    const modified = model.modified_at ? `- Last modified: ${new Date(model.modified_at).toLocaleString()}` : '';
+    return {
+      name: `${model.name} ${size} ${modified}`,
+      value: model.name,
+      checked: true // Default all models to be selected
+    };
+  });
+
+  const result = await inquirer.prompt([
+    {
+      type: 'checkbox',
+      name: 'selectedModels',
+      message: 'Select models to report:',
+      choices: modelChoices,
+      pageSize: 20,
+      validate: (answer) => {
+        if (answer.length < 1) {
+          return 'You must select at least one model.';
+        }
+        return true;
+      }
+    }
+  ]);
+
+  selectedModels = result.selectedModels;
+
+  if (selectedModels.length === 0) {
+    logWarning('No models selected. Operation cancelled.');
+    return false;
+  }
+
+  // Confirm selection
+  const { confirm } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'confirm',
+      message: `You've selected ${selectedModels.length} models to report. Continue?`,
+      default: true
+    }
+  ]);
+
+  if (!confirm) {
+    logInfo('Operation cancelled by user');
+    return false;
+  }
+
+  // Report selected models
+  const reportSpinner = ora(`Reporting selected models${!isRegistered ? ' (without gateway registration)' : ''}...`).start();
+
+  try {
+    logInfo('Reporting selected models...');
+    // Choose the appropriate endpoint based on registration status
+    const endpoint = isRegistered = 'http://localhost:8716/api/v1/models/report'  // Use registered endpoint if registered
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ models: selectedModels }),
+      timeout: 10000
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to report models: ${response.statusText} handleReportModelsCommand`);
+    }
+
+    const data = await response.json();
+    reportSpinner.stop();
+
+    if (data.success) {
+      if (isRegistered) {
+        logSuccess('Models successfully reported to gateway');
+      } else {
+        logWarning('Models successfully reported without device registration. To report to the gateway, please register your device first using the "run" command with remote mode.');
+      }
+      return true;
+    } else {
+      logError(`Failed to report models: ${data.error || 'Unknown error'}`);
+      return false;
+    }
+  } catch (error) {
+    reportSpinner.stop();
+    logError(`Failed to report models: ${error.message}`);
+    return false;
+  }
+};
+
 // CLI Interface
 class CLI {
   constructor() {
@@ -1144,7 +1348,7 @@ class CLI {
           } else if (options.mode === 'remote') {
             // Validate required parameters for remote mode
             if (!options.gatewayUrl || !options.nodeCode || !options.gatewayApiKey ||
-                !options.rewardAddress || !options.apiBasePath) {
+              !options.rewardAddress || !options.apiBasePath) {
               const missingParams = [];
               if (!options.gatewayUrl) missingParams.push('--gateway-url');
               if (!options.nodeCode) missingParams.push('--node-code');
@@ -1161,6 +1365,18 @@ class CLI {
           }
 
           await run(options);
+        } catch (error) {
+          handleError(error);
+        }
+      });
+
+    // Report models command (without registration)
+    this.program
+      .command('report-models')
+      .description('Report selected models without device registration')
+      .action(async (options) => {
+        try {
+          await handleReportModelsCommand(options);
         } catch (error) {
           handleError(error);
         }
