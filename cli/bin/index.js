@@ -677,7 +677,7 @@ const startServices = async (options = {}) => {
     const dockerRunArgs = [
       'run', '-d',
       '-p', `${CONFIG.ports.webui}:${CONFIG.ports.webui}`,
-      '-e', `OLLAMA_BASE_URL=${mode === 'remote' ? gatewayUrl : 'http://host.docker.internal:8716'}`,
+      '-e', `OLLAMA_BASE_URL=${mode === 'remote' ? `${gatewayUrl}/ollama` : 'http://host.docker.internal:8716'}`,
       '--add-host=host.docker.internal:host-gateway',
       '-v', 'ollama:/root/.ollama',
       '-v', 'open-webui:/app/backend/data',
@@ -758,7 +758,25 @@ const registerDevice = async (options) => {
     if (response.ok) {
       logSuccess('Device registered successfully');
       logInfo('Starting heartbeat reporting...');
-      await handleReportModelsCommand(options);
+
+      // Ask user if they want to select models to report
+      const { selectModels } = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'selectModels',
+          message: 'Would you like to select which models to report to the gateway?',
+          default: true
+        }
+      ]);
+
+      if (selectModels) {
+        await handleReportModelsCommand(options);
+      } else {
+        logInfo('Skipping model selection. All available models will be reported automatically.');
+        // Report all models automatically
+        await handleReportModelsCommand({ ...options, skipSelection: true });
+      }
+
       return true;
     } else {
       const responseText = await response.text();
@@ -1185,7 +1203,7 @@ const fetchModels = async () => {
 };
 
 // Handle report models command
-const handleReportModelsCommand = async (options) => {
+const handleReportModelsCommand = async (options = {}) => {
   // Check if backend is running
   logInfo('Checking if backend service is running...');
 
@@ -1207,8 +1225,26 @@ const handleReportModelsCommand = async (options) => {
   // Check if device is registered to the gateway
   const isRegistered = await checkGatewayRegistration();
   if (!isRegistered) {
-    logWarning('Device is not registered to the gateway. Models will not be reported.');
-    return
+    // If not registered and not coming from device registration flow
+    if (!options.skipSelection) {
+      const { continueWithoutRegistration } = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'continueWithoutRegistration',
+          message: 'Device is not registered to the gateway. Models will be stored locally but not reported to the gateway. Continue?',
+          default: false
+        }
+      ]);
+
+      if (!continueWithoutRegistration) {
+        logInfo('Operation cancelled. Please register your device first using the "run" command with remote mode.');
+        return false;
+      }
+    }
+
+    logWarning('Continuing without gateway registration. Models will be stored locally only.');
+  } else {
+    logSuccess('Device is registered to the gateway. Models will be reported to the gateway.');
   }
 
   let selectedModels = [];
@@ -1225,53 +1261,59 @@ const handleReportModelsCommand = async (options) => {
   // Display models and allow selection
   logSuccess(`Found ${models.length} models`);
 
-  // Format model information for display
-  const modelChoices = models.map(model => {
-    const size = model.size ? `(${(model.size / (1024 * 1024 * 1024)).toFixed(2)} GB)` : '';
-    const modified = model.modified_at ? `- Last modified: ${new Date(model.modified_at).toLocaleString()}` : '';
-    return {
-      name: `${model.name} ${size} ${modified}`,
-      value: model.name,
-      checked: true // Default all models to be selected
-    };
-  });
+  if (options.skipSelection) {
+    // If skipSelection is true, select all models automatically
+    selectedModels = models.map(model => model.name);
+    logInfo(`Automatically selecting all ${selectedModels.length} models for reporting.`);
+  } else {
+    // Format model information for display
+    const modelChoices = models.map(model => {
+      const size = model.size ? `(${(model.size / (1024 * 1024 * 1024)).toFixed(2)} GB)` : '';
+      const modified = model.modified_at ? `- Last modified: ${new Date(model.modified_at).toLocaleString()}` : '';
+      return {
+        name: `${model.name} ${size} ${modified}`,
+        value: model.name,
+        checked: true // Default all models to be selected
+      };
+    });
 
-  const result = await inquirer.prompt([
-    {
-      type: 'checkbox',
-      name: 'selectedModels',
-      message: 'Select models to report:',
-      choices: modelChoices,
-      pageSize: 20,
-      validate: (answer) => {
-        if (answer.length < 1) {
-          return 'You must select at least one model.';
+    const result = await inquirer.prompt([
+      {
+        type: 'checkbox',
+        name: 'selectedModels',
+        message: 'Select models to report:',
+        choices: modelChoices,
+        pageSize: 20,
+        validate: (answer) => {
+          if (answer.length < 1) {
+            return 'You must select at least one model.';
+          }
+          return true;
         }
-        return true;
       }
+    ]);
+
+    selectedModels = result.selectedModels;
+
+    if (selectedModels.length === 0) {
+      logWarning('No models selected. Operation cancelled.');
+      return false;
     }
-  ]);
 
-  selectedModels = result.selectedModels;
+    // Confirm selection
+    const { confirm } = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'confirm',
+        message: `You've selected ${selectedModels.length} models to report. Continue?`,
+        default: true
+      }
+    ]);
 
-  if (selectedModels.length === 0) {
-    logWarning('No models selected. Operation cancelled.');
-    return false;
-  }
-
-  // Confirm selection
-  const { confirm } = await inquirer.prompt([
-    {
-      type: 'confirm',
-      name: 'confirm',
-      message: `You've selected ${selectedModels.length} models to report. Continue?`,
-      default: true
+    if (!confirm) {
+      logInfo('Operation cancelled by user');
+      return false;
     }
-  ]);
-
-  if (!confirm) {
-    logInfo('Operation cancelled by user');
-    return false;
   }
 
   // Report selected models
@@ -1300,8 +1342,17 @@ const handleReportModelsCommand = async (options) => {
     if (data.success) {
       if (isRegistered) {
         logSuccess('Models successfully reported to gateway');
+
+        // Display reported models in a table format
+        console.log('\n╔════════════════════════════════════════════════════════════╗');
+        console.log('║                   Reported Models                          ║');
+        console.log('╠════════════════════════════════════════════════════════════╣');
+        selectedModels.forEach(model => {
+          console.log(`║  ${chalk.green('✓')} ${model.padEnd(60, ' ')} ║`);
+        });
+        console.log('╚════════════════════════════════════════════════════════════╝');
       } else {
-        logWarning('Models successfully reported without device registration. To report to the gateway, please register your device first using the "run" command with remote mode.');
+        logWarning('Models successfully stored locally but not reported to gateway. To report to the gateway, please register your device first using the "run" command with remote mode.');
       }
       return true;
     } else {
@@ -1370,13 +1421,16 @@ class CLI {
         }
       });
 
-    // Report models command (without registration)
+    // Report models command
     this.program
       .command('report-models')
-      .description('Report selected models without device registration')
-      .action(async (options) => {
+      .description('Select and report models to the gateway')
+      .option('-a, --all', 'Report all available models without selection prompt')
+      .action(async (cmdOptions) => {
         try {
-          await handleReportModelsCommand(options);
+          await handleReportModelsCommand({
+            skipSelection: cmdOptions.all
+          });
         } catch (error) {
           handleError(error);
         }
