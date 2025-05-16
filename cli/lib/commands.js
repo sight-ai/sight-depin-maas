@@ -6,7 +6,8 @@ const { CONFIG } = require('./config');
 const { logInfo, logSuccess, logError } = require('./logger');
 const { checkRequirements, checkOllamaService, getGpuInfo } = require('./system-check');
 const { pullDeepseekModel, handleReportModelsCommand } = require('./model-manager');
-const { registerDevice, checkMinerStatus } = require('./device-manager');
+const { registerDevice, reRegisterDevice, checkMinerStatus } = require('./device-manager');
+const { hasRegistrationParams } = require('./storage');
 const {
   downloadComposeFile,
   createOverrideFile,
@@ -14,6 +15,8 @@ const {
   deployOpenWebUI,
   stopMiner,
   showLogs,
+  saveContainerLogs,
+  saveAllContainerLogs,
   updateMiner,
   cleanMiner
 } = require('./docker-manager');
@@ -249,6 +252,9 @@ const setupCommands = (program) => {
     .description('View miner logs')
     .option('-f, --follow', 'Follow log output')
     .option('-n, --lines <number>', 'Number of lines to show', '100')
+    .option('-s, --save', 'Save logs to file')
+    .option('-c, --container <name>', 'Save logs for a specific container')
+    .option('-a, --all', 'Save logs for all running containers')
     .action(async (options) => {
       try {
         const lines = parseInt(options.lines, 10);
@@ -260,7 +266,20 @@ const setupCommands = (program) => {
           );
         }
 
-        await showLogs(lines, options.follow);
+        // 如果指定了保存所有容器日志
+        if (options.all) {
+          await saveAllContainerLogs(lines);
+          return;
+        }
+
+        // 如果指定了容器名称，则保存该容器的日志
+        if (options.container) {
+          await saveContainerLogs(options.container, lines);
+          return;
+        }
+
+        // 否则显示所有日志
+        await showLogs(lines, options.follow, options.save);
       } catch (error) {
         handleError(error);
       }
@@ -319,6 +338,57 @@ const setupCommands = (program) => {
         }
 
         await cleanMiner(options.all);
+      } catch (error) {
+        handleError(error);
+      }
+    });
+
+  // 重新注册命令
+  program
+    .command('re-register')
+    .description('Re-register device using previously saved registration parameters')
+    .option('-f, --force', 'Force remove existing containers if they exist')
+    .action(async (cmdOptions) => {
+      try {
+        // 检查是否有保存的注册参数
+        if (!hasRegistrationParams()) {
+          logError('No saved registration parameters found. Please register first using the "run" command with remote mode.');
+          return;
+        }
+
+        // 检查系统要求
+        if (!await checkRequirements()) {
+          return false;
+        }
+
+        // 检查Ollama服务
+        if (!await checkOllamaService()) {
+          return false;
+        }
+
+        // 拉取deepscaler模型
+        if (!await pullDeepseekModel()) {
+          return false;
+        }
+
+        // 获取GPU信息
+        const gpuInfo = await getGpuInfo();
+
+        // 下载docker-compose.yml文件
+        if (!await downloadComposeFile()) {
+          return false;
+        }
+
+        // 创建docker-compose.override.yml文件 (将在reRegisterDevice中获取保存的参数)
+        createOverrideFile('remote', { gpuInfo });
+
+        // 启动服务
+        if (!await startServices({ mode: 'remote', force: cmdOptions.force })) {
+          return false;
+        }
+
+        // 使用保存的参数重新注册设备
+        await reRegisterDevice({ gpuInfo });
       } catch (error) {
         handleError(error);
       }

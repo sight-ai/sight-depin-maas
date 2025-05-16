@@ -4,6 +4,7 @@
 const fetch = require('node-fetch');
 const inquirer = require('inquirer');
 const { logInfo, logSuccess, logError, logWarning } = require('./logger');
+const { saveRegistrationParams, loadRegistrationParams } = require('./storage');
 const { handleReportModelsCommand } = require('./model-manager');
 
 // 注册设备到服务器
@@ -34,7 +35,10 @@ const registerDevice = async (options) => {
     if (response.ok) {
       logSuccess('Device registered successfully');
       logInfo('Starting heartbeat reporting...');
-      
+
+      // 保存注册参数以便将来重新注册
+      saveRegistrationParams(options);
+
       // 询问用户是否要选择要报告的模型
       const { selectModels } = await inquirer.prompt([
         {
@@ -44,7 +48,7 @@ const registerDevice = async (options) => {
           default: true
         }
       ]);
-      
+
       if (selectModels) {
         await handleReportModelsCommand(options);
       } else {
@@ -52,7 +56,7 @@ const registerDevice = async (options) => {
         // 自动报告所有模型
         await handleReportModelsCommand({ ...options, skipSelection: true });
       }
-      
+
       return true;
     } else {
       const responseText = await response.text();
@@ -86,6 +90,33 @@ const registerDevice = async (options) => {
   }
 };
 
+// 使用保存的参数重新注册设备
+const reRegisterDevice = async (options = {}) => {
+  logInfo('Re-registering device with saved parameters...');
+
+  // 加载保存的注册参数
+  const savedParams = loadRegistrationParams();
+
+  if (!savedParams) {
+    logError('No saved registration parameters found. Please register first using the "run" command with remote mode.');
+    return false;
+  }
+
+  logInfo(`Using saved registration parameters from: ${savedParams.timestamp}`);
+  logInfo(`Gateway URL: ${savedParams.gatewayUrl}`);
+  logInfo(`Reward Address: ${savedParams.rewardAddress}`);
+
+  // 合并保存的参数和传入的选项
+  const registrationOptions = {
+    ...savedParams,
+    ...options,
+    gpuInfo: options.gpuInfo || { model: 'Unknown' }
+  };
+
+  // 执行注册
+  return await registerDevice(registrationOptions);
+};
+
 // 检查矿工状态
 const checkMinerStatus = () => {
   logInfo('Checking miner status...');
@@ -95,5 +126,6 @@ const checkMinerStatus = () => {
 
 module.exports = {
   registerDevice,
+  reRegisterDevice,
   checkMinerStatus
 };
