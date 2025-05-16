@@ -1,10 +1,11 @@
 {
-  "name": "sight-ai-miner-cli",
+  "name": "@sight-ai/sight-cli",
   "version": "1.0.11",
-  "description": "Sight AI Miner CLI - A tool for running and managing the Sight AI Miner",
+  "description": "Sight AI Node CLI - A tool for running and managing the Sight AI node",
   "main": "bin/index.js",
   "bin": {
-    "sight-miner": "./bin/index.js"
+    "sight-miner": "./bin/index.js",
+    "sight-cli": "./bin/index.js"
   },
   "preferGlobal": true,
   "scripts": {
@@ -12,11 +13,9 @@
   },
   "keywords": [
     "sight-ai",
-    "miner",
     "cli",
     "ai",
-    "deepscaler",
-    "ollama"
+    "model"
   ],
   "author": "Sight AI",
   "license": "MIT",
@@ -37,12 +36,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sight-ai/miner-cli.git"
+    "url": "git+https://github.com/sight-ai/sight-depin-maas.git"
   },
   "bugs": {
-    "url": "https://github.com/sight-ai/miner-cli/issues"
+    "url": "https://github.com/sight-ai/sight-depin-maas/issues"
   },
-  "homepage": "https://github.com/sight-ai/miner-cli#readme",
+  "homepage": "https://github.com/sight-ai/sight-depin-maas#readme",
   "publishConfig": {
     "access": "public"
   }
