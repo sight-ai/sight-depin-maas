@@ -110,29 +110,23 @@ export class DefaultTunnelService implements TunnelService {
       try {
         const { message } = data;
         const parsedMessage = JSON.parse(message);
-        const { type, taskId, data: taskData } = parsedMessage;
+        const { type, taskId, data: taskData, path } = parsedMessage;
 
-        this.logger.debug(`收到任务请求: ${type}, taskId: ${taskId}`);
+        this.logger.debug(`收到任务请求: ${type}, taskId: ${taskId} path: ${path}`);
 
         // 处理任务
         switch (type) {
           case 'chat_request_stream':
-            await this.handleChatRequestStream(taskId, taskData);
+            await this.handleChatRequestStream(taskId, taskData, path);
             break;
           case 'chat_request_no_stream':
-            await this.handleChatRequestNoStream(taskId, taskData);
+            await this.handleChatRequestNoStream(taskId, taskData, path);
             break;
           case 'generate_request_stream':
-            await this.handleGenerateRequestStream(taskId, taskData);
+            await this.handleGenerateRequestStream(taskId, taskData, path);
             break;
           case 'generate_request_no_stream':
-            await this.handleGenerateRequestNoStream(taskId, taskData);
-            break;
-          case 'model_list_request':
-            await this.handleModelListRequest(taskId, taskData);
-            break;
-          case 'model_info_request':
-            await this.handleModelInfoRequest(taskId, taskData);
+            await this.handleGenerateRequestNoStream(taskId, taskData, path);
             break;
           case 'proxy_request':
             await this.handleProxyRequest(taskId, taskData);
@@ -413,6 +407,7 @@ export class DefaultTunnelService implements TunnelService {
    * @returns Promise<响应>
    */
   private makeOllamaRequest(method: string, path: string, data?: any, isStream: boolean = false): Promise<any> {
+    this.logger.debug(`发送HTTP请求到Ollama API: ${method} ${path}`);
     return new Promise((resolve, reject) => {
       const url = new URL(`${OLLAMA_API_URL}${path}`);
       const options: http.RequestOptions = {
@@ -471,30 +466,25 @@ export class DefaultTunnelService implements TunnelService {
    * 处理流式聊天请求
    * @param taskId 任务ID
    * @param data 请求数据
+   * @param path 路径
    */
-  private async handleChatRequestStream(taskId: string, data: any): Promise<void> {
+  private async handleChatRequestStream(taskId: string, data: any, path: string): Promise<void> {
     try {
       this.logger.debug(`处理流式聊天请求: ${taskId}`);
+      this.logger.debug(`处理流式聊天请求: ${taskId}, path: ${path} data: ${JSON.stringify(data)}`);
 
       // 调用 Ollama API 处理请求
-      const stream = await this.makeOllamaRequest('POST', '/api/chat', data, true);
+      const stream = await this.makeOllamaRequest('POST', path, data, true);
 
       stream.on('data', (chunk: Buffer) => {
         try {
-          const content = chunk.toString();
-          const lines = content.split('\n').filter(line => line.trim());
-          this.logger.debug(`流式数据: ${lines}`);
-          // for (const line of lines) {
-          //   this.logger.debug(`流式数据line: ${line}`);
             try {
-              // 发送流式响应
               this.socket.emit('task_stream', {
                 taskId,
                 message: chunk
               });
             } catch (e) {
               this.logger.error(`解析 JSON 错误: ${e instanceof Error ? e.message : '未知错误'}`);
-            // }
           }
         } catch (error) {
           this.logger.error(`处理流数据错误: ${error instanceof Error ? error.message : '未知错误'}`);
@@ -526,12 +516,12 @@ export class DefaultTunnelService implements TunnelService {
    * @param taskId 任务ID
    * @param data 请求数据
    */
-  private async handleChatRequestNoStream(taskId: string, data: any): Promise<void> {
+  private async handleChatRequestNoStream(taskId: string, data: any, path: string): Promise<void> {
     try {
       this.logger.debug(`处理非流式聊天请求: ${taskId}`);
 
       // 调用 Ollama API 处理请求
-      const response = await this.makeOllamaRequest('POST', '/api/chat', data);
+      const response = await this.makeOllamaRequest('POST', path, data);
 
       // 发送非流式响应
       this.socket.emit('task_response', {
@@ -554,12 +544,12 @@ export class DefaultTunnelService implements TunnelService {
    * @param taskId 任务ID
    * @param data 请求数据
    */
-  private async handleGenerateRequestStream(taskId: string, data: any): Promise<void> {
+  private async handleGenerateRequestStream(taskId: string, data: any, path: string): Promise<void> {
     try {
       this.logger.debug(`处理流式生成请求: ${taskId}`);
 
       // 调用 Ollama API 处理请求
-      const stream = await this.makeOllamaRequest('POST', '/api/generate', data, true);
+      const stream = await this.makeOllamaRequest('POST', path, data, true);
 
       stream.on('data', (chunk: Buffer) => {
         try {
@@ -607,12 +597,12 @@ export class DefaultTunnelService implements TunnelService {
    * @param taskId 任务ID
    * @param data 请求数据
    */
-  private async handleGenerateRequestNoStream(taskId: string, data: any): Promise<void> {
+  private async handleGenerateRequestNoStream(taskId: string, data: any, path: string): Promise<void> {
     try {
       this.logger.debug(`处理非流式生成请求: ${taskId}`);
 
       // 调用 Ollama API 处理请求
-      const response = await this.makeOllamaRequest('POST', '/api/generate', data);
+      const response = await this.makeOllamaRequest('POST', path, data);
 
       // 发送非流式响应
       this.socket.emit('task_response', {
@@ -623,66 +613,6 @@ export class DefaultTunnelService implements TunnelService {
       this.logger.debug(`非流式生成请求完成: ${taskId}`);
     } catch (error) {
       this.logger.error(`处理非流式生成请求错误: ${error instanceof Error ? error.message : '未知错误'}`);
-      this.socket.emit('task_error', {
-        taskId,
-        error: error instanceof Error ? error.message : '未知错误'
-      });
-    }
-  }
-
-  /**
-   * 处理模型列表请求
-   * @param taskId 任务ID
-   * @param _ 请求数据（未使用）
-   */
-  private async handleModelListRequest(taskId: string, _: any): Promise<void> {
-    try {
-      this.logger.debug(`处理模型列表请求: ${taskId}`);
-
-      // 调用 Ollama API 处理请求
-      const response = await this.makeOllamaRequest('GET', '/api/tags');
-
-      // 发送响应
-      this.socket.emit('task_response', {
-        taskId,
-        message: response
-      });
-
-      this.logger.debug(`模型列表请求完成: ${taskId}`);
-    } catch (error) {
-      this.logger.error(`处理模型列表请求错误: ${error instanceof Error ? error.message : '未知错误'}`);
-      this.socket.emit('task_error', {
-        taskId,
-        error: error instanceof Error ? error.message : '未知错误'
-      });
-    }
-  }
-
-  /**
-   * 处理模型信息请求
-   * @param taskId 任务ID
-   * @param data 请求数据
-   */
-  private async handleModelInfoRequest(taskId: string, data: any): Promise<void> {
-    try {
-      this.logger.debug(`处理模型信息请求: ${taskId}`);
-
-      if (!data.name) {
-        throw new Error('缺少模型名称');
-      }
-
-      // 调用 Ollama API 处理请求
-      const response = await this.makeOllamaRequest('POST', '/api/show', { name: data.name });
-
-      // 发送响应
-      this.socket.emit('task_response', {
-        taskId,
-        message: response
-      });
-
-      this.logger.debug(`模型信息请求完成: ${taskId}`);
-    } catch (error) {
-      this.logger.error(`处理模型信息请求错误: ${error instanceof Error ? error.message : '未知错误'}`);
       this.socket.emit('task_error', {
         taskId,
         error: error instanceof Error ? error.message : '未知错误'
@@ -729,6 +659,9 @@ export class DefaultTunnelService implements TunnelService {
         targetPath = '/api/show';
       } else if (path.includes('/api/version')) {
         targetPath = '/api/version';
+        targetMethod = 'GET';
+      } else if (path.includes('/openai/v1/models')) {
+        targetPath = '/v1/models';
         targetMethod = 'GET';
       } else {
         throw new Error(`不支持的API路径: ${path}`);

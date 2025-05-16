@@ -62,7 +62,7 @@ export class DefaultMinerService implements MinerService {
     @Inject(MinerRepository) private readonly repository: MinerRepository,
     @Inject(DeviceStatusService) private readonly deviceStatusService: DeviceStatusService,
   ) {
-    this.logger.log('MinerService initialized');
+    
   }
 
   private async withRetry<T>(
@@ -79,7 +79,7 @@ export class DefaultMinerService implements MinerService {
           throw error;
         }
         const delay = BASE_RETRY_DELAY * Math.pow(2, attempt);
-        this.logger.warn(`${operationName} failed (attempt ${attempt + 1}/${maxRetries}), retrying in ${delay}ms: ${error}`);
+        
         await new Promise(resolve => setTimeout(resolve, delay));
         return retryWithDelay(attempt + 1);
       }
@@ -88,7 +88,7 @@ export class DefaultMinerService implements MinerService {
   }
 
   async createTask(args: ModelOfMiner<'CreateTaskRequest'>): Promise<ModelOfMiner<'Task'>> {
-    this.logger.log(`Creating task for model: ${args.model}`);
+    
     
     return this.withRetry(async () => {
       return this.repository.transaction(async conn => {
@@ -110,7 +110,7 @@ export class DefaultMinerService implements MinerService {
       view?: 'Month' | 'Year' 
     }
   }): Promise<ModelOfMiner<'Summary'>> {
-    this.logger.log(`Getting summary with timeRange: ${JSON.stringify(timeRange || {})}`);
+    
     
     return this.withRetry(async () => {
       return this.repository.transaction(async conn => {
@@ -164,7 +164,7 @@ export class DefaultMinerService implements MinerService {
   }
 
   async getTaskHistory(page: number, limit: number) {
-    this.logger.log(`Getting task history, page: ${page}, limit: ${limit}`);
+    
     
     return this.withRetry(async () => {
       return this.repository.transaction(async conn => {
@@ -178,7 +178,7 @@ export class DefaultMinerService implements MinerService {
   }
 
   async updateTask(id: string, updates: Partial<ModelOfMiner<'Task'>>): Promise<ModelOfMiner<'Task'>> {
-    this.logger.log(`Updating task ${id} with status: ${updates.status || 'unchanged'}`);
+    
     
     return this.withRetry(async () => {
       return this.repository.transaction(async conn => {
@@ -209,7 +209,7 @@ export class DefaultMinerService implements MinerService {
     taskId: string, 
     deviceId: string
   ): Promise<{ total_block_rewards: number; total_job_rewards: number }> {
-    this.logger.log(`Creating earnings: block=${blockRewards}, job=${jobRewards} for task ${taskId}`);
+    
     
     return this.withRetry(async () => {
       return this.repository.transaction(async conn => {
@@ -246,7 +246,7 @@ export class DefaultMinerService implements MinerService {
   }
 
   async getDeviceTasks(deviceId: string): Promise<ModelOfMiner<'Task'>[]> {
-    this.logger.log(`Getting tasks for device ${deviceId}`);
+    
     
     return this.withRetry(async () => {
       const isRegistered = await this.deviceStatusService.isRegistered();
@@ -257,7 +257,7 @@ export class DefaultMinerService implements MinerService {
   }
 
   async getDeviceEarnings(deviceId: string): Promise<ModelOfMiner<'Earning'>[]> {
-    this.logger.log(`Getting earnings for device ${deviceId}`);
+    
     
     return this.withRetry(async () => {
       const isRegistered = await this.deviceStatusService.isRegistered();
@@ -282,7 +282,7 @@ export class DefaultMinerService implements MinerService {
         }
         
         if (staleTasks.length > 0) {
-          this.logger.log(`Updated ${staleTasks.length} stale in-progress tasks to failed status`);
+          
         }
       });
     }, MAX_DB_RETRIES, 'update stale tasks').catch(error => {

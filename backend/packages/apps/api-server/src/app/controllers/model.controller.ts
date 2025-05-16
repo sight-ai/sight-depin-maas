@@ -27,7 +27,7 @@ const handleApiError = (res: Response, error: unknown, model?: string) => {
   }
 };
 
-@Controller('/api/')
+@Controller(['/api/', 'ollama/api/'])
 export class ModelController {
   private readonly logger = new Logger(ModelController.name);
   constructor(
@@ -37,6 +37,10 @@ export class ModelController {
   @Post('/generate')
   async generateResponse(@Body() args: OllamaGenerateRequestDto, @Res() res: Response) {
     try {
+       if (args.stream) {
+        res.setHeader('Content-Type', 'application/x-ndjson');
+        res.flushHeaders();
+      }
       await this.ollamaService.complete(args, res);
     } catch (error) {
       this.logger.error('Error during generate response:', error);
@@ -60,7 +64,7 @@ export class ModelController {
 
   @Get('/tags')
   async listModelTags() {
-    this.logger.debug('Listing model tags');
+    
     return R.tryCatch(
       () => this.ollamaService.listModelTags(),
       (error) => {

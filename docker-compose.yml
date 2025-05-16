@@ -1,7 +1,7 @@
 services:
   sight-miner-backend:
     platform: linux/amd64
-    image: ghcr.io/sight-ai/sight-miner-backend:0.0.19-SNAPSHOT
+    image: ghcr.io/sight-ai/sight-miner-backend:0.0.20-SNAPSHOT
     ports:
       - "8716:8716"
     networks:
@@ -11,7 +11,7 @@ services:
         condition: service_healthy
   sight-miner-frontend:
     platform: linux/amd64
-    image: ghcr.io/sight-ai/sight-miner-frontend:0.0.8-SNAPSHOT
+    image: ghcr.io/sight-ai/sight-miner-frontend:0.0.9-SNAPSHOT
     ports:
       - "3000:3000"
     networks:

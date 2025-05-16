@@ -288,7 +288,7 @@ export class MinerRepository {
     model: string, 
     deviceId: string
   ): Promise<ModelOfMiner<'Task'>> {
-    this.logger.log(`Creating task for model: ${model}, deviceId: ${deviceId}`);
+    
     const result = await conn.one(SQL.unsafe`
       insert into saito_miner.tasks (
         id,

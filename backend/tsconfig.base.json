@@ -25,7 +25,8 @@
       "@saito/miner": ["packages/libs/miner/src/index.ts"],
       "@saito/tunnel": ["packages/libs/tunnel/src/index.ts"],
       "@saito/device-status": ["packages/libs/device-status/src/index.ts"],
-      "@saito/task-sync": ["packages/libs/task-sync/src/index.ts"]
+      "@saito/task-sync": ["packages/libs/task-sync/src/index.ts"],
+      "@saito/model-reporting": ["packages/libs/model-reporting/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"],

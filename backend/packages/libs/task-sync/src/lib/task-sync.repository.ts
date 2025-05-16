@@ -132,6 +132,20 @@ export class TaskSyncRepository {
    */
   async updateExistingEarning(conn: DatabaseTransactionConnection, earning: z.infer<typeof Earning>): Promise<void> {
     try {
+      // 验证任务ID是否存在（如果提供了任务ID）
+      if (earning.task_id) {
+        const taskExists = await conn.maybeOne(SQL.unsafe`
+          SELECT id FROM saito_miner.tasks
+          WHERE id = ${earning.task_id}
+        `);
+
+        if (!taskExists) {
+          this.logger.warn(`任务ID不存在: ${earning.task_id}，跳过更新收益记录`);
+          // 如果任务不存在，不更新收益记录
+          throw new Error(`任务ID不存在: ${earning.task_id}，无法更新收益记录`);
+        }
+      }
+
       // 构建动态更新SQL
       let updateFields = SQL.unsafe`
         block_rewards = ${earning.block_rewards},
@@ -161,6 +175,7 @@ export class TaskSyncRepository {
         updateFields = SQL.unsafe`${updateFields}, description = ${earning.description}`;
       }
 
+      // 直接更新，如果任务ID不存在，前面的验证已经抛出异常
       await conn.query(SQL.unsafe`
         UPDATE saito_miner.earnings
         SET ${updateFields}
@@ -177,10 +192,38 @@ export class TaskSyncRepository {
    */
   async createEarning(conn: DatabaseTransactionConnection, earning: z.infer<typeof Earning>): Promise<void> {
     try {
+      // 验证设备ID是否存在
+      if (earning.device_id) {
+        const deviceExists = await conn.maybeOne(SQL.unsafe`
+          SELECT id FROM saito_miner.device_status
+          WHERE id = ${earning.device_id}
+        `);
+
+        if (!deviceExists) {
+          this.logger.warn(`设备ID不存在: ${earning.device_id}，无法创建收益记录`);
+          throw new Error(`设备ID不存在: ${earning.device_id}`);
+        }
+      }
+
+      // 验证任务ID是否存在（如果提供了任务ID）
+      if (earning.task_id) {
+        const taskExists = await conn.maybeOne(SQL.unsafe`
+          SELECT id FROM saito_miner.tasks
+          WHERE id = ${earning.task_id}
+        `);
+
+        if (!taskExists) {
+          this.logger.warn(`任务ID不存在: ${earning.task_id}，跳过创建收益记录`);
+          // 如果任务不存在，不创建收益记录
+          throw new Error(`任务ID不存在: ${earning.task_id}，无法创建收益记录`);
+        }
+      }
+
       // 构建基础字段和值列表
       let fields = SQL.unsafe`id, block_rewards, job_rewards, created_at, updated_at, source, device_id`;
       let values = SQL.unsafe`${earning.id}, ${earning.block_rewards}, ${earning.job_rewards},
           ${earning.created_at}, ${earning.updated_at}, 'gateway', ${earning.device_id}`;
+      this.logger.debug(`Creating earning: ${JSON.stringify(earning)}`);
 
       // 添加task_id字段（如果存在）
       if (earning.task_id !== undefined && earning.task_id !== null) {
@@ -210,6 +253,7 @@ export class TaskSyncRepository {
         values = SQL.unsafe`${values}, ${earning.description}`;
       }
 
+      // 直接插入，如果任务ID不存在，前面的验证已经抛出异常
       await conn.query(SQL.unsafe`
         INSERT INTO saito_miner.earnings (${fields})
         VALUES (${values})

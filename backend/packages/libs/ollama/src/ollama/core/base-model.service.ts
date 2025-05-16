@@ -27,7 +27,7 @@ export abstract class BaseModelService {
   }
 
   protected async createTask(model: string, task_id?: string, device_id?: string) {
-    this.logger.log(`Creating task for model: ${model}, taskId: ${task_id || 'new'}`);
+    
     try {
       const deviceId = device_id || await this.deviceStatusService.getDeviceId();
       const task = await this.minerService.createTask({
@@ -35,7 +35,7 @@ export abstract class BaseModelService {
         device_id: deviceId
       });
       
-      this.logger.log(`Created task with ID: ${task.id} for model: ${model}`);
+      
       return task;
     } catch (error) {
       this.logger.error(`Failed to create task for model: ${model}`, error);
@@ -44,7 +44,7 @@ export abstract class BaseModelService {
   }
 
   protected async updateTask(taskId: string, taskData: Partial<z.infer<typeof Task>>) {
-    this.logger.debug(`Updating task ${taskId} with status: ${taskData.status}`);
+    
     try {
       await this.minerService.updateTask(taskId, {
         status: taskData.status,
@@ -70,7 +70,7 @@ export abstract class BaseModelService {
       const deviceId = device_id || await this.deviceStatusService.getDeviceId();
       
       await this.minerService.createEarnings(blockRewards, jobRewards, taskId, deviceId);
-      this.logger.log(`Created earnings: block=${blockRewards}, job=${jobRewards} for task ${taskId}`);
+      
     } catch (error) {
       this.logger.error(`Failed to create earnings for task ${taskId}:`, error);
     }
@@ -100,4 +100,4 @@ export abstract class BaseModelService {
     this.logger.error(`Failed to parse ${context}: ${error}`);
     return defaultValue;
   }
-} 
+}

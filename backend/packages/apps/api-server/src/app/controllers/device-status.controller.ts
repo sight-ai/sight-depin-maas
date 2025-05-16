@@ -18,8 +18,8 @@ export class DeviceStatusController {
   async register(@Res() res: Response, @Body() body: RegisterDeviceDto) {
     try {
       const data = await this.deviceStatusService.register(body);
-      this.logger.debug('register', data);
-      
+
+
       if (data.success) {
         res.status(200).send('Registration successful, starting heartbeat');
       } else {
@@ -33,5 +33,11 @@ export class DeviceStatusController {
   @Get('/gateway-status')
   async getGatewayStatus() {
     return this.deviceStatusService.getGatewayStatus();
+  }
+
+  @Get('/gateway-address')
+  async getGatewayAddress() {
+    const gatewayAddress = await this.deviceStatusService.getGatewayAddress();
+    return { gatewayAddress };
   }
 }
