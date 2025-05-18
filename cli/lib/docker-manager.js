@@ -203,7 +203,7 @@ const deployOpenWebUI = async (options = {}) => {
     const dockerRunArgs = [
       'run', '-d',
       '-p', `${port}:8080`,
-      '-e', `OLLAMA_BASE_URL=${mode === 'remote' ? gatewayUrl : 'http://host.docker.internal:8716'}`,
+      '-e', `OLLAMA_BASE_URL=${mode === 'remote' ? gatewayUrl+'/ollama' : 'http://host.docker.internal:8716/ollama'}`,
       '--add-host=host.docker.internal:host-gateway',
       '-v', 'ollama:/root/.ollama',
       '-v', 'open-webui:/app/backend/data',
