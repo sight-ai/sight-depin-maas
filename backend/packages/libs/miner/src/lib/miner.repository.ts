@@ -1,6 +1,7 @@
 import { Inject, Logger } from "@nestjs/common";
 import { PersistentService } from "@saito/persistent";
-import { DatabaseTransactionConnection, sql as SQL } from 'slonik';
+import { Database } from 'better-sqlite3';
+import crypto from 'crypto';
 import {
   MinerEarning,
   MinerDeviceStatus,
@@ -18,197 +19,259 @@ export class MinerRepository {
   ) { }
   private readonly logger = new Logger(MinerRepository.name);
   async transaction<T>(
-    handler: (conn: DatabaseTransactionConnection) => Promise<T>,
+    handler: (db: Database) => T,
   ) {
-    return this.persistentService.pgPool.transaction(handler);
+    return this.persistentService.transaction(handler);
   }
 
   // 获取收益信息
-  async getEarningInfo(conn: DatabaseTransactionConnection, deviceId: string, isRegistered: boolean) {
-    let source = 'local';
-    if(isRegistered) {
-      source = 'gateway';
-    }
-    return conn.one(SQL.type(MinerEarning)`
-      select 
-        coalesce(sum(block_rewards::float), 0) as total_block_rewards,
-        coalesce(sum(job_rewards::float), 0) as total_job_rewards
-      from saito_miner.earnings 
-      where source = ${source} and device_id = ${deviceId};
-    `);
+  async getEarningInfo(db: Database, deviceId: string, isRegistered: boolean) {
+    const source = isRegistered ? 'gateway' : 'local';
+
+    const result = db.prepare(`
+      SELECT
+        COALESCE(SUM(block_rewards), 0) AS total_block_rewards,
+        COALESCE(SUM(job_rewards), 0) AS total_job_rewards
+      FROM saito_miner_earnings
+      WHERE device_id = ? AND source = ?
+    `).get(deviceId, source) as ModelOfMiner<'MinerEarning'>;
+
+    return result;
   }
 
   // 获取设备信息
-  async getDeviceInfo(conn: DatabaseTransactionConnection, deviceId: string, isRegistered: boolean) {
-    let source = 'local';
-    if(isRegistered) {
-      source = 'gateway';
-    }
-    return conn.maybeOne(SQL.type(MinerDeviceStatus)`
-      select 
-        name, 
-        status, 
-        extract(epoch from up_time_start)::bigint as up_time_start,
-        extract(epoch from up_time_end)::bigint as up_time_end
-      from saito_miner.device_status
-      where id = ${deviceId}
-      order by updated_at desc
-      limit 1;
-    `);
+  async getDeviceInfo(db: Database, deviceId: string, isRegistered: boolean) {
+    const source = isRegistered ? 'gateway' : 'local';
+
+    const result = db.prepare(`
+      SELECT
+        name,
+        status,
+        up_time_start,
+        up_time_end
+      FROM saito_miner_device_status
+      WHERE id = ?
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `).get(deviceId) as ModelOfMiner<'MinerDeviceStatus'>;
+
+    return result;
   }
 
   // 获取运行时间百分比
-  async getUptimePercentage(conn: DatabaseTransactionConnection, deviceId: string, isRegistered: boolean) {
-    let source = 'local';
-    if(isRegistered) {
-      source = 'gateway';
-    }
-    return conn.one(SQL.type(MinerUptime)`
-      select 
-        count(distinct date_trunc('day', created_at))::float / 30.0 * 100 as uptime_percentage
-      from saito_miner.tasks
-      where created_at >= now() - interval '30 days' and source = ${source} and device_id = ${deviceId};
-    `);
+  async getUptimePercentage(db: Database, deviceId: string, isRegistered: boolean) {
+    const source = isRegistered ? 'gateway' : 'local';
+
+    // SQLite不支持date_trunc函数，我们需要使用strftime
+    const result = db.prepare(`
+      SELECT
+        (COUNT(DISTINCT strftime('%Y-%m-%d', created_at)) * 100.0 / 30.0) AS uptime_percentage
+      FROM saito_miner_tasks
+      WHERE created_at >= datetime('now', '-30 days')
+        AND source = ?
+        AND device_id = ?
+    `).get(source, deviceId) as ModelOfMiner<'MinerUptime'>;
+
+    return result;
   }
 
   // 获取收益历史数据
-  async getEarningsHistory(conn: DatabaseTransactionConnection, deviceId: string, days: number = 31, isRegistered: boolean) {
-    let source = 'local';
-    if(isRegistered) {
-      source = 'gateway';
+  async getEarningsHistory(db: Database, deviceId: string, days: number = 31, isRegistered: boolean) {
+    const source = isRegistered ? 'gateway' : 'local';
+
+    // SQLite不支持generate_series，我们需要使用一个不同的方法来生成日期序列
+    // 创建一个临时表来存储日期
+    const result = [];
+
+    // 获取当前日期
+    const now = new Date();
+
+    // 生成过去days天的日期
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0]; // 格式: YYYY-MM-DD
+
+      // 查询该日期的收益
+      const dayEarning = db.prepare(`
+        SELECT
+          COALESCE(SUM(block_rewards + job_rewards), 0) AS daily_earning
+        FROM saito_miner_earnings
+        WHERE strftime('%Y-%m-%d', created_at) = ?
+          AND source = ?
+          AND device_id = ?
+      `).get(dateStr, source, deviceId) as { daily_earning: number } | undefined;
+
+      result.push({
+        daily_earning: dayEarning ? dayEarning.daily_earning : 0,
+        date: dateStr
+      });
     }
-    return conn.any(SQL.type(MinerEarningsHistory)`
-      with dates as (
-        select generate_series(
-          date_trunc('day', now()) - (${days}) * interval '1 day',
-          date_trunc('day', now()),
-          interval '1 day'
-        ) as day
-      )
-      select 
-        coalesce(sum(block_rewards::float + job_rewards::float), 0) as daily_earning,
-        to_char(d.day, 'YYYY-MM-DD') as date
-      from dates d
-      left join saito_miner.earnings e
-        on date_trunc('day', e.created_at) = d.day
-        and e.source = ${source} 
-        and e.device_id = ${deviceId}
-      group by d.day
-      order by d.day;
-    `);
+
+    return result as ModelOfMiner<'MinerEarningsHistory'>[];
   }
 
   // 获取任务请求数据
   async getTaskRequestData(
-    conn: DatabaseTransactionConnection,
+    db: Database,
     deviceId: string,
     period: 'daily' | 'weekly' | 'monthly' = 'daily',
     isRegistered: boolean
   ) {
-    let source = 'local';
-    if(isRegistered) {
-      source = 'gateway';
-    }
+    const source = isRegistered ? 'gateway' : 'local';
 
     // For daily: last 24 hours
     // For weekly: last 8 days
     // For monthly: last 31 days
     const intervalMap = {
-      'daily': { unit: 'hour', value: '23 hours', points: 24 },
-      'weekly': { unit: 'day', value: '7 days', points: 8 },
-      'monthly': { unit: 'day', value: '30 days', points: 31 }
+      'daily': { unit: 'hour', value: '-23 hours', points: 24, format: '%Y-%m-%d %H:00:00' },
+      'weekly': { unit: 'day', value: '-7 days', points: 8, format: '%Y-%m-%d 00:00:00' },
+      'monthly': { unit: 'day', value: '-30 days', points: 31, format: '%Y-%m-%d 00:00:00' }
     } as const;
 
     const timeConfig = intervalMap[period];
+    const result = [];
 
-    return conn.any(SQL.type(MinerDailyRequests)`
-      with dates as (
-        select generate_series(
-          date_trunc(${timeConfig.unit}, now()) - ${SQL.fragment([`interval '${timeConfig.value}'`])},
-          date_trunc(${timeConfig.unit}, now()),
-          ${SQL.fragment([`interval '1 ${timeConfig.unit}'`])}
-        ) as time_point
-      )
-      select 
-        coalesce(count(t.id), 0) as request_count,
-        to_char(d.time_point, 'YYYY-MM-DD HH24:MI:SS') as date
-      from dates d
-      left join saito_miner.tasks t
-        on date_trunc(${timeConfig.unit}, t.created_at) = d.time_point 
-        and t.device_id = ${deviceId} 
-        and t.source = ${source}
-      group by d.time_point
-      order by d.time_point;
-    `);
+    // 获取当前时间
+    const now = new Date();
+
+    // 根据时间单位生成时间点
+    for (let i = timeConfig.points - 1; i >= 0; i--) {
+      let date = new Date(now);
+
+      if (timeConfig.unit === 'hour') {
+        date.setHours(date.getHours() - i);
+        // 设置分钟和秒为0
+        date.setMinutes(0);
+        date.setSeconds(0);
+        date.setMilliseconds(0);
+      } else {
+        date.setDate(date.getDate() - i);
+        // 设置小时、分钟和秒为0
+        date.setHours(0);
+        date.setMinutes(0);
+        date.setSeconds(0);
+        date.setMilliseconds(0);
+      }
+
+      // 格式化日期
+      const dateStr = date.toISOString().replace('T', ' ').split('.')[0];
+
+      // 根据时间单位构建查询条件
+      let timeCondition;
+      if (timeConfig.unit === 'hour') {
+        timeCondition = `strftime('%Y-%m-%d %H', created_at) = strftime('%Y-%m-%d %H', ?)`;
+      } else {
+        timeCondition = `strftime('%Y-%m-%d', created_at) = strftime('%Y-%m-%d', ?)`;
+      }
+
+      // 查询该时间点的任务数量
+      const countResult = db.prepare(`
+        SELECT
+          COUNT(id) AS request_count
+        FROM saito_miner_tasks
+        WHERE ${timeCondition}
+          AND device_id = ?
+          AND source = ?
+      `).get(dateStr, deviceId, source) as { request_count: number } | undefined;
+
+      result.push({
+        request_count: countResult ? countResult.request_count : 0,
+        date: dateStr
+      });
+    }
+
+    return result as ModelOfMiner<'MinerDailyRequests'>[];
   }
 
   // 获取按月任务活动数据
   async getMonthlyTaskActivity(
-    conn: DatabaseTransactionConnection,
+    db: Database,
     year: number,
     deviceId: string,
     isRegistered: boolean
   ) {
-    let source = 'local';
-    if(isRegistered) {
-      source = 'gateway';
+    const source = isRegistered ? 'gateway' : 'local';
+    const result = [];
+
+    // 生成1-12月的数据
+    for (let month = 1; month <= 12; month++) {
+      // 格式化月份为两位数
+      const monthStr = month.toString().padStart(2, '0');
+      const dateStr = `${year}-${monthStr}-01`;
+
+      // 查询该月的任务数量
+      const countResult = db.prepare(`
+        SELECT
+          COUNT(*) AS task_count
+        FROM saito_miner_tasks
+        WHERE strftime('%Y', created_at) = ?
+          AND strftime('%m', created_at) = ?
+          AND device_id = ?
+          AND source = ?
+      `).get(year.toString(), monthStr, deviceId, source) as { task_count: number } | undefined;
+
+      result.push({
+        date: dateStr,
+        task_count: countResult ? countResult.task_count : 0
+      });
     }
-    return conn.any(SQL.type(MinerTaskActivity)`
-      with dates as (
-        select generate_series(1, 12) as month
-      )
-      select 
-        to_char(make_date(${year}, d.month, 1), 'YYYY-MM-DD') as date,
-        coalesce(t.count, 0) as task_count
-      from dates d
-      left join (
-        select 
-          extract(month from created_at) as month,
-          count(*) as count
-        from saito_miner.tasks
-        where extract(year from created_at) = ${year} and device_id = ${deviceId} and source = ${source}
-        group by extract(month from created_at)
-      ) t on d.month = t.month
-      order by d.month;
-    `);
+
+    return result as ModelOfMiner<'MinerTaskActivity'>[];
   }
 
   // 获取按日任务活动数据
   async getDailyTaskActivity(
-    conn: DatabaseTransactionConnection,
+    db: Database,
     month: number | null,
     deviceId: string,
     isRegistered: boolean
   ) {
-    let source = 'local';
-    if(isRegistered) {
-      source = 'gateway';
+    const source = isRegistered ? 'gateway' : 'local';
+    const result = [];
+
+    if (month === null) {
+      // 如果没有提供月份，使用当前月份
+      month = new Date().getMonth() + 1; // JavaScript月份从0开始
     }
-    return conn.any(SQL.type(MinerTaskActivity)`
-      with dates as (
-        select generate_series(
-          date_trunc('month', make_date(extract(year from now())::int, ${month}, 1)),
-          date_trunc('month', make_date(extract(year from now())::int, ${month}, 1)) + interval '1 month' - interval '1 day',
-          interval '1 day'
-        )::date as date
-      )
-      select 
-        to_char(d.date, 'YYYY-MM-DD') as date,
-        coalesce(count(t.id), 0) as task_count
-      from dates d
-      left join saito_miner.tasks t
-        on date_trunc('day', t.created_at)::date = d.date 
-        and extract(month from t.created_at) = ${month}
-        and t.device_id = ${deviceId} 
-        and t.source = ${source}
-      group by d.date
-      order by d.date;
-    `);
+
+    // 获取当前年份
+    const year = new Date().getFullYear();
+
+    // 获取该月的天数
+    const daysInMonth = new Date(year, month, 0).getDate();
+
+    // 格式化月份为两位数
+    const monthStr = month.toString().padStart(2, '0');
+
+    // 生成该月每一天的数据
+    for (let day = 1; day <= daysInMonth; day++) {
+      // 格式化日期为两位数
+      const dayStr = day.toString().padStart(2, '0');
+      const dateStr = `${year}-${monthStr}-${dayStr}`;
+
+      // 查询该日的任务数量
+      const countResult = db.prepare(`
+        SELECT
+          COUNT(*) AS task_count
+        FROM saito_miner_tasks
+        WHERE strftime('%Y-%m-%d', created_at) = ?
+          AND device_id = ?
+          AND source = ?
+      `).get(dateStr, deviceId, source) as { task_count: number } | undefined;
+
+      result.push({
+        date: dateStr,
+        task_count: countResult ? countResult.task_count : 0
+      });
+    }
+
+    return result as ModelOfMiner<'MinerTaskActivity'>[];
   }
 
   // 获取任务列表（分页）
   async getTasks(
-    conn: DatabaseTransactionConnection,
+    db: Database,
     page: number,
     limit: number,
     deviceId: string,
@@ -216,22 +279,22 @@ export class MinerRepository {
   ) {
     const offset = (page - 1) * limit;
     const source = isRegistered ? 'gateway' : 'local';
-    
+
     // Get total count
-    const countResult = await conn.one(SQL.unsafe`
-      select count(*) as count
-      from saito_miner.tasks 
-      where device_id = ${deviceId} and source = ${source};
-    `);
+    const countResult = db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM saito_miner_tasks
+      WHERE device_id = ? AND source = ?
+    `).get(deviceId, source) as { count: number };
 
     // Get paginated task list
-    const tasksResult = await conn.any(SQL.unsafe`
-      select *
-      from saito_miner.tasks
-      where device_id = ${deviceId} and source = ${source}
-      order by created_at desc
-      limit ${limit} offset ${offset};
-    `);
+    const tasksResult = db.prepare(`
+      SELECT *
+      FROM saito_miner_tasks
+      WHERE device_id = ? AND source = ?
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `).all(deviceId, source, limit, offset);
 
     return {
       count: Number(countResult.count),
@@ -241,56 +304,59 @@ export class MinerRepository {
 
   // 根据设备ID获取任务
   async getTasksByDeviceId(
-    conn: DatabaseTransactionConnection,
+    db: Database,
     deviceId: string,
     isRegistered: boolean
   ): Promise<ModelOfMiner<'Task'>[]> {
     const source = isRegistered ? 'gateway' : 'local';
-    const result = await conn.any(SQL.unsafe`
-      SELECT * FROM saito_miner.tasks
-      WHERE device_id = ${deviceId} AND source = ${source}
-      ORDER BY created_at DESC;
-    `);
+    const result = db.prepare(`
+      SELECT * FROM saito_miner_tasks
+      WHERE device_id = ? AND source = ?
+      ORDER BY created_at DESC
+    `).all(deviceId, source);
     return result as ModelOfMiner<'Task'>[];
   }
 
   // 根据设备ID获取收益记录
   async getEarningsByDeviceId(
-    conn: DatabaseTransactionConnection,
+    db: Database,
     deviceId: string,
     isRegistered: boolean
   ): Promise<ModelOfMiner<'Earning'>[]> {
     const source = isRegistered ? 'gateway' : 'local';
-    const result = await conn.any(SQL.unsafe`
-      SELECT * FROM saito_miner.earnings
-      WHERE device_id = ${deviceId} AND source = ${source}
-      ORDER BY created_at DESC;
-    `);
+    const result = db.prepare(`
+      SELECT * FROM saito_miner_earnings
+      WHERE device_id = ? AND source = ?
+      ORDER BY created_at DESC
+    `).all(deviceId, source);
     return result as ModelOfMiner<'Earning'>[];
   }
 
   // 根据任务ID获取收益记录
   async getEarningsByTaskId(
-    conn: DatabaseTransactionConnection,
+    db: Database,
     taskId: string
   ): Promise<ModelOfMiner<'Earning'>[]> {
-    const result = await conn.any(SQL.unsafe`
-      select *
-      from saito_miner.earnings
-      where task_id = ${taskId};
-    `);
+    const result = db.prepare(`
+      SELECT *
+      FROM saito_miner_earnings
+      WHERE task_id = ?
+    `).all(taskId);
     return result as ModelOfMiner<'Earning'>[];
   }
 
   // 创建任务
   async createTask(
-    conn: DatabaseTransactionConnection, 
-    model: string, 
+    db: Database,
+    model: string,
     deviceId: string
   ): Promise<ModelOfMiner<'Task'>> {
-    
-    const result = await conn.one(SQL.unsafe`
-      insert into saito_miner.tasks (
+    // 生成UUID
+    const id = crypto.randomUUID();
+
+    // 插入任务
+    db.prepare(`
+      INSERT INTO saito_miner_tasks (
         id,
         model,
         created_at,
@@ -305,51 +371,48 @@ export class MinerRepository {
         source,
         device_id
       )
-      values (
-        gen_random_uuid(),
-        ${model},
-        now(),
-        now(),
-        'pending',
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        'local',
-        ${deviceId}
-      )
-      returning *;
-    `);
+      VALUES (?, ?, datetime('now'), datetime('now'), 'pending', 0, 0, 0, 0, 0, 0, 'local', ?)
+    `).run(id, model, deviceId);
+
+    // 获取插入的任务
+    const result = db.prepare(`
+      SELECT * FROM saito_miner_tasks WHERE id = ?
+    `).get(id);
+
     return result as ModelOfMiner<'Task'>;
   }
 
   // 更新任务 - 直接接收SQL更新片段
   async updateTaskWithSql(
-    conn: DatabaseTransactionConnection,
+    db: Database,
     id: string,
     updateSql: string
   ): Promise<ModelOfMiner<'Task'>> {
-    const result = await conn.one(SQL.unsafe`
-      update saito_miner.tasks
-      set ${SQL.fragment([updateSql])}, updated_at = now()
-      where id = ${id}
-      returning *;
-    `);
+    // 执行更新
+    db.prepare(`
+      UPDATE saito_miner_tasks
+      SET ${updateSql}, updated_at = datetime('now')
+      WHERE id = ?
+    `).run(id);
+
+    // 获取更新后的任务
+    const result = db.prepare(`
+      SELECT * FROM saito_miner_tasks WHERE id = ?
+    `).get(id);
+
     return result as ModelOfMiner<'Task'>;
   }
 
   // 获取单个任务
   async getTaskById(
-    conn: DatabaseTransactionConnection,
+    db: Database,
     taskId: string
   ): Promise<ModelOfMiner<'Task'> | null> {
-    const result = await conn.maybeOne(SQL.unsafe`
-      select *
-      from saito_miner.tasks
-      where id = ${taskId};
-    `);
+    const result = db.prepare(`
+      SELECT *
+      FROM saito_miner_tasks
+      WHERE id = ?
+    `).get(taskId);
     return result as ModelOfMiner<'Task'> | null;
   }
 }

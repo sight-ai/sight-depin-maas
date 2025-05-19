@@ -14,6 +14,7 @@ import {
   OllamaModelList
 } from "@saito/models";
 import { z } from "zod";
+import { Database } from "better-sqlite3";
 
 const STATUS_CHECK_TIMEOUT = 2000;
 
@@ -1108,9 +1109,9 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     status: "waiting" | "in-progress" | "connected" | "disconnected" | "failed",
     rewardAddress: string
   ): Promise<ModelOfMiner<'DeviceStatusModule'>> {
-    return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
+    return this.deviceStatusRepository.transaction(async (db: Database) => {
       await this.deviceStatusRepository.updateDeviceStatus(
-        conn,
+        db,
         deviceId,
         name,
         status,
@@ -1119,7 +1120,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         this.deviceConfig.key,
         this.deviceConfig.code
       );
-      const updatedDevice = await this.deviceStatusRepository.findDeviceStatus(conn, deviceId);
+      const updatedDevice = await this.deviceStatusRepository.findDeviceStatus(db, deviceId);
       if (!updatedDevice) {
         throw new Error('Failed to update device status');
       }
@@ -1128,16 +1129,16 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
   }
 
   async getDeviceStatus(deviceId: string): Promise<ModelOfMiner<'DeviceStatusModule'> | null> {
-    return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
-      return this.deviceStatusRepository.findDeviceStatus(conn, deviceId);
+    return this.deviceStatusRepository.transaction(async (db: Database) => {
+      return this.deviceStatusRepository.findDeviceStatus(db, deviceId);
     });
   }
 
   async markInactiveDevicesOffline(inactiveDuration: number): Promise<ModelOfMiner<'DeviceStatusModule'>[]> {
-    return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
+    return this.deviceStatusRepository.transaction(async (db: Database) => {
       const thresholdTime = new Date(Date.now() - inactiveDuration);
-      await this.deviceStatusRepository.markDevicesOffline(conn, thresholdTime);
-      const devices = await this.deviceStatusRepository.findDeviceList(conn);
+      await this.deviceStatusRepository.markDevicesOffline(db, thresholdTime);
+      const devices = await this.deviceStatusRepository.findDeviceList(db);
       return devices.map(device => ({
         ...device,
         code: null,
@@ -1153,26 +1154,26 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
   }
 
   async getDeviceList(): Promise<ModelOfMiner<'DeviceListItem'>[]> {
-    return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
-      return this.deviceStatusRepository.findDeviceList(conn);
+    return this.deviceStatusRepository.transaction(async (db: Database) => {
+      return this.deviceStatusRepository.findDeviceList(db);
     });
   }
 
   async getCurrentDevice(): Promise<ModelOfMiner<'DeviceStatusModule'>> {
-    return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
-      return this.deviceStatusRepository.findCurrentDevice(conn);
+    return this.deviceStatusRepository.transaction(async (db: Database) => {
+      return this.deviceStatusRepository.findCurrentDevice(db);
     });
   }
 
   async getDeviceTasks(deviceId: string): Promise<ModelOfMiner<'TaskResult'>[]> {
-    return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
-      return this.deviceStatusRepository.findDevicesTasks(conn, deviceId);
+    return this.deviceStatusRepository.transaction(async (db: Database) => {
+      return this.deviceStatusRepository.findDevicesTasks(db, deviceId);
     });
   }
 
   async getDeviceEarnings(deviceId: string): Promise<ModelOfMiner<'EarningResult'>[]> {
-    return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
-      return this.deviceStatusRepository.findDeviceEarnings(conn, deviceId);
+    return this.deviceStatusRepository.transaction(async (db: Database) => {
+      return this.deviceStatusRepository.findDeviceEarnings(db, deviceId);
     });
   }
 
