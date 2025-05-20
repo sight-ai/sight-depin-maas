@@ -7,7 +7,6 @@ import { env } from "../../env";
 import { TaskSyncRepository } from "./task-sync.repository";
 import { DeviceStatusService } from "@saito/device-status";
 import { Cron, CronExpression } from "@nestjs/schedule";
-import { Database } from "better-sqlite3";
 import * as R from 'ramda';
 import { z } from 'zod';
 
@@ -30,7 +29,7 @@ export class DefaultTaskSyncService implements TaskSyncService {
    * 获取设备状态和连接信息
    * 返回设备ID、网关地址和访问密钥
    */
-  private async getConnectionInfo(db: Database) {
+  private async getConnectionInfo(db: any) {
     const [deviceId, gatewayAddress, key, isRegistered] = await Promise.all([
       this.repository.getCurrentDeviceId(db),
       this.deviceStatusService.getGatewayAddress(),
@@ -179,15 +178,10 @@ export class DefaultTaskSyncService implements TaskSyncService {
         let syncedEarnings = 0;
 
         // 首先获取所有任务ID，用于验证收益记录中的任务ID
-        const taskIds = new Set<string>();
+        let taskIds = new Set<string>();
         try {
-          // 获取本地任务
-          const localTasks = db.prepare(`
-            SELECT id FROM saito_miner_tasks
-            WHERE source = 'gateway'
-          `).all() as { id: string }[];
-          localTasks.forEach(task => taskIds.add(task.id));
-
+          // 使用仓库方法获取所有网关任务ID
+          taskIds = await this.repository.getAllGatewayTaskIds(db);
         } catch (error) {
           this.logger.warn('Failed to fetch existing tasks for validation:', error);
         }

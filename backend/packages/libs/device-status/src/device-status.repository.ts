@@ -1,7 +1,6 @@
 import { Inject, Logger } from "@nestjs/common";
 import * as R from 'ramda';
 import { PersistentService } from "@saito/persistent";
-import { Database } from "better-sqlite3";
 import {
   ModelOfMiner
 } from "@saito/models";
@@ -9,6 +8,13 @@ import {
 // Utility functions
 const toISOString = R.curry((date: Date) => date.toISOString());
 const getTimestamp = () => toISOString(new Date());
+const generateUuid = (): string => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
 
 // Data transformers
 const formatDeviceStatus = (row: ModelOfMiner<'DeviceStatusRow'>): ModelOfMiner<'DeviceStatusModule'> => ({
@@ -81,12 +87,12 @@ export class DeviceStatusRepository {
     private readonly persistentService: PersistentService,
   ) { }
 
-  async transaction<T>(handler: (db: Database) => T) {
+  async transaction<T>(handler: (db: any) => T) {
     return this.persistentService.transaction(handler);
   }
 
   async updateDeviceStatus(
-    db: Database,
+    db: any,
     deviceId: string,
     name: string,
     status: "waiting" | "in-progress" | "connected" | "disconnected" | "failed",
@@ -99,116 +105,235 @@ export class DeviceStatusRepository {
     const upTimeStart = status === 'connected' ? now : null;
     const upTimeEnd = status === 'disconnected' ? now : null;
 
-    // First check if the device exists
-    const existingDevice = db.prepare(`
-      SELECT id, status FROM saito_miner_device_status WHERE id = ?
-    `).get(deviceId) as { id: string, status: string } | undefined;
+    try {
+      // 使用 LevelDB 原生操作
+      // 首先检查设备是否存在
+      let existingDevice = null;
+      try {
+        const deviceData = await this.persistentService.deviceStatusDb.get(deviceId);
+        existingDevice = JSON.parse(deviceData);
+      } catch (error) {
+        if ((error as any).code !== 'LEVEL_NOT_FOUND') {
+          throw error;
+        }
+      }
 
-    if (existingDevice) {
-      // Update existing device
-      const updateUpTimeStart = status === 'connected' && existingDevice.status === 'disconnected' ? now : null;
-      const updateUpTimeEnd = status === 'disconnected' && existingDevice.status === 'connected' ? now : null;
+      if (existingDevice) {
+        // 更新现有设备
+        const updateUpTimeStart = status === 'connected' && existingDevice.status === 'disconnected' ? now : existingDevice.up_time_start;
+        const updateUpTimeEnd = status === 'disconnected' && existingDevice.status === 'connected' ? now : existingDevice.up_time_end;
 
-      return db.prepare(`
-        UPDATE saito_miner_device_status SET
-          status = ?,
-          updated_at = ?,
-          up_time_start = CASE
-            WHEN ? IS NOT NULL THEN ?
-            ELSE up_time_start
-          END,
-          up_time_end = CASE
-            WHEN ? IS NOT NULL THEN ?
-            ELSE up_time_end
-          END,
-          reward_address = ?,
-          gateway_address = ?,
-          key = ?,
-          code = ?
-        WHERE id = ?
-      `).run(
-        status,
-        now,
-        updateUpTimeStart, updateUpTimeStart,
-        updateUpTimeEnd, updateUpTimeEnd,
-        rewardAddress,
-        gatewayAddress,
-        key,
-        code,
-        deviceId
-      );
-    } else {
-      // Insert new device
-      return db.prepare(`
-        INSERT INTO saito_miner_device_status (
-          id, name, status, up_time_start, up_time_end,
-          reward_address, gateway_address, key, code, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        deviceId, name, status, upTimeStart, upTimeEnd,
-        rewardAddress, gatewayAddress, key, code, now, now
-      );
+        const updatedDevice = {
+          ...existingDevice,
+          status,
+          updated_at: now,
+          up_time_start: updateUpTimeStart,
+          up_time_end: updateUpTimeEnd,
+          reward_address: rewardAddress,
+          gateway_address: gatewayAddress,
+          key,
+          code
+        };
+
+        await this.persistentService.deviceStatusDb.put(deviceId, JSON.stringify(updatedDevice));
+        return updatedDevice;
+      } else {
+        // 插入新设备
+        const newDevice = {
+          id: deviceId,
+          name,
+          status,
+          up_time_start: upTimeStart,
+          up_time_end: upTimeEnd,
+          reward_address: rewardAddress,
+          gateway_address: gatewayAddress,
+          key,
+          code,
+          created_at: now,
+          updated_at: now
+        };
+
+        await this.persistentService.deviceStatusDb.put(deviceId, JSON.stringify(newDevice));
+        return newDevice;
+      }
+    } catch (error) {
+      this.logger.error(`Error updating device status: ${error}`);
+      throw error;
     }
   }
 
-  async findDeviceStatus(db: Database, deviceId: string): Promise<ModelOfMiner<'DeviceStatusModule'> | null> {
-    const row = db.prepare(`
-      SELECT * FROM saito_miner_device_status WHERE id = ?
-    `).get(deviceId) as ModelOfMiner<'DeviceStatusRow'> | undefined;
-
-    return row ? formatDeviceStatus(row) : null;
+  async findDeviceStatus(db: any, deviceId: string): Promise<ModelOfMiner<'DeviceStatusModule'> | null> {
+    try {
+      const deviceData = await this.persistentService.deviceStatusDb.get(deviceId);
+      const device = JSON.parse(deviceData) as ModelOfMiner<'DeviceStatusRow'>;
+      return formatDeviceStatus(device);
+    } catch (error) {
+      if ((error as any).code === 'LEVEL_NOT_FOUND') {
+        return null;
+      }
+      this.logger.error(`Error finding device status: ${error}`);
+      throw error;
+    }
   }
 
-  async markDevicesOffline(db: Database, thresholdTime: Date) {
+  async markDevicesOffline(db: any, thresholdTime: Date) {
     const thresholdTimeStr = toISOString(thresholdTime);
-    return db.prepare(`
-      UPDATE saito_miner_device_status
-      SET status = 'disconnected', up_time_end = datetime('now')
-      WHERE updated_at < ? AND status = 'connected'
-    `).run(thresholdTimeStr);
+
+    try {
+      // 获取所有设备
+      const devices: ModelOfMiner<'DeviceStatusRow'>[] = [];
+
+      // 使用 LevelDB 的迭代器获取所有设备
+      for await (const [key, value] of this.persistentService.deviceStatusDb.iterator()) {
+        if (key === '__schema__') continue; // 跳过 schema 记录
+
+        try {
+          const device = JSON.parse(value);
+          devices.push(device);
+        } catch (error) {
+          this.logger.error(`Failed to parse device data: ${error}`);
+        }
+      }
+
+      // 找出需要标记为离线的设备
+      const devicesToUpdate = devices.filter(device =>
+        device.status === 'connected' &&
+        device.updated_at < thresholdTimeStr
+      );
+
+      // 批量更新设备状态
+      const now = getTimestamp();
+      const operations = devicesToUpdate.map(device => ({
+        type: 'put' as const,
+        key: device.id,
+        value: JSON.stringify({
+          ...device,
+          status: 'disconnected',
+          up_time_end: now,
+          updated_at: now
+        })
+      }));
+
+      if (operations.length > 0) {
+        await this.persistentService.deviceStatusDb.batch(operations);
+      }
+
+      return { changes: operations.length };
+    } catch (error) {
+      this.logger.error(`Error marking devices offline: ${error}`);
+      throw error;
+    }
   }
 
-  async findDeviceList(db: Database): Promise<ModelOfMiner<'DeviceListItem'>[]> {
-    const rows = db.prepare(`
-      SELECT id, name, status
-      FROM saito_miner_device_status
-      WHERE status = 'connected'
-    `).all() as ModelOfMiner<'DeviceStatusRow'>[];
+  async findDeviceList(db: any): Promise<ModelOfMiner<'DeviceListItem'>[]> {
+    try {
+      const devices: ModelOfMiner<'DeviceListItem'>[] = [];
 
-    return rows.map(row => formatDeviceList([row])[0]);
+      // 使用 LevelDB 的迭代器获取所有设备
+      for await (const [key, value] of this.persistentService.deviceStatusDb.iterator()) {
+        if (key === '__schema__') continue; // 跳过 schema 记录
+
+        try {
+          const device = JSON.parse(value) as ModelOfMiner<'DeviceStatusRow'>;
+          if (device.status === 'connected') {
+            devices.push({
+              id: device.id,
+              name: device.name,
+              status: device.status
+            });
+          }
+        } catch (error) {
+          this.logger.error(`Failed to parse device data: ${error}`);
+        }
+      }
+
+      return devices;
+    } catch (error) {
+      this.logger.error(`Error finding device list: ${error}`);
+      throw error;
+    }
   }
 
-  async findCurrentDevice(db: Database): Promise<ModelOfMiner<'DeviceStatusModule'>> {
-    const row = db.prepare(`
-      SELECT *
-      FROM saito_miner_device_status
-      WHERE status = 'connected'
-      ORDER BY updated_at DESC
-      LIMIT 1
-    `).get() as ModelOfMiner<'DeviceStatusRow'> | undefined;
+  async findCurrentDevice(db: any): Promise<ModelOfMiner<'DeviceStatusModule'>> {
+    try {
+      let latestDevice: ModelOfMiner<'DeviceStatusRow'> | null = null;
 
-    return row ? formatDeviceStatus(row) : defaultDevice;
+      // 使用 LevelDB 的迭代器获取所有设备
+      for await (const [key, value] of this.persistentService.deviceStatusDb.iterator()) {
+        if (key === '__schema__') continue; // 跳过 schema 记录
+
+        try {
+          const device = JSON.parse(value) as ModelOfMiner<'DeviceStatusRow'>;
+          if (device.status === 'connected') {
+            if (!latestDevice || device.updated_at > latestDevice.updated_at) {
+              latestDevice = device;
+            }
+          }
+        } catch (error) {
+          this.logger.error(`Failed to parse device data: ${error}`);
+        }
+      }
+
+      return latestDevice ? formatDeviceStatus(latestDevice) : defaultDevice;
+    } catch (error) {
+      this.logger.error(`Error finding current device: ${error}`);
+      return defaultDevice;
+    }
   }
 
-  async findDevicesTasks(db: Database, deviceId: string): Promise<ModelOfMiner<'TaskResult'>[]> {
-    const rows = db.prepare(`
-      SELECT *
-      FROM saito_miner_tasks
-      WHERE device_id = ?
-      ORDER BY created_at DESC
-    `).all(deviceId) as ModelOfMiner<'TaskRow'>[];
+  async findDevicesTasks(db: any, deviceId: string): Promise<ModelOfMiner<'TaskResult'>[]> {
+    try {
+      const tasks: ModelOfMiner<'TaskResult'>[] = [];
 
-    return rows.map(row => formatTask(row));
+      // 使用 LevelDB 的迭代器获取所有任务
+      for await (const [key, value] of this.persistentService.tasksDb.iterator()) {
+        if (key === '__schema__') continue; // 跳过 schema 记录
+
+        try {
+          const task = JSON.parse(value) as ModelOfMiner<'TaskRow'>;
+          if (task.device_id === deviceId) {
+            tasks.push(formatTask(task));
+          }
+        } catch (error) {
+          this.logger.error(`Failed to parse task data: ${error}`);
+        }
+      }
+
+      // 按创建时间降序排序
+      return tasks.sort((a, b) => {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+    } catch (error) {
+      this.logger.error(`Error finding device tasks: ${error}`);
+      return [];
+    }
   }
 
-  async findDeviceEarnings(db: Database, deviceId: string): Promise<ModelOfMiner<'EarningResult'>[]> {
-    const rows = db.prepare(`
-      SELECT *
-      FROM saito_miner_earnings
-      WHERE device_id = ?
-      ORDER BY created_at DESC
-    `).all(deviceId) as ModelOfMiner<'EarningRow'>[];
+  async findDeviceEarnings(db: any, deviceId: string): Promise<ModelOfMiner<'EarningResult'>[]> {
+    try {
+      const earnings: ModelOfMiner<'EarningResult'>[] = [];
 
-    return rows.map(row => formatEarning(row));
+      // 使用 LevelDB 的迭代器获取所有收益记录
+      for await (const [key, value] of this.persistentService.earningsDb.iterator()) {
+        if (key === '__schema__') continue; // 跳过 schema 记录
+
+        try {
+          const earning = JSON.parse(value) as ModelOfMiner<'EarningRow'>;
+          if (earning.device_id === deviceId) {
+            earnings.push(formatEarning(earning));
+          }
+        } catch (error) {
+          this.logger.error(`Failed to parse earning data: ${error}`);
+        }
+      }
+
+      // 按创建时间降序排序
+      return earnings.sort((a, b) => {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+    } catch (error) {
+      this.logger.error(`Error finding device earnings: ${error}`);
+      return [];
+    }
   }
 }

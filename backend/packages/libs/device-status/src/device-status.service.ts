@@ -14,7 +14,6 @@ import {
   OllamaModelList
 } from "@saito/models";
 import { z } from "zod";
-import { Database } from "better-sqlite3";
 
 const STATUS_CHECK_TIMEOUT = 2000;
 
@@ -414,8 +413,8 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         this.getDeviceType(),
         this.getDeviceModel(),
       ]);
-      
-      
+
+
 
       // Updated to use the new API endpoint according to the documentation
       const response = await got.post(`${credentials.gateway_address}/node/register`, {
@@ -456,7 +455,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
           code: credentials.code,
           isRegistered: true
         };
-        
+
         await this.updateDeviceStatus(
           this.deviceConfig.deviceId,
           this.deviceConfig.deviceName,
@@ -475,7 +474,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         // Start heartbeat reporting
         this.heartbeat();
 
-        
+
         return {
           success: true,
           error: '',
@@ -505,7 +504,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
 
   async heartbeat() {
     if (!this.deviceConfig.isRegistered) {
-      
+
       return;
     }
 
@@ -521,47 +520,47 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       ]);
 
       // 记录详细的系统信息日志
-      
+
 
       // CPU信息
-      
-      
+
+
       if (systemInfo.cpu.temperature) {
-        
+
       }
 
       // 内存信息
-      
+
 
       // GPU信息
       if (systemInfo.gpu.length > 0) {
         systemInfo.gpu.forEach((gpu, index) => {
-          
-          
+
+
 
           if (gpu.temperature) {
-            
+
           }
 
-          
+
 
           if (gpu.isAppleSilicon) {
-            
+
           }
         });
       } else {
-        
+
       }
 
       // 磁盘信息
-      
+
 
       // 网络信息
-      
+
 
       // 操作系统信息
-      
-      
+
+
 
       // 创建心跳数据
       const newHeartbeatData = createHeartbeatData(
@@ -594,7 +593,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       //   json: legacyHeartbeatData,
       // });
 
-      
+
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       this.logger.error(`Heartbeat failed: ${errorMessage}`);
@@ -611,35 +610,35 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       // 并行获取所有系统信息
       const [cpuLoad, cpuInfo, cpuTemp, memInfo, gpuInfo, diskInfo, networkInfo, osInfo] = await Promise.all([
         si.currentLoad().catch(err => {
-          
+
           return { currentLoad: 0 };
         }),
         si.cpu().catch(err => {
-          
+
           return { manufacturer: '', brand: '', cores: 0, physicalCores: 0, speed: 0 };
         }),
         si.cpuTemperature().catch(err => {
-          
+
           return { main: 0, cores: [], max: 0 };
         }),
         si.mem().catch(err => {
-          
+
           return { total: 1, used: 0, free: 1 };
         }),
         si.graphics().catch(err => {
-          
+
           return { controllers: [], displays: [] };
         }),
         si.fsSize().catch(err => {
-          
+
           return [];
         }),
         si.networkStats().catch(err => {
-          
+
           return [];
         }),
         si.osInfo().catch(err => {
-          
+
           return { distro: '', release: '', arch: '', platform: '', uptime: 0 };
         })
       ]);
@@ -730,10 +729,10 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       // 记录 GPU 信息
       if (gpu.length > 0) {
         gpu.forEach((gpuInfo, index) => {
-          
+
         });
       } else {
-        
+
       }
 
       // 如果没有检测到 GPU，尝试使用其他方法检测
@@ -757,7 +756,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
               isAppleSilicon: true
             });
 
-            
+
           }
           // 检查是否是 Intel 集成显卡
           else if (cpuInfo.manufacturer?.toLowerCase().includes('intel')) {
@@ -784,7 +783,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                       isAppleSilicon: false
                     });
 
-                    
+
                   } catch (e) {
                     // 解析失败，使用默认值
                     gpu.push({
@@ -796,7 +795,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                       isAppleSilicon: false
                     });
 
-                    
+
                   }
                 } else {
                   // 没有 intel_gpu_top，使用默认值
@@ -809,10 +808,10 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                     isAppleSilicon: false
                   });
 
-                  
+
                 }
               } catch (error) {
-                
+
 
                 // 使用默认值
                 gpu.push({
@@ -824,7 +823,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                   isAppleSilicon: false
                 });
 
-                
+
               }
             } else if (osInfo.platform === 'win32') {
               // Windows 平台
@@ -837,7 +836,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                 isAppleSilicon: false
               });
 
-              
+
             } else if (osInfo.platform === 'darwin') {
               // macOS 平台
               gpu.push({
@@ -849,7 +848,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                 isAppleSilicon: false
               });
 
-              
+
             }
           }
           // 检查是否是 AMD CPU（可能有集成显卡）
@@ -863,7 +862,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
               isAppleSilicon: false
             });
 
-            
+
           }
           // 如果仍然没有检测到 GPU，添加一个通用的集成显卡
           else if (gpu.length === 0) {
@@ -876,10 +875,10 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
               isAppleSilicon: false
             });
 
-            
+
           }
         } catch (error) {
-          
+
         }
       }
 
@@ -912,9 +911,9 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       try {
         // 记录所有网络接口信息以便调试
         if (Array.isArray(networkInfo)) {
-          
+
           networkInfo.forEach((net, idx) => {
-            
+
           });
         }
 
@@ -949,14 +948,14 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                   totalRx += (rxDiff * 8) / 1000; // kbps
                   totalTx += (txDiff * 8) / 1000; // kbps
 
-                  
+
                 }
               }
             }
 
             return { rx: totalRx, tx: totalTx };
           } catch (error) {
-            
+
             return { rx: 0, tx: 0 };
           }
         };
@@ -966,7 +965,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         if (directStats.rx > 0 || directStats.tx > 0) {
           networkInbound = directStats.rx;
           networkOutbound = directStats.tx;
-          
+
         } else {
           // 回退到原来的方法
           if (Array.isArray(networkInfo) && networkInfo.length > 0) {
@@ -991,7 +990,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
               });
 
               // 记录找到的网络接口
-              
+
             } else {
               // 如果没有找到活跃接口，使用所有接口
               networkInfo.forEach(net => {
@@ -1041,12 +1040,12 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                   networkInbound = (rxBytes * 8) / 1000;
                   networkOutbound = (txBytes * 8) / 1000;
 
-                  
+
                 }
               }
             }
           } catch (error) {
-            
+
           }
         }
       } catch (error) {
@@ -1069,7 +1068,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         outbound: kbpsToMbps(networkOutbound / 1024) // 转换为 Mbps
       };
 
-      
+
 
       // 处理操作系统信息
       const os = {
@@ -1109,7 +1108,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     status: "waiting" | "in-progress" | "connected" | "disconnected" | "failed",
     rewardAddress: string
   ): Promise<ModelOfMiner<'DeviceStatusModule'>> {
-    return this.deviceStatusRepository.transaction(async (db: Database) => {
+    return this.deviceStatusRepository.transaction(async (db: any) => {
       await this.deviceStatusRepository.updateDeviceStatus(
         db,
         deviceId,
@@ -1129,13 +1128,13 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
   }
 
   async getDeviceStatus(deviceId: string): Promise<ModelOfMiner<'DeviceStatusModule'> | null> {
-    return this.deviceStatusRepository.transaction(async (db: Database) => {
+    return this.deviceStatusRepository.transaction(async (db: any) => {
       return this.deviceStatusRepository.findDeviceStatus(db, deviceId);
     });
   }
 
   async markInactiveDevicesOffline(inactiveDuration: number): Promise<ModelOfMiner<'DeviceStatusModule'>[]> {
-    return this.deviceStatusRepository.transaction(async (db: Database) => {
+    return this.deviceStatusRepository.transaction(async (db: any) => {
       const thresholdTime = new Date(Date.now() - inactiveDuration);
       await this.deviceStatusRepository.markDevicesOffline(db, thresholdTime);
       const devices = await this.deviceStatusRepository.findDeviceList(db);
@@ -1154,25 +1153,25 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
   }
 
   async getDeviceList(): Promise<ModelOfMiner<'DeviceListItem'>[]> {
-    return this.deviceStatusRepository.transaction(async (db: Database) => {
+    return this.deviceStatusRepository.transaction(async (db: any) => {
       return this.deviceStatusRepository.findDeviceList(db);
     });
   }
 
   async getCurrentDevice(): Promise<ModelOfMiner<'DeviceStatusModule'>> {
-    return this.deviceStatusRepository.transaction(async (db: Database) => {
+    return this.deviceStatusRepository.transaction(async (db: any) => {
       return this.deviceStatusRepository.findCurrentDevice(db);
     });
   }
 
   async getDeviceTasks(deviceId: string): Promise<ModelOfMiner<'TaskResult'>[]> {
-    return this.deviceStatusRepository.transaction(async (db: Database) => {
+    return this.deviceStatusRepository.transaction(async (db: any) => {
       return this.deviceStatusRepository.findDevicesTasks(db, deviceId);
     });
   }
 
   async getDeviceEarnings(deviceId: string): Promise<ModelOfMiner<'EarningResult'>[]> {
-    return this.deviceStatusRepository.transaction(async (db: Database) => {
+    return this.deviceStatusRepository.transaction(async (db: any) => {
       return this.deviceStatusRepository.findDeviceEarnings(db, deviceId);
     });
   }
@@ -1270,7 +1269,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
 
       return response.statusCode === 200;
     } catch (error: any) {
-      
+
       return false;
     }
   }
@@ -1287,7 +1286,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       }).json();
       return response as Promise<z.infer<typeof OllamaModelList>>;
     } catch (error: any) {
-      
+
       return {
         models: []
       };

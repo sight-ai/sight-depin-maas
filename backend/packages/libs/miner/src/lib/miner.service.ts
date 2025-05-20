@@ -213,27 +213,16 @@ export class DefaultMinerService implements MinerService {
 
     return this.withRetry(async () => {
       return this.repository.transaction(async db => {
-        // Generate a UUID for the earning
-        const id = crypto.randomUUID();
+        // 使用 repository 的 createEarning 方法创建收益记录
+        await this.repository.createEarning(db, blockRewards, jobRewards, deviceId, taskId);
 
-        // Insert the earning
-        db.prepare(`
-          INSERT INTO saito_miner_earnings (
-            id,
-            block_rewards,
-            job_rewards,
-            device_id,
-            task_id,
-            created_at,
-            updated_at,
-            source
-          )
-          VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'), 'local')
-        `).run(id, blockRewards, jobRewards, deviceId, taskId);
+        // 获取设备的总收益
+        const isRegistered = await this.deviceStatusService.isRegistered();
+        const earningInfo = await this.repository.getEarningInfo(db, deviceId, isRegistered);
 
         return {
-          total_block_rewards: blockRewards,
-          total_job_rewards: jobRewards
+          total_block_rewards: earningInfo.total_block_rewards,
+          total_job_rewards: earningInfo.total_job_rewards
         };
       });
     }, MAX_DB_RETRIES, `create earnings for task ${taskId}`);

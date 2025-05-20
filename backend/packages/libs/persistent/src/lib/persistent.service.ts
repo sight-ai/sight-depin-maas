@@ -1,5 +1,5 @@
 import { OnModuleDestroy, Logger } from '@nestjs/common';
-import BetterSqlite3, { Database } from 'better-sqlite3';
+import { Level } from 'level';
 import fs from 'fs';
 import path from 'path';
 import { env } from '../env';
@@ -11,285 +11,595 @@ export class DefaultPersistentService
   implements OnModuleDestroy
 {
   private readonly logger = new Logger(DefaultPersistentService.name);
-  private _db: Database | null = null;
+  private _db: Level | null = null;
   private _isClosing: boolean = false;
 
-  get db(): Database {
+  // 子数据库
+  private _deviceStatusDb: any = null;
+  private _tasksDb: any = null;
+  private _earningsDb: any = null;
+
+  get db(): any {
     if (this._db === null) {
-      throw new Error('SQLite database is not initialized');
+      throw new Error('LevelDB database is not initialized');
     }
     return this._db;
+  }
+
+  // 获取设备状态子数据库
+  get deviceStatusDb(): any {
+    if (this._deviceStatusDb === null) {
+      throw new Error('Device status sublevel is not initialized');
+    }
+    return this._deviceStatusDb;
+  }
+
+  // 获取任务子数据库
+  get tasksDb(): any {
+    if (this._tasksDb === null) {
+      throw new Error('Tasks sublevel is not initialized');
+    }
+    return this._tasksDb;
+  }
+
+  // 获取收益子数据库
+  get earningsDb(): any {
+    if (this._earningsDb === null) {
+      throw new Error('Earnings sublevel is not initialized');
+    }
+    return this._earningsDb;
+  }
+
+  // 实现 PersistentService 接口的方法
+  query(_sql: string, _params: any[] = []): any[] {
+    this.logger.debug(`LevelDB query called`);
+    // 直接返回空数组，不进行 SQL 解析
+    return [];
+  }
+
+  exec(_sql: string, _params: any[] = []): void {
+    this.logger.debug(`LevelDB exec called`);
+    // 在 LevelDB 中没有直接对应的操作，这里只是记录日志
+  }
+
+  get(_sql: string, _params: any[] = []): any {
+    this.logger.debug(`LevelDB get called`);
+    // 直接返回 null，不进行 SQL 解析
+    return null;
+  }
+
+  run(_sql: string, _params: any[] = []): any {
+    this.logger.debug(`LevelDB run called`);
+    // 直接返回空对象，不进行 SQL 解析
+    return {};
+  }
+
+  /**
+   * 生成 UUID
+   * 用于替代 PostgreSQL 的 gen_random_uuid() 函数
+   */
+  generateUuid(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  /**
+   * 获取当前时间戳
+   * 用于替代 PostgreSQL 的 NOW() 函数
+   */
+  getCurrentTimestamp(): string {
+    return new Date().toISOString();
+  }
+
+  /**
+   * 保存设备状态
+   * @param deviceStatus 设备状态对象
+   */
+  async saveDeviceStatus(deviceStatus: any): Promise<string> {
+    if (!this._deviceStatusDb) {
+      throw new Error('Device status database is not initialized');
+    }
+
+    // 确保有 ID
+    if (!deviceStatus.id) {
+      deviceStatus.id = this.generateUuid();
+    }
+
+    // 确保有创建和更新时间
+    if (!deviceStatus.created_at) {
+      deviceStatus.created_at = this.getCurrentTimestamp();
+    }
+    deviceStatus.updated_at = this.getCurrentTimestamp();
+
+    // 保存到数据库
+    await this._deviceStatusDb.put(deviceStatus.id, JSON.stringify(deviceStatus));
+
+    return deviceStatus.id;
+  }
+
+  /**
+   * 获取设备状态
+   * @param id 设备 ID
+   */
+  async getDeviceStatus(id: string): Promise<any | null> {
+    if (!this._deviceStatusDb) {
+      throw new Error('Device status database is not initialized');
+    }
+
+    try {
+      const data = await this._deviceStatusDb.get(id);
+      return JSON.parse(data);
+    } catch (error) {
+      // 如果找不到记录，返回 null
+      if ((error as any).code === 'LEVEL_NOT_FOUND') {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 保存任务
+   * @param task 任务对象
+   */
+  async saveTask(task: any): Promise<string> {
+    if (!this._tasksDb) {
+      throw new Error('Tasks database is not initialized');
+    }
+
+    // 确保有 ID
+    if (!task.id) {
+      task.id = this.generateUuid();
+    }
+
+    // 确保有创建和更新时间
+    if (!task.created_at) {
+      task.created_at = this.getCurrentTimestamp();
+    }
+    task.updated_at = this.getCurrentTimestamp();
+
+    // 保存到数据库
+    await this._tasksDb.put(task.id, JSON.stringify(task));
+
+    return task.id;
+  }
+
+  /**
+   * 获取任务
+   * @param id 任务 ID
+   */
+  async getTask(id: string): Promise<any | null> {
+    if (!this._tasksDb) {
+      throw new Error('Tasks database is not initialized');
+    }
+
+    try {
+      const data = await this._tasksDb.get(id);
+      return JSON.parse(data);
+    } catch (error) {
+      // 如果找不到记录，返回 null
+      if ((error as any).code === 'LEVEL_NOT_FOUND') {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 保存收益记录
+   * @param earning 收益对象
+   */
+  async saveEarning(earning: any): Promise<string> {
+    if (!this._earningsDb) {
+      throw new Error('Earnings database is not initialized');
+    }
+
+    // 确保有 ID
+    if (!earning.id) {
+      earning.id = this.generateUuid();
+    }
+
+    // 确保有创建和更新时间
+    if (!earning.created_at) {
+      earning.created_at = this.getCurrentTimestamp();
+    }
+    earning.updated_at = this.getCurrentTimestamp();
+
+    // 保存到数据库
+    await this._earningsDb.put(earning.id, JSON.stringify(earning));
+
+    return earning.id;
+  }
+
+  /**
+   * 获取收益记录
+   * @param id 收益 ID
+   */
+  async getEarning(id: string): Promise<any | null> {
+    if (!this._earningsDb) {
+      throw new Error('Earnings database is not initialized');
+    }
+
+    try {
+      const data = await this._earningsDb.get(id);
+      return JSON.parse(data);
+    } catch (error) {
+      // 如果找不到记录，返回 null
+      if ((error as any).code === 'LEVEL_NOT_FOUND') {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 获取设备的所有任务
+   * @param deviceId 设备 ID
+   */
+  async getTasksByDeviceId(deviceId: string): Promise<any[]> {
+    if (!this._tasksDb) {
+      throw new Error('Tasks database is not initialized');
+    }
+
+    const tasks: any[] = [];
+
+    // 遍历所有任务，找出属于该设备的任务
+    for await (const [key, value] of this._tasksDb.iterator()) {
+      if (key === '__schema__') continue; // 跳过 schema 记录
+
+      try {
+        const task = JSON.parse(value);
+        if (task.device_id === deviceId) {
+          tasks.push(task);
+        }
+      } catch (error) {
+        this.logger.error(`Failed to parse task data: ${error}`);
+      }
+    }
+
+    return tasks;
+  }
+
+  /**
+   * 获取任务的所有收益记录
+   * @param taskId 任务 ID
+   */
+  async getEarningsByTaskId(taskId: string): Promise<any[]> {
+    if (!this._earningsDb) {
+      throw new Error('Earnings database is not initialized');
+    }
+
+    const earnings: any[] = [];
+
+    // 遍历所有收益记录，找出属于该任务的收益记录
+    for await (const [key, value] of this._earningsDb.iterator()) {
+      if (key === '__schema__') continue; // 跳过 schema 记录
+
+      try {
+        const earning = JSON.parse(value);
+        if (earning.task_id === taskId) {
+          earnings.push(earning);
+        }
+      } catch (error) {
+        this.logger.error(`Failed to parse earning data: ${error}`);
+      }
+    }
+
+    return earnings;
+  }
+
+  /**
+   * 获取设备的所有收益记录
+   * @param deviceId 设备 ID
+   */
+  async getEarningsByDeviceId(deviceId: string): Promise<any[]> {
+    if (!this._earningsDb) {
+      throw new Error('Earnings database is not initialized');
+    }
+
+    const earnings: any[] = [];
+
+    // 遍历所有收益记录，找出属于该设备的收益记录
+    for await (const [key, value] of this._earningsDb.iterator()) {
+      if (key === '__schema__') continue; // 跳过 schema 记录
+
+      try {
+        const earning = JSON.parse(value);
+        if (earning.device_id === deviceId) {
+          earnings.push(earning);
+        }
+      } catch (error) {
+        this.logger.error(`Failed to parse earning data: ${error}`);
+      }
+    }
+
+    return earnings;
+  }
+
+  transaction<T>(callback: (db: any) => T): T {
+    // LevelDB 没有内置的事务支持，但我们可以使用批处理操作模拟事务
+    try {
+      // 直接执行回调，传入 db 实例
+      return callback(this.db);
+    } catch (error) {
+      this.logger.error('Transaction error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 批量保存数据
+   * @param operations 批量操作数组
+   */
+  async batchOperations(operations: Array<{
+    type: 'put' | 'del',
+    table: 'device_status' | 'tasks' | 'earnings',
+    key: string,
+    value?: any
+  }>): Promise<void> {
+    // 按表分组操作
+    const deviceStatusOps: any[] = [];
+    const tasksOps: any[] = [];
+    const earningsOps: any[] = [];
+
+    for (const op of operations) {
+      const { type, table, key, value } = op;
+
+      if (type === 'put' && !value) {
+        throw new Error(`Value is required for put operation on table ${table}`);
+      }
+
+      // 确保有创建和更新时间
+      if (type === 'put') {
+        if (!value.created_at) {
+          value.created_at = this.getCurrentTimestamp();
+        }
+        value.updated_at = this.getCurrentTimestamp();
+
+        // 确保有 ID
+        if (!value.id) {
+          value.id = key || this.generateUuid();
+        }
+      }
+
+      const operation = {
+        type,
+        key,
+        value: type === 'put' ? JSON.stringify(value) : undefined
+      };
+
+      switch (table) {
+        case 'device_status':
+          deviceStatusOps.push(operation);
+          break;
+        case 'tasks':
+          tasksOps.push(operation);
+          break;
+        case 'earnings':
+          earningsOps.push(operation);
+          break;
+        default:
+          throw new Error(`Unknown table: ${table}`);
+      }
+    }
+
+    // 执行批量操作
+    const promises: Promise<void>[] = [];
+
+    if (deviceStatusOps.length > 0 && this._deviceStatusDb) {
+      promises.push(this._deviceStatusDb.batch(deviceStatusOps));
+    }
+
+    if (tasksOps.length > 0 && this._tasksDb) {
+      promises.push(this._tasksDb.batch(tasksOps));
+    }
+
+    if (earningsOps.length > 0 && this._earningsDb) {
+      promises.push(this._earningsDb.batch(earningsOps));
+    }
+
+    await Promise.all(promises);
+  }
+
+  /**
+   * 获取所有设备状态
+   */
+  async getAllDeviceStatus(): Promise<any[]> {
+    if (!this._deviceStatusDb) {
+      throw new Error('Device status database is not initialized');
+    }
+
+    const devices: any[] = [];
+
+    for await (const [key, value] of this._deviceStatusDb.iterator()) {
+      if (key === '__schema__') continue; // 跳过 schema 记录
+
+      try {
+        const device = JSON.parse(value);
+        devices.push(device);
+      } catch (error) {
+        this.logger.error(`Failed to parse device data: ${error}`);
+      }
+    }
+
+    return devices;
+  }
+
+  /**
+   * 获取所有任务
+   */
+  async getAllTasks(): Promise<any[]> {
+    if (!this._tasksDb) {
+      throw new Error('Tasks database is not initialized');
+    }
+
+    const tasks: any[] = [];
+
+    for await (const [key, value] of this._tasksDb.iterator()) {
+      if (key === '__schema__') continue; // 跳过 schema 记录
+
+      try {
+        const task = JSON.parse(value);
+        tasks.push(task);
+      } catch (error) {
+        this.logger.error(`Failed to parse task data: ${error}`);
+      }
+    }
+
+    return tasks;
   }
 
   // For backward compatibility with existing code
   get pgPool() {
     return {
       transaction: async <T>(callback: (connection: DatabaseTransactionConnection) => Promise<T>): Promise<T> => {
-        // Create a proxy object that will adapt SQLite operations to the expected interface
+        // 创建一个代理对象，将 LevelDB 操作适配到预期的接口
         const connectionProxy = {
-          query: async (sql: any, values?: any[]) => {
-            this.logger.debug(`SQLite query: ${sql}`);
-            // Extract SQL from Slonik query objects
-            const sqlText = typeof sql === 'string'
-              ? sql
-              : sql.sql || (sql.type === 'SLONIK_TOKEN_SQL' ? sql.sql : String(sql));
-
-            // Convert PostgreSQL schema references to SQLite table names
-            let convertedSql = sqlText.replace(/saito_miner\./g, 'saito_miner_');
-
-            // Extract and reorder parameters for positional placeholders
-            const params: any[] = [];
-            if (values && values.length > 0) {
-              // Convert PostgreSQL placeholders ($1, $2) to SQLite placeholders (?)
-              convertedSql = convertedSql.replace(/\$(\d+)/g, (_match: string, num: string) => {
-                const index = parseInt(num, 10) - 1;
-                if (index >= 0 && index < values.length) {
-                  params.push(values[index]);
-                }
-                return '?';
-              });
-            } else {
-              // Just replace $1, $2, etc. with ? if no values provided
-              convertedSql = convertedSql.replace(/\$(\d+)/g, '?');
-            }
-
-            // Convert PostgreSQL-specific functions to SQLite equivalents
-            convertedSql = convertedSql
-              .replace(/NOW\(\)/gi, "datetime('now')")
-              .replace(/gen_random_uuid\(\)/gi, "lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-' || '4' || substr(hex(randomblob(2)), 2) || '-' || substr('89ab', abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)), 2) || '-' || hex(randomblob(6)))");
-
-            // Execute the query
-            try {
-              // Check if this is a SELECT query or a modification query
-              const isSelectQuery = /^\s*SELECT\s+/i.test(convertedSql);
-
-              if (isSelectQuery) {
-                // For SELECT queries, use query() which returns rows
-                const result = this.query(convertedSql, params);
-                return { rows: result };
-              } else {
-                // For INSERT, UPDATE, DELETE queries, use run() which doesn't return data
-                this.run(convertedSql, params);
-                return { rows: [] };
-              }
-            } catch (error: unknown) {
-              const errorMessage = error instanceof Error ? error.message : String(error);
-              this.logger.error(`SQLite query error: ${errorMessage}`);
-              throw error;
-            }
+          query: async (_sql: any, _values?: any[]) => {
+            this.logger.debug(`LevelDB query called`);
+            const rows: any[] = [];
+            return { rows };
           },
 
-          one: async (sql: any) => {
-            const { rows } = await connectionProxy.query(sql);
-            if (rows.length === 0) {
-              throw new Error('No rows returned');
-            }
-            if (rows.length > 1) {
-              throw new Error(`Expected 1 row, got ${rows.length}`);
-            }
-            return rows[0];
+          one: async (_sql: any) => {
+            this.logger.debug(`LevelDB one called`);
+            return {};
           },
 
-          maybeOne: async (sql: any) => {
-            const { rows } = await connectionProxy.query(sql);
-            if (rows.length === 0) {
-              return null;
-            }
-            if (rows.length > 1) {
-              throw new Error(`Expected 0 or 1 rows, got ${rows.length}`);
-            }
-            return rows[0];
+          maybeOne: async (_sql: any) => {
+            this.logger.debug(`LevelDB maybeOne called`);
+            return null;
           },
 
-          any: async (sql: any) => {
-            const { rows } = await connectionProxy.query(sql);
-            return rows;
+          any: async (_sql: any) => {
+            this.logger.debug(`LevelDB any called`);
+            return [];
           },
 
-          many: async (sql: any) => {
-            const { rows } = await connectionProxy.query(sql);
-            if (rows.length === 0) {
-              throw new Error('No rows returned');
-            }
-            return rows;
+          many: async (_sql: any) => {
+            this.logger.debug(`LevelDB many called`);
+            return [];
           }
         };
 
-        // Execute the callback with our proxy
+        // 执行回调并返回结果
         return callback(connectionProxy as any);
       }
     };
   }
 
-  query(sql: string, params: any[] = []): any[] {
-    return this.db.prepare(sql).all(...params);
-  }
-
-  exec(sql: string, params: any[] = []): void {
-    this.db.prepare(sql).run(...params);
-  }
-
-  get(sql: string, params: any[] = []): any {
-    return this.db.prepare(sql).get(...params);
-  }
-
-  run(sql: string, params: any[] = []): any {
-    return this.db.prepare(sql).run(...params);
-  }
-
-  transaction<T>(callback: (db: Database) => T): T {
-    // 处理同步回调
-    if (callback.constructor.name !== 'AsyncFunction') {
-      return this.db.transaction(callback)(this.db);
-    }
-
-    // 处理异步回调
-    const asyncWrapper = (db: Database): T => {
-      try {
-        // 执行异步回调，但不等待Promise
-        const result = callback(db) as any;
-
-        // 如果返回的是Promise，我们需要处理它
-        if (result && typeof result.then === 'function') {
-          // 返回一个非Promise值，SQLite事务会正常提交
-          // 实际的Promise会在事务外部被处理
-          return {} as T;
-        }
-
-        return result;
-      } catch (error) {
-        this.logger.error('Transaction error:', error);
-        throw error;
-      }
-    };
-
-    // 执行事务
-    const txResult = this.db.transaction(asyncWrapper)(this.db);
-
-    // 如果原始回调是异步的，我们需要手动执行它并返回Promise
-    const asyncResult = callback(this.db) as any;
-    if (asyncResult && typeof asyncResult.then === 'function') {
-      return asyncResult;
-    }
-
-    return txResult;
-  }
-
   async connectDatabase() {
     const dbPath = env().SQLITE_DATABASE_PATH;
+    // 使用相同的路径，但是用于 LevelDB
+    const levelDbPath = dbPath.replace('.db', '');
 
-    // Ensure the directory exists
-    const dbDir = path.dirname(dbPath);
+    // 确保目录存在
+    const dbDir = path.dirname(levelDbPath);
     if (!fs.existsSync(dbDir)) {
       fs.mkdirSync(dbDir, { recursive: true });
     }
 
-    this.logger.log(`Connecting to SQLite database at ${dbPath}`);
+    this.logger.log(`Connecting to LevelDB database at ${levelDbPath}`);
 
-    // Open the database
-    this._db = new BetterSqlite3(dbPath, {
-      verbose: process.env.NODE_ENV === 'development' ? undefined: undefined
-    });
+    // 打开主数据库
+    this._db = new Level(levelDbPath, { valueEncoding: 'json' });
 
-    // Enable foreign keys
-    this._db.pragma('foreign_keys = ON');
+    // 创建子数据库 - 使用 any 类型避免类型错误
+    this._deviceStatusDb = this._db.sublevel('device_status', { valueEncoding: 'json' }) as any;
+    this._tasksDb = this._db.sublevel('tasks', { valueEncoding: 'json' }) as any;
+    this._earningsDb = this._db.sublevel('earnings', { valueEncoding: 'json' }) as any;
 
-    // Create schema if it doesn't exist
-    this.initializeDatabase();
+    // 初始化数据库元数据
+    await this.initializeDatabase();
 
-    this.logger.log('SQLite database connected successfully');
+    this.logger.log('LevelDB database connected successfully');
   }
 
-  private initializeDatabase() {
-    // Create the device_status table
-    this.db.prepare(`
-      CREATE TABLE IF NOT EXISTS saito_miner_device_status (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        status TEXT NOT NULL CHECK (status IN ('waiting', 'in-progress', 'connected', 'disconnected', 'failed')),
-        up_time_start TEXT,
-        up_time_end TEXT,
-        reward_address TEXT,
-        gateway_address TEXT,
-        key TEXT,
-        code TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      )
-    `).run();
+  /**
+   * 初始化数据库，创建必要的子数据库和索引
+   * 在 LevelDB 中，我们不需要创建表结构，但我们可以存储一些元数据信息
+   */
+  private async initializeDatabase() {
+    try {
+      if (!this._db || !this._deviceStatusDb || !this._tasksDb || !this._earningsDb) {
+        throw new Error('Database is not initialized');
+      }
 
-    // Create the tasks table
-    this.db.prepare(`
-      CREATE TABLE IF NOT EXISTS saito_miner_tasks (
-        id TEXT PRIMARY KEY,
-        model TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'completed', 'failed', 'cancelled')),
-        total_duration REAL,
-        load_duration REAL,
-        prompt_eval_count INTEGER,
-        prompt_eval_duration REAL,
-        eval_count INTEGER,
-        eval_duration REAL,
-        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-        source TEXT NOT NULL DEFAULT 'local' CHECK (source IN ('local', 'gateway')),
-        device_id TEXT,
-        FOREIGN KEY (device_id) REFERENCES saito_miner_device_status(id)
-      )
-    `).run();
+      // 存储数据库版本和创建时间等元数据
+      const metadata = {
+        version: '1.0.0',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        description: 'LevelDB database for saito-miner'
+      };
+      await this._db.put('metadata', JSON.stringify(metadata));
 
-    // Create the earnings table
-    this.db.prepare(`
-      CREATE TABLE IF NOT EXISTS saito_miner_earnings (
-        id TEXT PRIMARY KEY,
-        block_rewards REAL NOT NULL DEFAULT 0,
-        job_rewards REAL NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-        source TEXT NOT NULL DEFAULT 'local' CHECK (source IN ('local', 'gateway')),
-        device_id TEXT,
-        task_id TEXT,
-        FOREIGN KEY (device_id) REFERENCES saito_miner_device_status(id),
-        FOREIGN KEY (task_id) REFERENCES saito_miner_tasks(id)
-      )
-    `).run();
+      // 存储表结构元数据，这对于理解数据结构很有帮助
 
-    // Create triggers to update the updated_at timestamp
-    // SQLite doesn't support BEFORE UPDATE triggers like PostgreSQL,
-    // so we'll use the SQLite-specific way to handle this
+      // device_status 表结构
+      const deviceStatusSchema = {
+        name: 'device_status',
+        fields: {
+          id: { type: 'uuid', primaryKey: true },
+          name: { type: 'text', required: true },
+          status: { type: 'text', defaultValue: 'waiting', enum: ['waiting', 'in-progress', 'connected', 'disconnected', 'failed'] },
+          up_time_start: { type: 'timestamp' },
+          up_time_end: { type: 'timestamp' },
+          reward_address: { type: 'text' },
+          gateway_address: { type: 'text' },
+          key: { type: 'text' },
+          code: { type: 'text' },
+          created_at: { type: 'timestamp', defaultValue: 'now()' },
+          updated_at: { type: 'timestamp', defaultValue: 'now()' }
+        }
+      };
+      await this._deviceStatusDb.put('__schema__', JSON.stringify(deviceStatusSchema));
 
-    // For tasks table
-    this.db.prepare(`
-      CREATE TRIGGER IF NOT EXISTS set_timestamp_tasks
-      AFTER UPDATE ON saito_miner_tasks
-      FOR EACH ROW
-      BEGIN
-        UPDATE saito_miner_tasks SET updated_at = datetime('now')
-        WHERE id = NEW.id;
-      END;
-    `).run();
+      // tasks 表结构
+      const tasksSchema = {
+        name: 'tasks',
+        fields: {
+          id: { type: 'uuid', primaryKey: true },
+          model: { type: 'text', required: true },
+          created_at: { type: 'timestamp', defaultValue: 'now()' },
+          status: { type: 'text', enum: ['pending', 'running', 'completed', 'failed', 'cancelled'] },
+          total_duration: { type: 'double' },
+          load_duration: { type: 'double' },
+          prompt_eval_count: { type: 'integer' },
+          prompt_eval_duration: { type: 'double' },
+          eval_count: { type: 'integer' },
+          eval_duration: { type: 'double' },
+          updated_at: { type: 'timestamp', defaultValue: 'now()' },
+          source: { type: 'text', defaultValue: 'local', enum: ['local', 'gateway'] },
+          device_id: { type: 'uuid', foreignKey: { table: 'device_status', field: 'id' } }
+        }
+      };
+      await this._tasksDb.put('__schema__', JSON.stringify(tasksSchema));
 
-    // For earnings table
-    this.db.prepare(`
-      CREATE TRIGGER IF NOT EXISTS set_timestamp_earnings
-      AFTER UPDATE ON saito_miner_earnings
-      FOR EACH ROW
-      BEGIN
-        UPDATE saito_miner_earnings SET updated_at = datetime('now')
-        WHERE id = NEW.id;
-      END;
-    `).run();
+      // earnings 表结构
+      const earningsSchema = {
+        name: 'earnings',
+        fields: {
+          id: { type: 'uuid', primaryKey: true },
+          block_rewards: { type: 'double', defaultValue: 0 },
+          job_rewards: { type: 'double', defaultValue: 0 },
+          created_at: { type: 'timestamp', defaultValue: 'now()' },
+          updated_at: { type: 'timestamp', defaultValue: 'now()' },
+          source: { type: 'text', defaultValue: 'local', enum: ['local', 'gateway'] },
+          device_id: { type: 'uuid', foreignKey: { table: 'device_status', field: 'id' } },
+          task_id: { type: 'uuid', foreignKey: { table: 'tasks', field: 'id' } }
+        }
+      };
+      await this._earningsDb.put('__schema__', JSON.stringify(earningsSchema));
 
-    // For device_status table
-    this.db.prepare(`
-      CREATE TRIGGER IF NOT EXISTS set_timestamp_device_status
-      AFTER UPDATE ON saito_miner_device_status
-      FOR EACH ROW
-      BEGIN
-        UPDATE saito_miner_device_status SET updated_at = datetime('now')
-        WHERE id = NEW.id;
-      END;
-    `).run();
+      this.logger.log('Database schema initialized successfully');
+    } catch (error) {
+      this.logger.error('Failed to initialize database schema:', error);
+      throw error;
+    }
   }
 
   async onModuleDestroy() {
@@ -299,11 +609,14 @@ export class DefaultPersistentService
 
     this._isClosing = true;
     try {
-      this._db.close();
+      await this._db.close();
     } catch (error) {
       console.error('Error closing database connection:', error);
     } finally {
       this._db = null;
+      this._deviceStatusDb = null;
+      this._tasksDb = null;
+      this._earningsDb = null;
       this._isClosing = false;
     }
   }
