@@ -77,9 +77,10 @@ CONFIG_DIR="/etc/sightai"
 LOG_DIR="/var/log/sightai"
 BIN_PATH="/usr/local/bin/sightai"
 
-# 设置下载URL
-DOWNLOAD_URL="https://github.com/sight-ai/sight-depin-maas/releases/download/0.0.1/sightai-linux-adm64.gz"
-DOWNLOAD_FILE="${TEMP_DIR}/sightai.gz"
+# 设置本地源文件路径
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
+SOURCE_FILE="${BACKEND_DIR}/dist-pkg/sightai.gz"
 
 # 创建目录
 status "Creating directories..."
@@ -99,22 +100,17 @@ if [ -f "$BIN_PATH" ]; then
     fi
 fi
 
-# 下载安装包
-status "Downloading SightAI from ${DOWNLOAD_URL}..."
-if [ "$DRY_RUN" = true ]; then
-    dryrun "Would download from $DOWNLOAD_URL to $DOWNLOAD_FILE"
-else
-    if ! curl -fsSL "$DOWNLOAD_URL" -o "$DOWNLOAD_FILE"; then
-        error "Failed to download from $DOWNLOAD_URL"
-    fi
+# 检查源文件是否存在
+if [ ! -f "$SOURCE_FILE" ]; then
+    error "Source file not found: $SOURCE_FILE"
 fi
 
-# 从下载的文件安装
-status "Installing SightAI for Linux ${ARCH}..."
+# 从本地安装
+status "Installing SightAI from local source for Linux ${ARCH}..."
 if [ "$DRY_RUN" = true ]; then
-    dryrun "Would extract $DOWNLOAD_FILE to $INSTALL_DIR"
+    dryrun "Would extract $SOURCE_FILE to $INSTALL_DIR"
 else
-    $SUDO tar -xzf "$DOWNLOAD_FILE" -C "$INSTALL_DIR"
+    $SUDO tar -xzf "$SOURCE_FILE" -C "$INSTALL_DIR"
 fi
 
 # 创建符号链接
