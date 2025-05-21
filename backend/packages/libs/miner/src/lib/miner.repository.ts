@@ -11,6 +11,26 @@ import {
   ModelOfMiner
 } from "@saito/models";
 
+/**
+ * 安全地解析 JSON 字符串
+ * @param jsonString 要解析的 JSON 字符串
+ * @param logger 用于记录错误的日志记录器
+ * @param errorMessage 错误消息前缀
+ * @returns 解析后的对象，如果解析失败则返回 null
+ */
+const safeJsonParse = <T>(jsonString: any, logger: Logger, errorMessage: string = 'Failed to parse JSON'): T | null => {
+  if (!jsonString) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(jsonString) as T;
+  } catch (error) {
+    logger.error(`${errorMessage}: ${error}`);
+    return null;
+  }
+};
+
 export class MinerRepository {
   constructor(
     @Inject(PersistentService)
@@ -36,14 +56,15 @@ export class MinerRepository {
       for await (const [key, value] of this.persistentService.earningsDb.iterator()) {
         if (key === '__schema__') continue; // 跳过 schema 记录
 
-        try {
-          const earning = JSON.parse(value);
-          if (earning.device_id === deviceId && earning.source === source) {
-            totalBlockRewards += Number(earning.block_rewards) || 0;
-            totalJobRewards += Number(earning.job_rewards) || 0;
-          }
-        } catch (error) {
-          this.logger.error(`Failed to parse earning data: ${error}`);
+        const earning = safeJsonParse<ModelOfMiner<'Earning'>>(
+          value,
+          this.logger,
+          `Failed to parse earning data for key ${key}`
+        );
+
+        if (earning && earning.device_id === deviceId && earning.source === source) {
+          totalBlockRewards += Number(earning.block_rewards) || 0;
+          totalJobRewards += Number(earning.job_rewards) || 0;
         }
       }
 
@@ -65,14 +86,25 @@ export class MinerRepository {
     try {
       // 直接从 deviceStatusDb 获取设备信息
       const deviceData = await this.persistentService.deviceStatusDb.get(deviceId);
-      const device = JSON.parse(deviceData);
 
-      return {
-        name: device.name,
-        status: device.status,
-        up_time_start: device.up_time_start,
-        up_time_end: device.up_time_end
-      } as ModelOfMiner<'MinerDeviceStatus'>;
+      // 检查 deviceData 是否为 undefined 或 null
+      if (!deviceData) {
+        return null;
+      }
+
+      try {
+        const device = JSON.parse(deviceData);
+
+        return {
+          name: device.name,
+          status: device.status,
+          up_time_start: device.up_time_start,
+          up_time_end: device.up_time_end
+        } as ModelOfMiner<'MinerDeviceStatus'>;
+      } catch (parseError) {
+        this.logger.error(`Error parsing device data: ${parseError}`);
+        return null;
+      }
     } catch (error) {
       if ((error as any).code === 'LEVEL_NOT_FOUND') {
         return null;
@@ -97,18 +129,19 @@ export class MinerRepository {
       for await (const [key, value] of this.persistentService.tasksDb.iterator()) {
         if (key === '__schema__') continue; // 跳过 schema 记录
 
-        try {
-          const task = JSON.parse(value);
-          if (task.device_id === deviceId && task.source === source) {
-            const taskDate = new Date(task.created_at);
-            if (taskDate >= thirtyDaysAgo) {
-              // 将日期格式化为 YYYY-MM-DD
-              const dateStr = taskDate.toISOString().split('T')[0];
-              uniqueDates.add(dateStr);
-            }
+        const task = safeJsonParse<ModelOfMiner<'Task'>>(
+          value,
+          this.logger,
+          `Failed to parse task data for key ${key}`
+        );
+
+        if (task && task.device_id === deviceId && task.source === source) {
+          const taskDate = new Date(task.created_at);
+          if (taskDate >= thirtyDaysAgo) {
+            // 将日期格式化为 YYYY-MM-DD
+            const dateStr = taskDate.toISOString().split('T')[0];
+            uniqueDates.add(dateStr);
           }
-        } catch (error) {
-          this.logger.error(`Failed to parse task data: ${error}`);
         }
       }
 
@@ -142,20 +175,21 @@ export class MinerRepository {
       for await (const [key, value] of this.persistentService.earningsDb.iterator()) {
         if (key === '__schema__') continue; // 跳过 schema 记录
 
-        try {
-          const earning = JSON.parse(value);
-          if (earning.device_id === deviceId && earning.source === source) {
-            const earningDate = new Date(earning.created_at);
-            // 将日期格式化为 YYYY-MM-DD
-            const dateStr = earningDate.toISOString().split('T')[0];
+        const earning = safeJsonParse<ModelOfMiner<'Earning'>>(
+          value,
+          this.logger,
+          `Failed to parse earning data for key ${key}`
+        );
 
-            // 累加当天的收益
-            const currentEarning = dailyEarnings.get(dateStr) || 0;
-            const earningAmount = (Number(earning.block_rewards) || 0) + (Number(earning.job_rewards) || 0);
-            dailyEarnings.set(dateStr, currentEarning + earningAmount);
-          }
-        } catch (error) {
-          this.logger.error(`Failed to parse earning data: ${error}`);
+        if (earning && earning.device_id === deviceId && earning.source === source) {
+          const earningDate = new Date(earning.created_at);
+          // 将日期格式化为 YYYY-MM-DD
+          const dateStr = earningDate.toISOString().split('T')[0];
+
+          // 累加当天的收益
+          const currentEarning = dailyEarnings.get(dateStr) || 0;
+          const earningAmount = (Number(earning.block_rewards) || 0) + (Number(earning.job_rewards) || 0);
+          dailyEarnings.set(dateStr, currentEarning + earningAmount);
         }
       }
 
@@ -209,27 +243,28 @@ export class MinerRepository {
       for await (const [key, value] of this.persistentService.tasksDb.iterator()) {
         if (key === '__schema__') continue; // 跳过 schema 记录
 
-        try {
-          const task = JSON.parse(value);
-          if (task.device_id === deviceId && task.source === source) {
-            const taskDate = new Date(task.created_at);
+        const task = safeJsonParse<ModelOfMiner<'Task'>>(
+          value,
+          this.logger,
+          `Failed to parse task data for key ${key}`
+        );
 
-            // 根据时间单位格式化时间点
-            let timePointStr;
-            if (timeConfig.format === 'hour') {
-              // 格式: YYYY-MM-DD HH:00:00
-              timePointStr = `${taskDate.toISOString().split('T')[0]} ${taskDate.getHours().toString().padStart(2, '0')}:00:00`;
-            } else {
-              // 格式: YYYY-MM-DD 00:00:00
-              timePointStr = `${taskDate.toISOString().split('T')[0]} 00:00:00`;
-            }
+        if (task && task.device_id === deviceId && task.source === source) {
+          const taskDate = new Date(task.created_at);
 
-            // 累加该时间点的任务数量
-            const currentCount = timePointCounts.get(timePointStr) || 0;
-            timePointCounts.set(timePointStr, currentCount + 1);
+          // 根据时间单位格式化时间点
+          let timePointStr;
+          if (timeConfig.format === 'hour') {
+            // 格式: YYYY-MM-DD HH:00:00
+            timePointStr = `${taskDate.toISOString().split('T')[0]} ${taskDate.getHours().toString().padStart(2, '0')}:00:00`;
+          } else {
+            // 格式: YYYY-MM-DD 00:00:00
+            timePointStr = `${taskDate.toISOString().split('T')[0]} 00:00:00`;
           }
-        } catch (error) {
-          this.logger.error(`Failed to parse task data: ${error}`);
+
+          // 累加该时间点的任务数量
+          const currentCount = timePointCounts.get(timePointStr) || 0;
+          timePointCounts.set(timePointStr, currentCount + 1);
         }
       }
 
@@ -285,25 +320,26 @@ export class MinerRepository {
       for await (const [key, value] of this.persistentService.tasksDb.iterator()) {
         if (key === '__schema__') continue; // 跳过 schema 记录
 
-        try {
-          const task = JSON.parse(value);
-          if (task.device_id === deviceId && task.source === source) {
-            const taskDate = new Date(task.created_at);
-            const taskYear = taskDate.getFullYear();
+        const task = safeJsonParse<ModelOfMiner<'Task'>>(
+          value,
+          this.logger,
+          `Failed to parse task data for key ${key}`
+        );
 
-            // 只统计指定年份的任务
-            if (taskYear === year) {
-              const taskMonth = taskDate.getMonth() + 1; // 月份从0开始，需要+1
-              const monthStr = taskMonth.toString().padStart(2, '0');
-              const dateStr = `${year}-${monthStr}-01`;
+        if (task && task.device_id === deviceId && task.source === source) {
+          const taskDate = new Date(task.created_at);
+          const taskYear = taskDate.getFullYear();
 
-              // 累加该月的任务数量
-              const currentCount = monthlyTaskCounts.get(dateStr) || 0;
-              monthlyTaskCounts.set(dateStr, currentCount + 1);
-            }
+          // 只统计指定年份的任务
+          if (taskYear === year) {
+            const taskMonth = taskDate.getMonth() + 1; // 月份从0开始，需要+1
+            const monthStr = taskMonth.toString().padStart(2, '0');
+            const dateStr = `${year}-${monthStr}-01`;
+
+            // 累加该月的任务数量
+            const currentCount = monthlyTaskCounts.get(dateStr) || 0;
+            monthlyTaskCounts.set(dateStr, currentCount + 1);
           }
-        } catch (error) {
-          this.logger.error(`Failed to parse task data: ${error}`);
         }
       }
 
@@ -357,26 +393,27 @@ export class MinerRepository {
       for await (const [key, value] of this.persistentService.tasksDb.iterator()) {
         if (key === '__schema__') continue; // 跳过 schema 记录
 
-        try {
-          const task = JSON.parse(value);
-          if (task.device_id === deviceId && task.source === source) {
-            const taskDate = new Date(task.created_at);
-            const taskYear = taskDate.getFullYear();
-            const taskMonth = taskDate.getMonth() + 1; // 月份从0开始，需要+1
+        const task = safeJsonParse<ModelOfMiner<'Task'>>(
+          value,
+          this.logger,
+          `Failed to parse task data for key ${key}`
+        );
 
-            // 只统计指定年月的任务
-            if (taskYear === year && taskMonth === month) {
-              const taskDay = taskDate.getDate();
-              const dayStr = taskDay.toString().padStart(2, '0');
-              const dateStr = `${year}-${monthStr}-${dayStr}`;
+        if (task && task.device_id === deviceId && task.source === source) {
+          const taskDate = new Date(task.created_at);
+          const taskYear = taskDate.getFullYear();
+          const taskMonth = taskDate.getMonth() + 1; // 月份从0开始，需要+1
 
-              // 累加该天的任务数量
-              const currentCount = dailyTaskCounts.get(dateStr) || 0;
-              dailyTaskCounts.set(dateStr, currentCount + 1);
-            }
+          // 只统计指定年月的任务
+          if (taskYear === year && taskMonth === month) {
+            const taskDay = taskDate.getDate();
+            const dayStr = taskDay.toString().padStart(2, '0');
+            const dateStr = `${year}-${monthStr}-${dayStr}`;
+
+            // 累加该天的任务数量
+            const currentCount = dailyTaskCounts.get(dateStr) || 0;
+            dailyTaskCounts.set(dateStr, currentCount + 1);
           }
-        } catch (error) {
-          this.logger.error(`Failed to parse task data: ${error}`);
         }
       }
 
@@ -417,13 +454,14 @@ export class MinerRepository {
       for await (const [key, value] of this.persistentService.tasksDb.iterator()) {
         if (key === '__schema__') continue; // 跳过 schema 记录
 
-        try {
-          const task = JSON.parse(value);
-          if (task.device_id === deviceId && task.source === source) {
-            allTasks.push(task);
-          }
-        } catch (error) {
-          this.logger.error(`Failed to parse task data: ${error}`);
+        const task = safeJsonParse<ModelOfMiner<'Task'>>(
+          value,
+          this.logger,
+          `Failed to parse task data for key ${key}`
+        );
+
+        if (task && task.device_id === deviceId && task.source === source) {
+          allTasks.push(task);
         }
       }
 
@@ -463,13 +501,14 @@ export class MinerRepository {
       for await (const [key, value] of this.persistentService.tasksDb.iterator()) {
         if (key === '__schema__') continue; // 跳过 schema 记录
 
-        try {
-          const task = JSON.parse(value);
-          if (task.device_id === deviceId && task.source === source) {
-            tasks.push(task);
-          }
-        } catch (error) {
-          this.logger.error(`Failed to parse task data: ${error}`);
+        const task = safeJsonParse<ModelOfMiner<'Task'>>(
+          value,
+          this.logger,
+          `Failed to parse task data for key ${key}`
+        );
+
+        if (task && task.device_id === deviceId && task.source === source) {
+          tasks.push(task);
         }
       }
 
@@ -498,13 +537,14 @@ export class MinerRepository {
       for await (const [key, value] of this.persistentService.earningsDb.iterator()) {
         if (key === '__schema__') continue; // 跳过 schema 记录
 
-        try {
-          const earning = JSON.parse(value);
-          if (earning.device_id === deviceId && earning.source === source) {
-            earnings.push(earning);
-          }
-        } catch (error) {
-          this.logger.error(`Failed to parse earning data: ${error}`);
+        const earning = safeJsonParse<ModelOfMiner<'Earning'>>(
+          value,
+          this.logger,
+          `Failed to parse earning data for key ${key}`
+        );
+
+        if (earning && earning.device_id === deviceId && earning.source === source) {
+          earnings.push(earning);
         }
       }
 
@@ -530,13 +570,14 @@ export class MinerRepository {
       for await (const [key, value] of this.persistentService.earningsDb.iterator()) {
         if (key === '__schema__') continue; // 跳过 schema 记录
 
-        try {
-          const earning = JSON.parse(value);
-          if (earning.task_id === taskId) {
-            earnings.push(earning);
-          }
-        } catch (error) {
-          this.logger.error(`Failed to parse earning data: ${error}`);
+        const earning = safeJsonParse<ModelOfMiner<'Earning'>>(
+          value,
+          this.logger,
+          `Failed to parse earning data for key ${key}`
+        );
+
+        if (earning && earning.task_id === taskId) {
+          earnings.push(earning);
         }
       }
 
@@ -597,7 +638,15 @@ export class MinerRepository {
     try {
       // 获取现有任务
       const taskData = await this.persistentService.tasksDb.get(id);
-      const task = JSON.parse(taskData) as ModelOfMiner<'Task'>;
+      const task = safeJsonParse<ModelOfMiner<'Task'>>(
+        taskData,
+        this.logger,
+        `Error parsing task data for task ID ${id}`
+      );
+
+      if (!task) {
+        throw new Error(`Task with ID ${id} not found or could not be parsed`);
+      }
 
       // 解析 SQL 更新片段并应用更新
       // 注意：这里我们需要手动解析 SQL 更新片段，因为 LevelDB 不支持 SQL
@@ -650,13 +699,17 @@ export class MinerRepository {
   ): Promise<ModelOfMiner<'Task'> | null> {
     try {
       const taskData = await this.persistentService.tasksDb.get(taskId);
-      return JSON.parse(taskData) as ModelOfMiner<'Task'>;
+      return safeJsonParse<ModelOfMiner<'Task'>>(
+        taskData,
+        this.logger,
+        `Error parsing task data for task ID ${taskId}`
+      );
     } catch (error) {
       if ((error as any).code === 'LEVEL_NOT_FOUND') {
         return null;
       }
       this.logger.error(`Error getting task by ID: ${error}`);
-      throw error;
+      return null; // 返回 null 而不是抛出错误，以提高应用程序的稳定性
     }
   }
 

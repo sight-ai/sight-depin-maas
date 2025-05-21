@@ -5,6 +5,26 @@ import { z } from 'zod';
 import * as R from 'ramda';
 
 /**
+ * 安全地解析 JSON 字符串
+ * @param jsonString 要解析的 JSON 字符串
+ * @param logger 用于记录错误的日志记录器
+ * @param errorMessage 错误消息前缀
+ * @returns 解析后的对象，如果解析失败则返回 null
+ */
+const safeJsonParse = <T>(jsonString: any, logger: Logger, errorMessage: string = 'Failed to parse JSON'): T | null => {
+  if (!jsonString) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(jsonString) as T;
+  } catch (error) {
+    logger.error(`${errorMessage}: ${error}`);
+    return null;
+  }
+};
+
+/**
  * 任务同步仓库
  * 负责与数据库的交互
  */
@@ -35,17 +55,18 @@ export class TaskSyncRepository {
       for await (const [key, value] of this.persistentService.deviceStatusDb.iterator()) {
         if (key === '__schema__') continue; // 跳过 schema 记录
 
-        try {
-          const device = JSON.parse(value);
-          if (device.status === 'connected') {
-            // 找出创建时间最新的设备
-            if (!latestDevice || device.created_at > latestTimestamp) {
-              latestDevice = device;
-              latestTimestamp = device.created_at;
-            }
+        const device = safeJsonParse<any>(
+          value,
+          this.logger,
+          `Failed to parse device data for key ${key}`
+        );
+
+        if (device && device.status === 'connected') {
+          // 找出创建时间最新的设备
+          if (!latestDevice || device.created_at > latestTimestamp) {
+            latestDevice = device;
+            latestTimestamp = device.created_at;
           }
-        } catch (error) {
-          this.logger.error(`Failed to parse device data: ${error}`);
         }
       }
 
@@ -62,7 +83,11 @@ export class TaskSyncRepository {
   async findExistingTask(_db: any, taskId: string): Promise<boolean> {
     try {
       const taskData = await this.persistentService.tasksDb.get(taskId);
-      const task = JSON.parse(taskData);
+      const task = safeJsonParse<any>(
+        taskData,
+        this.logger,
+        `Error finding existing task for task ID ${taskId}`
+      );
       return task && task.source === 'gateway';
     } catch (error) {
       if ((error as any).code === 'LEVEL_NOT_FOUND') {
@@ -80,7 +105,15 @@ export class TaskSyncRepository {
     try {
       // 获取现有任务
       const taskData = await this.persistentService.tasksDb.get(task.id);
-      const existingTask = JSON.parse(taskData);
+      const existingTask = safeJsonParse<any>(
+        taskData,
+        this.logger,
+        `Error parsing existing task data for task ID ${task.id}`
+      );
+
+      if (!existingTask) {
+        throw new Error(`无法解析任务数据: ${task.id}`);
+      }
 
       // 确保任务来源是 gateway
       if (existingTask.source !== 'gateway') {
@@ -120,16 +153,17 @@ export class TaskSyncRepository {
       for await (const [key, value] of this.persistentService.tasksDb.iterator()) {
         if (key === '__schema__') continue; // 跳过 schema 记录
 
-        try {
-          const task = JSON.parse(value);
-          if (task.status === 'succeed' && task.source === 'gateway') {
-            tasksToUpdate.push({
-              ...task,
-              status: 'completed'
-            });
-          }
-        } catch (error) {
-          this.logger.error(`Failed to parse task data: ${error}`);
+        const task = safeJsonParse<any>(
+          value,
+          this.logger,
+          `Failed to parse task data for key ${key}`
+        );
+
+        if (task && task.status === 'succeed' && task.source === 'gateway') {
+          tasksToUpdate.push({
+            ...task,
+            status: 'completed'
+          });
         }
       }
 
@@ -185,7 +219,11 @@ export class TaskSyncRepository {
   async findExistingEarning(_db: any, earningId: string): Promise<boolean> {
     try {
       const earningData = await this.persistentService.earningsDb.get(earningId);
-      const earning = JSON.parse(earningData);
+      const earning = safeJsonParse<any>(
+        earningData,
+        this.logger,
+        `Error finding existing earning for earning ID ${earningId}`
+      );
       return earning && earning.source === 'gateway';
     } catch (error) {
       if ((error as any).code === 'LEVEL_NOT_FOUND') {
@@ -216,7 +254,15 @@ export class TaskSyncRepository {
 
       // 获取现有收益记录
       const earningData = await this.persistentService.earningsDb.get(earning.id);
-      const existingEarning = JSON.parse(earningData);
+      const existingEarning = safeJsonParse<any>(
+        earningData,
+        this.logger,
+        `Error parsing existing earning data for earning ID ${earning.id}`
+      );
+
+      if (!existingEarning) {
+        throw new Error(`无法解析收益记录数据: ${earning.id}`);
+      }
 
       // 确保收益记录来源是 gateway
       if (existingEarning.source !== 'gateway') {
@@ -278,13 +324,14 @@ export class TaskSyncRepository {
       for await (const [key, value] of this.persistentService.tasksDb.iterator()) {
         if (key === '__schema__') continue; // 跳过 schema 记录
 
-        try {
-          const task = JSON.parse(value);
-          if (task.source === 'gateway') {
-            taskIds.add(task.id);
-          }
-        } catch (error) {
-          this.logger.error(`Failed to parse task data: ${error}`);
+        const task = safeJsonParse<any>(
+          value,
+          this.logger,
+          `Failed to parse task data for key ${key}`
+        );
+
+        if (task && task.source === 'gateway') {
+          taskIds.add(task.id);
         }
       }
     } catch (error) {

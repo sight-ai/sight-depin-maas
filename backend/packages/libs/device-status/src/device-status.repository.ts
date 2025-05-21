@@ -16,6 +16,26 @@ const generateUuid = (): string => {
   });
 };
 
+/**
+ * 安全地解析 JSON 字符串
+ * @param jsonString 要解析的 JSON 字符串
+ * @param logger 用于记录错误的日志记录器
+ * @param errorMessage 错误消息前缀
+ * @returns 解析后的对象，如果解析失败则返回 null
+ */
+const safeJsonParse = <T>(jsonString: any, logger: Logger, errorMessage: string = 'Failed to parse JSON'): T | null => {
+  if (!jsonString) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(jsonString) as T;
+  } catch (error) {
+    logger.error(`${errorMessage}: ${error}`);
+    return null;
+  }
+};
+
 // Data transformers
 const formatDeviceStatus = (row: ModelOfMiner<'DeviceStatusRow'>): ModelOfMiner<'DeviceStatusModule'> => ({
   id: row.id,
@@ -111,7 +131,11 @@ export class DeviceStatusRepository {
       let existingDevice = null;
       try {
         const deviceData = await this.persistentService.deviceStatusDb.get(deviceId);
-        existingDevice = JSON.parse(deviceData);
+        existingDevice = safeJsonParse<ModelOfMiner<'DeviceStatusRow'>>(
+          deviceData,
+          this.logger,
+          `Error parsing device data for device ID ${deviceId}`
+        );
       } catch (error) {
         if ((error as any).code !== 'LEVEL_NOT_FOUND') {
           throw error;
@@ -165,14 +189,19 @@ export class DeviceStatusRepository {
   async findDeviceStatus(db: any, deviceId: string): Promise<ModelOfMiner<'DeviceStatusModule'> | null> {
     try {
       const deviceData = await this.persistentService.deviceStatusDb.get(deviceId);
-      const device = JSON.parse(deviceData) as ModelOfMiner<'DeviceStatusRow'>;
-      return formatDeviceStatus(device);
+      const device = safeJsonParse<ModelOfMiner<'DeviceStatusRow'>>(
+        deviceData,
+        this.logger,
+        `Error parsing device data for device ID ${deviceId}`
+      );
+
+      return device ? formatDeviceStatus(device) : null;
     } catch (error) {
       if ((error as any).code === 'LEVEL_NOT_FOUND') {
         return null;
       }
       this.logger.error(`Error finding device status: ${error}`);
-      throw error;
+      return null; // 返回 null 而不是抛出错误，以提高应用程序的稳定性
     }
   }
 
@@ -187,11 +216,14 @@ export class DeviceStatusRepository {
       for await (const [key, value] of this.persistentService.deviceStatusDb.iterator()) {
         if (key === '__schema__') continue; // 跳过 schema 记录
 
-        try {
-          const device = JSON.parse(value);
+        const device = safeJsonParse<ModelOfMiner<'DeviceStatusRow'>>(
+          value,
+          this.logger,
+          `Failed to parse device data for key ${key}`
+        );
+
+        if (device) {
           devices.push(device);
-        } catch (error) {
-          this.logger.error(`Failed to parse device data: ${error}`);
         }
       }
 
@@ -233,24 +265,25 @@ export class DeviceStatusRepository {
       for await (const [key, value] of this.persistentService.deviceStatusDb.iterator()) {
         if (key === '__schema__') continue; // 跳过 schema 记录
 
-        try {
-          const device = JSON.parse(value) as ModelOfMiner<'DeviceStatusRow'>;
-          if (device.status === 'connected') {
-            devices.push({
-              id: device.id,
-              name: device.name,
-              status: device.status
-            });
-          }
-        } catch (error) {
-          this.logger.error(`Failed to parse device data: ${error}`);
+        const device = safeJsonParse<ModelOfMiner<'DeviceStatusRow'>>(
+          value,
+          this.logger,
+          `Failed to parse device data for key ${key}`
+        );
+
+        if (device && device.status === 'connected') {
+          devices.push({
+            id: device.id,
+            name: device.name,
+            status: device.status
+          });
         }
       }
 
       return devices;
     } catch (error) {
       this.logger.error(`Error finding device list: ${error}`);
-      throw error;
+      return []; // 返回空数组而不是抛出错误，以提高应用程序的稳定性
     }
   }
 
@@ -262,15 +295,16 @@ export class DeviceStatusRepository {
       for await (const [key, value] of this.persistentService.deviceStatusDb.iterator()) {
         if (key === '__schema__') continue; // 跳过 schema 记录
 
-        try {
-          const device = JSON.parse(value) as ModelOfMiner<'DeviceStatusRow'>;
-          if (device.status === 'connected') {
-            if (!latestDevice || device.updated_at > latestDevice.updated_at) {
-              latestDevice = device;
-            }
+        const device = safeJsonParse<ModelOfMiner<'DeviceStatusRow'>>(
+          value,
+          this.logger,
+          `Failed to parse device data for key ${key}`
+        );
+
+        if (device && device.status === 'connected') {
+          if (!latestDevice || device.updated_at > latestDevice.updated_at) {
+            latestDevice = device;
           }
-        } catch (error) {
-          this.logger.error(`Failed to parse device data: ${error}`);
         }
       }
 
@@ -289,13 +323,14 @@ export class DeviceStatusRepository {
       for await (const [key, value] of this.persistentService.tasksDb.iterator()) {
         if (key === '__schema__') continue; // 跳过 schema 记录
 
-        try {
-          const task = JSON.parse(value) as ModelOfMiner<'TaskRow'>;
-          if (task.device_id === deviceId) {
-            tasks.push(formatTask(task));
-          }
-        } catch (error) {
-          this.logger.error(`Failed to parse task data: ${error}`);
+        const task = safeJsonParse<ModelOfMiner<'TaskRow'>>(
+          value,
+          this.logger,
+          `Failed to parse task data for key ${key}`
+        );
+
+        if (task && task.device_id === deviceId) {
+          tasks.push(formatTask(task));
         }
       }
 
@@ -317,13 +352,14 @@ export class DeviceStatusRepository {
       for await (const [key, value] of this.persistentService.earningsDb.iterator()) {
         if (key === '__schema__') continue; // 跳过 schema 记录
 
-        try {
-          const earning = JSON.parse(value) as ModelOfMiner<'EarningRow'>;
-          if (earning.device_id === deviceId) {
-            earnings.push(formatEarning(earning));
-          }
-        } catch (error) {
-          this.logger.error(`Failed to parse earning data: ${error}`);
+        const earning = safeJsonParse<ModelOfMiner<'EarningRow'>>(
+          value,
+          this.logger,
+          `Failed to parse earning data for key ${key}`
+        );
+
+        if (earning && earning.device_id === deviceId) {
+          earnings.push(formatEarning(earning));
         }
       }
 

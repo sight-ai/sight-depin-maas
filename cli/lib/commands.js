@@ -3,11 +3,11 @@
  */
 const inquirer = require('inquirer');
 const { CONFIG } = require('./config');
-const { logInfo, logSuccess, logError } = require('./logger');
+const { logInfo, logSuccess, logError, logWarning } = require('./logger');
 const { checkRequirements, checkOllamaService, getGpuInfo } = require('./system-check');
 const { pullDeepseekModel, handleReportModelsCommand } = require('./model-manager');
 const { registerDevice, reRegisterDevice, checkMinerStatus } = require('./device-manager');
-const { hasRegistrationParams } = require('./storage');
+const { hasRegistrationParams, saveRegistrationParams, loadRegistrationParams } = require('./storage');
 const {
   downloadComposeFile,
   createOverrideFile,
@@ -202,6 +202,102 @@ const setupCommands = (program) => {
         }
 
         await run(options);
+      } catch (error) {
+        handleError(error);
+      }
+    });
+
+  // 注册命令
+  program
+    .command('register')
+    .description('Register device with gateway without starting services')
+    .option('-g, --gateway-url <url>', 'Gateway API URL')
+    .option('-n, --node-code <code>', 'Node code')
+    .option('-k, --gateway-api-key <key>', 'Gateway API key')
+    .option('-r, --reward-address <address>', 'Reward address')
+    .option('-a, --api-base-path <path>', 'API server base path')
+    .option('-i, --interactive', 'Use interactive mode to input parameters')
+    .action(async (cmdOptions) => {
+      try {
+        let options = { ...cmdOptions, mode: 'remote' };
+
+        // 如果使用交互模式或缺少参数，则提示用户输入
+        if (options.interactive || !options.gatewayUrl || !options.nodeCode ||
+            !options.gatewayApiKey || !options.rewardAddress || !options.apiBasePath) {
+
+          if (!options.interactive) {
+            const missingParams = [];
+            if (!options.gatewayUrl) missingParams.push('--gateway-url');
+            if (!options.nodeCode) missingParams.push('--node-code');
+            if (!options.gatewayApiKey) missingParams.push('--gateway-api-key');
+            if (!options.rewardAddress) missingParams.push('--reward-address');
+            if (!options.apiBasePath) missingParams.push('--api-base-path');
+
+            logInfo(`Missing parameters: ${missingParams.join(', ')}. Entering interactive mode.`);
+          }
+
+          const remoteParams = await inquirer.prompt([
+            {
+              type: 'input',
+              name: 'gatewayUrl',
+              message: 'Gateway URL:',
+              default: options.gatewayUrl || '',
+              validate: input => input ? true : 'Gateway URL is required'
+            },
+            {
+              type: 'input',
+              name: 'nodeCode',
+              message: 'Node code:',
+              default: options.nodeCode || '',
+              validate: input => input ? true : 'Node code is required'
+            },
+            {
+              type: 'input',
+              name: 'gatewayApiKey',
+              message: 'Gateway API key:',
+              default: options.gatewayApiKey || '',
+              validate: input => input ? true : 'Gateway API key is required'
+            },
+            {
+              type: 'input',
+              name: 'rewardAddress',
+              message: 'Reward address:',
+              default: options.rewardAddress || '',
+              validate: input => input ? true : 'Reward address is required'
+            },
+            {
+              type: 'input',
+              name: 'apiBasePath',
+              message: 'API server base path:',
+              default: options.apiBasePath || '',
+              validate: input => input ? true : 'API server base path is required'
+            }
+          ]);
+
+          options = { ...options, ...remoteParams };
+        }
+
+        // 检查系统要求
+        if (!await checkRequirements()) {
+          return false;
+        }
+
+        // 检查Ollama服务
+        if (!await checkOllamaService()) {
+          return false;
+        }
+
+        // 获取GPU信息
+        const gpuInfo = await getGpuInfo();
+        options.gpuInfo = gpuInfo;
+
+        logInfo('Registering device with gateway...');
+        logInfo(`Gateway URL: ${options.gatewayUrl}`);
+        logInfo(`Node Code: ${options.nodeCode}`);
+        logInfo(`Reward Address: ${options.rewardAddress}`);
+
+        // 执行注册
+        await registerDevice(options);
       } catch (error) {
         handleError(error);
       }
