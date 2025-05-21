@@ -2,12 +2,13 @@
  * Docker管理模块 - 处理Docker相关操作
  */
 const fs = require('fs');
+const path = require('path');
 const shell = require('shelljs');
 const fetch = require('node-fetch');
 const { spawn } = require('child_process');
-const inquirer = require('inquirer');
 const { CONFIG } = require('./config');
 const { logInfo, logSuccess, logError, logWarning } = require('./logger');
+const { loadRegistrationParams } = require('./storage');
 
 // 在默认浏览器中打开URL
 const openBrowser = (url) => {
@@ -40,18 +41,29 @@ services:
       - API_SERVER_BASE_PATH=
 `;
   } else { // remote mode
+    // 如果没有提供完整的参数，尝试从保存的配置加载
+    let params = { ...options };
+
+    if (!params.nodeCode || !params.gatewayUrl || !params.gatewayApiKey || !params.rewardAddress || !params.apiBasePath) {
+      const savedParams = loadRegistrationParams();
+      if (savedParams) {
+        logInfo('Using saved registration parameters for docker-compose.override.yml');
+        params = { ...savedParams, ...params };
+      }
+    }
+
     content = `version: '3'
 services:
   sight-miner-backend:
     environment:
-      - NODE_CODE=${options.nodeCode}
-      - GATEWAY_API_URL=${options.gatewayUrl}
-      - GATEWAY_API_KEY=${options.gatewayApiKey}
-      - GPU_BRAND="${options.gpuInfo.brand}"
+      - NODE_CODE=${params.nodeCode || 'default'}
+      - GATEWAY_API_URL=${params.gatewayUrl || 'https://sightai.io'}
+      - GATEWAY_API_KEY=${params.gatewayApiKey || 'default'}
+      - GPU_BRAND="${options.gpuInfo?.brand || 'Unknown'}"
       - DEVICE_TYPE="${process.platform}"
-      - GPU_MODEL="${options.gpuInfo.model}"
-      - REWARD_ADDRESS=${options.rewardAddress}
-      - API_SERVER_BASE_PATH=${options.apiBasePath}
+      - GPU_MODEL="${options.gpuInfo?.model || 'Unknown'}"
+      - REWARD_ADDRESS=${params.rewardAddress || 'default'}
+      - API_SERVER_BASE_PATH=${params.apiBasePath || ''}
 `;
   }
 
@@ -59,8 +71,50 @@ services:
   logSuccess('Created docker-compose.override.yml successfully');
 };
 
+// 确保Docker日志目录存在
+const ensureDockerLogsDir = () => {
+  if (!fs.existsSync(CONFIG.paths.dockerLogs)) {
+    try {
+      fs.mkdirSync(CONFIG.paths.dockerLogs, { recursive: true });
+      return true;
+    } catch (error) {
+      logError(`Failed to create Docker logs directory: ${error.message}`);
+      return false;
+    }
+  }
+  return true;
+};
+
+// 保存Docker日志到文件
+const saveDockerLogs = (command, args, output, errorOutput) => {
+  if (!ensureDockerLogsDir()) {
+    return false;
+  }
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const commandName = command.replace(/[^a-zA-Z0-9]/g, '-');
+  const argsStr = args.join('-').replace(/[^a-zA-Z0-9]/g, '-');
+  const logFileName = `${timestamp}-${commandName}-${argsStr}.log`;
+  const logFilePath = path.join(CONFIG.paths.dockerLogs, logFileName);
+
+  try {
+    // 写入命令信息
+    let logContent = `Command: ${command} ${args.join(' ')}\n`;
+    logContent += `Timestamp: ${new Date().toISOString()}\n`;
+    logContent += `=== STDOUT ===\n${output}\n`;
+    logContent += `=== STDERR ===\n${errorOutput}\n`;
+
+    fs.writeFileSync(logFilePath, logContent);
+    logInfo(`Docker logs saved to: ${logFilePath}`);
+    return true;
+  } catch (error) {
+    logError(`Failed to save Docker logs: ${error.message}`);
+    return false;
+  }
+};
+
 // 使用可见进度执行Docker命令
-const executeDockerCommandWithProgress = (command, args, successMessage) => {
+const executeDockerCommandWithProgress = (command, args, successMessage, saveToFile = true) => {
   return new Promise((resolve, reject) => {
     logInfo(`Running: ${command} ${args.join(' ')}...`);
 
@@ -90,6 +144,11 @@ const executeDockerCommandWithProgress = (command, args, successMessage) => {
     });
 
     dockerProcess.on('close', (code) => {
+      // 保存日志到文件
+      if (saveToFile) {
+        saveDockerLogs(command, args, output, errorOutput);
+      }
+
       if (code === 0) {
         logSuccess(successMessage);
         resolve(true);
@@ -144,7 +203,7 @@ const deployOpenWebUI = async (options = {}) => {
     const dockerRunArgs = [
       'run', '-d',
       '-p', `${port}:8080`,
-      '-e', `OLLAMA_BASE_URL=${mode === 'remote' ? gatewayUrl : 'http://host.docker.internal:8716'}`,
+      '-e', `OLLAMA_BASE_URL=${mode === 'remote' ? gatewayUrl+'/ollama' : 'http://host.docker.internal:8716/ollama'}`,
       '--add-host=host.docker.internal:host-gateway',
       '-v', 'ollama:/root/.ollama',
       '-v', 'open-webui:/app/backend/data',
@@ -199,13 +258,18 @@ const startServices = async (options = {}) => {
     // 检查是否已存在容器
     const containerExists = shell.exec('docker ps -a -q -f name=sight-miner-backend', { silent: true }).stdout.trim();
 
-    if (containerExists && options.force) {
-      logInfo('Existing containers found. Force flag is set, removing...');
-      await executeDockerCommandWithProgress(
-        'docker-compose',
-        ['down'],
-        'Removed existing containers'
-      );
+    if (containerExists) {
+      if (options.force) {
+        logInfo('Existing containers found. Force flag is set, removing...');
+        await executeDockerCommandWithProgress(
+          'docker-compose',
+          ['down'],
+          'Removed existing containers'
+        );
+      } else {
+        logError('Existing containers found. Use --force or -f flag to remove existing containers.');
+        return false;
+      }
     }
 
     await executeDockerCommandWithProgress(
@@ -281,6 +345,10 @@ const stopMiner = async () => {
   logInfo('Stopping miner...');
 
   try {
+    // 在停止前保存所有容器的日志
+    logInfo('Saving logs for all containers before stopping...');
+    await saveAllContainerLogs(5000); // 保存更多行以确保捕获重要信息
+
     await executeDockerCommandWithProgress(
       'docker-compose',
       ['down'],
@@ -310,7 +378,7 @@ const stopMiner = async () => {
 };
 
 // 显示日志
-const showLogs = async (lines = 100, follow = false) => {
+const showLogs = async (lines = 100, follow = false, saveToFile = true) => {
   logInfo(`Showing miner logs (${follow ? 'following' : 'last ' + lines + ' lines'})...`);
 
   try {
@@ -323,7 +391,8 @@ const showLogs = async (lines = 100, follow = false) => {
     await executeDockerCommandWithProgress(
       'docker-compose',
       args,
-      'Logs displayed successfully'
+      'Logs displayed successfully',
+      saveToFile
     );
     return true;
   } catch (error) {
@@ -331,6 +400,76 @@ const showLogs = async (lines = 100, follow = false) => {
     if (error.errorOutput) {
       logError(`Error details: ${error.errorOutput}`);
     }
+    return false;
+  }
+};
+
+// 保存容器日志到文件
+const saveContainerLogs = async (container, lines = 1000) => {
+  logInfo(`Saving logs for container ${container} to file...`);
+
+  if (!ensureDockerLogsDir()) {
+    return false;
+  }
+
+  try {
+    // 获取容器日志
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const logFileName = `${timestamp}-${container}-logs.log`;
+    const logFilePath = path.join(CONFIG.paths.dockerLogs, logFileName);
+
+    // 使用docker logs命令获取日志
+    const args = ['logs', '--tail', lines.toString(), container];
+
+    // 执行命令并保存日志
+    await executeDockerCommandWithProgress(
+      'docker',
+      args,
+      `Logs for container ${container} saved to ${logFilePath}`,
+      true
+    );
+
+    return true;
+  } catch (error) {
+    logError(`Failed to save container logs: ${error.message}`);
+    if (error.errorOutput) {
+      logError(`Error details: ${error.errorOutput}`);
+    }
+    return false;
+  }
+};
+
+// 保存所有运行中容器的日志
+const saveAllContainerLogs = async (lines = 1000) => {
+  logInfo('Saving logs for all running containers...');
+
+  if (!ensureDockerLogsDir()) {
+    return false;
+  }
+
+  try {
+    // 获取所有运行中的容器
+    const result = shell.exec('docker ps --format "{{.Names}}"', { silent: true });
+    if (result.code !== 0) {
+      logError('Failed to get running containers');
+      return false;
+    }
+
+    const containers = result.stdout.trim().split('\n').filter(Boolean);
+    if (containers.length === 0) {
+      logInfo('No running containers found');
+      return true;
+    }
+
+    // 保存每个容器的日志
+    for (const container of containers) {
+      await saveContainerLogs(container, lines);
+    }
+
+    logSuccess(`Saved logs for ${containers.length} containers`);
+    return true;
+  } catch (error) {
+    logError(`Failed to save container logs: ${error.message}`);
     return false;
   }
 };
@@ -481,6 +620,8 @@ module.exports = {
   downloadComposeFile,
   stopMiner,
   showLogs,
+  saveContainerLogs,
+  saveAllContainerLogs,
   updateMiner,
   cleanMiner
 };

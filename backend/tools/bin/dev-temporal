@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-temporal server start-dev

@@ -7,8 +7,6 @@ import { env } from "../../env";
 import { TaskSyncRepository } from "./task-sync.repository";
 import { DeviceStatusService } from "@saito/device-status";
 import { Cron, CronExpression } from "@nestjs/schedule";
-import { DatabaseTransactionConnection } from "slonik";
-import { SQL } from "@saito/common";
 import * as R from 'ramda';
 import { z } from 'zod';
 
@@ -31,9 +29,9 @@ export class DefaultTaskSyncService implements TaskSyncService {
    * 获取设备状态和连接信息
    * 返回设备ID、网关地址和访问密钥
    */
-  private async getConnectionInfo(conn: DatabaseTransactionConnection) {
+  private async getConnectionInfo(db: any) {
     const [deviceId, gatewayAddress, key, isRegistered] = await Promise.all([
-      this.repository.getCurrentDeviceId(conn),
+      this.repository.getCurrentDeviceId(db),
       this.deviceStatusService.getGatewayAddress(),
       this.deviceStatusService.getKey(),
       this.deviceStatusService.isRegistered()
@@ -83,10 +81,10 @@ export class DefaultTaskSyncService implements TaskSyncService {
       return;
     }
 
-    return this.repository.transaction(async (conn) => {
-      await this.repository.updateExistingTaskStatuses(conn);
+    return this.repository.transaction(async (db) => {
+      await this.repository.updateExistingTaskStatuses(db);
 
-      const { deviceId, gatewayAddress, key } = await this.getConnectionInfo(conn);
+      const { deviceId, gatewayAddress, key } = await this.getConnectionInfo(db);
 
       if (!gatewayAddress) {
 
@@ -116,12 +114,12 @@ export class DefaultTaskSyncService implements TaskSyncService {
               task.device_id = deviceId;
             }
 
-            const exists = await this.repository.findExistingTask(conn, task.id);
+            const exists = await this.repository.findExistingTask(db, task.id);
 
             if (exists) {
-              await this.repository.updateExistingTask(conn, task);
+              await this.repository.updateExistingTask(db, task);
             } else {
-              await this.repository.createTask(conn, task);
+              await this.repository.createTask(db, task);
             }
           } catch (error) {
             this.logger.error(`Error processing task ${task.id}:`, error);
@@ -148,8 +146,8 @@ export class DefaultTaskSyncService implements TaskSyncService {
       return;
     }
 
-    return this.repository.transaction(async (conn) => {
-      const { deviceId, gatewayAddress, key } = await this.getConnectionInfo(conn);
+    return this.repository.transaction(async (db) => {
+      const { deviceId, gatewayAddress, key } = await this.getConnectionInfo(db);
 
       if (!gatewayAddress) {
 
@@ -180,15 +178,10 @@ export class DefaultTaskSyncService implements TaskSyncService {
         let syncedEarnings = 0;
 
         // 首先获取所有任务ID，用于验证收益记录中的任务ID
-        const taskIds = new Set<string>();
+        let taskIds = new Set<string>();
         try {
-          // 获取本地任务
-          const localTasks = await conn.any(SQL.unsafe`
-            SELECT id FROM saito_miner.tasks
-            WHERE source = 'gateway'
-          `);
-          localTasks.forEach(task => taskIds.add(task.id));
-
+          // 使用仓库方法获取所有网关任务ID
+          taskIds = await this.repository.getAllGatewayTaskIds(db);
         } catch (error) {
           this.logger.warn('Failed to fetch existing tasks for validation:', error);
         }
@@ -221,12 +214,12 @@ export class DefaultTaskSyncService implements TaskSyncService {
             }
 
             // 检查收益记录是否已存在
-            const exists = await this.repository.findExistingEarning(conn, earning.id);
+            const exists = await this.repository.findExistingEarning(db, earning.id);
 
             if (exists) {
-              await this.repository.updateExistingEarning(conn, earning);
+              await this.repository.updateExistingEarning(db, earning);
             } else {
-              await this.repository.createEarning(conn, earning);
+              await this.repository.createEarning(db, earning);
               syncedEarnings++;
             }
           } catch (error) {

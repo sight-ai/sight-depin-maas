@@ -14,6 +14,7 @@ import {
   OllamaModelList
 } from "@saito/models";
 import { z } from "zod";
+import { RegistrationStorage, RegistrationInfo } from "./registration-storage";
 
 const STATUS_CHECK_TIMEOUT = 2000;
 
@@ -369,6 +370,7 @@ const createHeartbeatData = (systemInfo: SystemInfo, deviceConfig: any, ipAddres
 @Injectable()
 export class DefaultDeviceStatusService implements DeviceStatusService {
   private readonly logger = new Logger(DefaultDeviceStatusService.name);
+  private readonly registrationStorage = new RegistrationStorage();
   private deviceConfig: ModelOfMiner<'DeviceConfig'> = {
     deviceId: '24dea62e-95df-4549-b3ba-c9522cd5d5c1',
     deviceName: 'local_device_name',
@@ -384,9 +386,48 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     @Inject(forwardRef(() => TunnelService))
     private readonly tunnelService: TunnelService
   ) {
-    this.initFromDatabase();
+    this.initFromStorage();
   }
 
+  /**
+   * 从存储中初始化设备配置
+   * 优先从.sightai/config目录下的注册信息文件加载
+   * 如果不存在，则从数据库加载
+   */
+  private async initFromStorage() {
+    try {
+      // 首先尝试从存储中加载注册信息
+      const savedInfo = this.registrationStorage.loadRegistrationInfo();
+
+      if (savedInfo && savedInfo.isRegistered) {
+        this.logger.log('Loading registration information from storage');
+        this.deviceConfig = {
+          deviceId: savedInfo.deviceId,
+          deviceName: savedInfo.deviceName,
+          rewardAddress: savedInfo.rewardAddress,
+          gatewayAddress: savedInfo.gatewayAddress,
+          key: savedInfo.key,
+          code: savedInfo.code,
+          isRegistered: savedInfo.isRegistered
+        };
+
+        // 自动重新连接到网关
+        this.autoReconnect();
+      } else {
+        // 如果存储中没有注册信息，则从数据库加载
+        this.logger.log('No registration information found in storage, loading from database');
+        await this.initFromDatabase();
+      }
+    } catch (error) {
+      this.logger.error(`Failed to initialize from storage: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // 如果从存储加载失败，尝试从数据库加载
+      await this.initFromDatabase();
+    }
+  }
+
+  /**
+   * 从数据库初始化设备配置
+   */
   private async initFromDatabase() {
     try {
       const currentDevice = await this.getCurrentDevice();
@@ -406,15 +447,79 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     }
   }
 
-  async register(credentials: ModelOfMiner<'DeviceCredentials'>): Promise<ModelOfMiner<'RegistrationResponse'>> {
+  /**
+   * 自动重新连接到网关
+   */
+  private async autoReconnect() {
+    if (!this.deviceConfig.isRegistered || !this.deviceConfig.gatewayAddress || !this.deviceConfig.key) {
+      this.logger.warn('Cannot auto-reconnect: missing registration information');
+      return;
+    }
+
+    try {
+      this.logger.log(`Auto-reconnecting to gateway: ${this.deviceConfig.gatewayAddress}`);
+
+      // 重新调用注册接口
+      const credentials: ModelOfMiner<'DeviceCredentials'> = {
+        gateway_address: this.deviceConfig.gatewayAddress,
+        reward_address: this.deviceConfig.rewardAddress,
+        key: this.deviceConfig.key,
+        code: this.deviceConfig.code
+      };
+
+      this.logger.log('Re-registering with gateway...');
+      const response = await this.register(credentials, true); // 传递 isAutoReconnect=true
+
+      if (response.success) {
+        this.logger.log('Re-registration successful');
+
+        // 注册成功后，从存储中获取上次上报的模型信息
+        // 注意：模型上报会在 ModelReportingService 的 onModuleInit 中自动处理
+        // 这里不需要额外处理，因为 ModelReportingService 会在初始化时自动上报模型
+      } else {
+        this.logger.error(`Re-registration failed: ${response.error}`);
+
+        // 如果重新注册失败，尝试直接连接
+        this.logger.log('Attempting direct connection...');
+
+        // 创建Socket连接
+        await this.tunnelService.createSocket(
+          this.deviceConfig.gatewayAddress,
+          this.deviceConfig.key,
+          this.deviceConfig.code
+        );
+
+        // 连接Socket
+        await this.tunnelService.connectSocket(this.deviceConfig.deviceId);
+
+        // 更新设备状态
+        await this.updateDeviceStatus(
+          this.deviceConfig.deviceId,
+          this.deviceConfig.deviceName,
+          'connected',
+          this.deviceConfig.rewardAddress
+        );
+
+        // 启动心跳
+        this.heartbeat();
+      }
+
+      this.logger.log('Auto-reconnect process completed');
+    } catch (error) {
+      this.logger.error(`Auto-reconnect failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async register(credentials: ModelOfMiner<'DeviceCredentials'>, isAutoReconnect: boolean = false): Promise<ModelOfMiner<'RegistrationResponse'>> {
     try {
       const [ipAddress, deviceType, deviceModel] = await Promise.all([
         address(),
         this.getDeviceType(),
         this.getDeviceModel(),
       ]);
-      
-      
+
+      // 获取本地模型列表
+      const localModels = await this.getLocalModels();
 
       // Updated to use the new API endpoint according to the documentation
       const response = await got.post(`${credentials.gateway_address}/node/register`, {
@@ -428,10 +533,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
           device_type: deviceType,
           gpu_type: deviceModel,
           ip: ipAddress,
-          local_models: {
-            models: []
-          }
-          // local_models: await this.getLocalModels()
+          local_models: localModels
         },
       }).json() as {
         success: boolean;
@@ -455,7 +557,22 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
           code: credentials.code,
           isRegistered: true
         };
-        
+
+        // 只有在非自动重连模式下才保存注册信息
+        if (!isAutoReconnect) {
+          // 保存注册信息到系统用户目录
+          this.registrationStorage.saveRegistrationInfo({
+            deviceId: this.deviceConfig.deviceId,
+            deviceName: this.deviceConfig.deviceName,
+            rewardAddress: this.deviceConfig.rewardAddress,
+            gatewayAddress: this.deviceConfig.gatewayAddress,
+            key: this.deviceConfig.key,
+            code: this.deviceConfig.code,
+            isRegistered: true
+          });
+          this.logger.log('Registration information saved to system user directory');
+        }
+
         await this.updateDeviceStatus(
           this.deviceConfig.deviceId,
           this.deviceConfig.deviceName,
@@ -463,7 +580,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
           this.deviceConfig.rewardAddress
         );
 
-        // Create socket connection to the gateway
+        // 创建Socket连接
         await this.tunnelService.createSocket(
           this.deviceConfig.gatewayAddress,
           this.deviceConfig.key,
@@ -471,10 +588,10 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         );
         await this.tunnelService.connectSocket(response.data.node_id || '');
 
-        // Start heartbeat reporting
+        // 启动心跳
         this.heartbeat();
 
-        
+
         return {
           success: true,
           error: '',
@@ -504,7 +621,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
 
   async heartbeat() {
     if (!this.deviceConfig.isRegistered) {
-      
+
       return;
     }
 
@@ -520,47 +637,47 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       ]);
 
       // 记录详细的系统信息日志
-      
+
 
       // CPU信息
-      
-      
+
+
       if (systemInfo.cpu.temperature) {
-        
+
       }
 
       // 内存信息
-      
+
 
       // GPU信息
       if (systemInfo.gpu.length > 0) {
         systemInfo.gpu.forEach((gpu, index) => {
-          
-          
+
+
 
           if (gpu.temperature) {
-            
+
           }
 
-          
+
 
           if (gpu.isAppleSilicon) {
-            
+
           }
         });
       } else {
-        
+
       }
 
       // 磁盘信息
-      
+
 
       // 网络信息
-      
+
 
       // 操作系统信息
-      
-      
+
+
 
       // 创建心跳数据
       const newHeartbeatData = createHeartbeatData(
@@ -593,7 +710,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       //   json: legacyHeartbeatData,
       // });
 
-      
+
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       this.logger.error(`Heartbeat failed: ${errorMessage}`);
@@ -610,35 +727,35 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       // 并行获取所有系统信息
       const [cpuLoad, cpuInfo, cpuTemp, memInfo, gpuInfo, diskInfo, networkInfo, osInfo] = await Promise.all([
         si.currentLoad().catch(err => {
-          
+
           return { currentLoad: 0 };
         }),
         si.cpu().catch(err => {
-          
+
           return { manufacturer: '', brand: '', cores: 0, physicalCores: 0, speed: 0 };
         }),
         si.cpuTemperature().catch(err => {
-          
+
           return { main: 0, cores: [], max: 0 };
         }),
         si.mem().catch(err => {
-          
+
           return { total: 1, used: 0, free: 1 };
         }),
         si.graphics().catch(err => {
-          
+
           return { controllers: [], displays: [] };
         }),
         si.fsSize().catch(err => {
-          
+
           return [];
         }),
         si.networkStats().catch(err => {
-          
+
           return [];
         }),
         si.osInfo().catch(err => {
-          
+
           return { distro: '', release: '', arch: '', platform: '', uptime: 0 };
         })
       ]);
@@ -729,10 +846,10 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       // 记录 GPU 信息
       if (gpu.length > 0) {
         gpu.forEach((gpuInfo, index) => {
-          
+
         });
       } else {
-        
+
       }
 
       // 如果没有检测到 GPU，尝试使用其他方法检测
@@ -756,7 +873,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
               isAppleSilicon: true
             });
 
-            
+
           }
           // 检查是否是 Intel 集成显卡
           else if (cpuInfo.manufacturer?.toLowerCase().includes('intel')) {
@@ -783,7 +900,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                       isAppleSilicon: false
                     });
 
-                    
+
                   } catch (e) {
                     // 解析失败，使用默认值
                     gpu.push({
@@ -795,7 +912,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                       isAppleSilicon: false
                     });
 
-                    
+
                   }
                 } else {
                   // 没有 intel_gpu_top，使用默认值
@@ -808,10 +925,10 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                     isAppleSilicon: false
                   });
 
-                  
+
                 }
               } catch (error) {
-                
+
 
                 // 使用默认值
                 gpu.push({
@@ -823,7 +940,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                   isAppleSilicon: false
                 });
 
-                
+
               }
             } else if (osInfo.platform === 'win32') {
               // Windows 平台
@@ -836,7 +953,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                 isAppleSilicon: false
               });
 
-              
+
             } else if (osInfo.platform === 'darwin') {
               // macOS 平台
               gpu.push({
@@ -848,7 +965,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                 isAppleSilicon: false
               });
 
-              
+
             }
           }
           // 检查是否是 AMD CPU（可能有集成显卡）
@@ -862,7 +979,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
               isAppleSilicon: false
             });
 
-            
+
           }
           // 如果仍然没有检测到 GPU，添加一个通用的集成显卡
           else if (gpu.length === 0) {
@@ -875,10 +992,10 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
               isAppleSilicon: false
             });
 
-            
+
           }
         } catch (error) {
-          
+
         }
       }
 
@@ -911,9 +1028,9 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       try {
         // 记录所有网络接口信息以便调试
         if (Array.isArray(networkInfo)) {
-          
+
           networkInfo.forEach((net, idx) => {
-            
+
           });
         }
 
@@ -948,14 +1065,14 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                   totalRx += (rxDiff * 8) / 1000; // kbps
                   totalTx += (txDiff * 8) / 1000; // kbps
 
-                  
+
                 }
               }
             }
 
             return { rx: totalRx, tx: totalTx };
           } catch (error) {
-            
+
             return { rx: 0, tx: 0 };
           }
         };
@@ -965,7 +1082,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         if (directStats.rx > 0 || directStats.tx > 0) {
           networkInbound = directStats.rx;
           networkOutbound = directStats.tx;
-          
+
         } else {
           // 回退到原来的方法
           if (Array.isArray(networkInfo) && networkInfo.length > 0) {
@@ -990,7 +1107,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
               });
 
               // 记录找到的网络接口
-              
+
             } else {
               // 如果没有找到活跃接口，使用所有接口
               networkInfo.forEach(net => {
@@ -1040,12 +1157,12 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
                   networkInbound = (rxBytes * 8) / 1000;
                   networkOutbound = (txBytes * 8) / 1000;
 
-                  
+
                 }
               }
             }
           } catch (error) {
-            
+
           }
         }
       } catch (error) {
@@ -1068,7 +1185,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         outbound: kbpsToMbps(networkOutbound / 1024) // 转换为 Mbps
       };
 
-      
+
 
       // 处理操作系统信息
       const os = {
@@ -1108,9 +1225,9 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     status: "waiting" | "in-progress" | "connected" | "disconnected" | "failed",
     rewardAddress: string
   ): Promise<ModelOfMiner<'DeviceStatusModule'>> {
-    return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
+    return this.deviceStatusRepository.transaction(async (db: any) => {
       await this.deviceStatusRepository.updateDeviceStatus(
-        conn,
+        db,
         deviceId,
         name,
         status,
@@ -1119,7 +1236,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         this.deviceConfig.key,
         this.deviceConfig.code
       );
-      const updatedDevice = await this.deviceStatusRepository.findDeviceStatus(conn, deviceId);
+      const updatedDevice = await this.deviceStatusRepository.findDeviceStatus(db, deviceId);
       if (!updatedDevice) {
         throw new Error('Failed to update device status');
       }
@@ -1128,16 +1245,16 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
   }
 
   async getDeviceStatus(deviceId: string): Promise<ModelOfMiner<'DeviceStatusModule'> | null> {
-    return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
-      return this.deviceStatusRepository.findDeviceStatus(conn, deviceId);
+    return this.deviceStatusRepository.transaction(async (db: any) => {
+      return this.deviceStatusRepository.findDeviceStatus(db, deviceId);
     });
   }
 
   async markInactiveDevicesOffline(inactiveDuration: number): Promise<ModelOfMiner<'DeviceStatusModule'>[]> {
-    return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
+    return this.deviceStatusRepository.transaction(async (db: any) => {
       const thresholdTime = new Date(Date.now() - inactiveDuration);
-      await this.deviceStatusRepository.markDevicesOffline(conn, thresholdTime);
-      const devices = await this.deviceStatusRepository.findDeviceList(conn);
+      await this.deviceStatusRepository.markDevicesOffline(db, thresholdTime);
+      const devices = await this.deviceStatusRepository.findDeviceList(db);
       return devices.map(device => ({
         ...device,
         code: null,
@@ -1153,26 +1270,26 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
   }
 
   async getDeviceList(): Promise<ModelOfMiner<'DeviceListItem'>[]> {
-    return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
-      return this.deviceStatusRepository.findDeviceList(conn);
+    return this.deviceStatusRepository.transaction(async (db: any) => {
+      return this.deviceStatusRepository.findDeviceList(db);
     });
   }
 
   async getCurrentDevice(): Promise<ModelOfMiner<'DeviceStatusModule'>> {
-    return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
-      return this.deviceStatusRepository.findCurrentDevice(conn);
+    return this.deviceStatusRepository.transaction(async (db: any) => {
+      return this.deviceStatusRepository.findCurrentDevice(db);
     });
   }
 
   async getDeviceTasks(deviceId: string): Promise<ModelOfMiner<'TaskResult'>[]> {
-    return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
-      return this.deviceStatusRepository.findDevicesTasks(conn, deviceId);
+    return this.deviceStatusRepository.transaction(async (db: any) => {
+      return this.deviceStatusRepository.findDevicesTasks(db, deviceId);
     });
   }
 
   async getDeviceEarnings(deviceId: string): Promise<ModelOfMiner<'EarningResult'>[]> {
-    return this.deviceStatusRepository.transaction(async (conn: DatabaseTransactionConnection) => {
-      return this.deviceStatusRepository.findDeviceEarnings(conn, deviceId);
+    return this.deviceStatusRepository.transaction(async (db: any) => {
+      return this.deviceStatusRepository.findDeviceEarnings(db, deviceId);
     });
   }
 
@@ -1269,7 +1386,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
 
       return response.statusCode === 200;
     } catch (error: any) {
-      
+
       return false;
     }
   }
@@ -1286,7 +1403,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
       }).json();
       return response as Promise<z.infer<typeof OllamaModelList>>;
     } catch (error: any) {
-      
+
       return {
         models: []
       };
@@ -1297,6 +1414,48 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     try {
       return await this.checkStatus();
     } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * 清除注册信息
+   * 断开与网关的连接，并删除存储的注册信息
+   */
+  async clearRegistration(): Promise<boolean> {
+    try {
+      // 断开与网关的连接
+      if (this.deviceConfig.isRegistered) {
+        try {
+          await this.tunnelService.disconnectSocket();
+        } catch (error) {
+          this.logger.error(`Failed to disconnect socket: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+
+      // 重置设备配置
+      this.deviceConfig = {
+        deviceId: '24dea62e-95df-4549-b3ba-c9522cd5d5c1',
+        deviceName: 'local_device_name',
+        rewardAddress: '',
+        gatewayAddress: '',
+        key: '',
+        code: '',
+        isRegistered: false
+      };
+
+      // 删除存储的注册信息
+      const result = this.registrationStorage.deleteRegistrationInfo();
+
+      if (result) {
+        this.logger.log('Registration information cleared successfully');
+      } else {
+        this.logger.error('Failed to clear registration information');
+      }
+
+      return result;
+    } catch (error) {
+      this.logger.error(`Failed to clear registration: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return false;
     }
   }

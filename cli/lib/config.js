@@ -33,9 +33,10 @@ const CONFIG = {
     ollama: getOllamaPort()
   },
   paths: {
-    log: path.join(os.homedir(), '.sight-miner', 'logs'),
-    cache: path.join(os.homedir(), '.sight-miner', 'cache'),
-    config: path.join(os.homedir(), '.sight-miner', 'config')
+    log: path.join(os.homedir(), '.sightai', 'logs'),
+    cache: path.join(os.homedir(), '.sightai', 'cache'),
+    config: path.join(os.homedir(), '.sightai', 'config'),
+    dockerLogs: path.join(os.homedir(), '.sightai', 'docker-logs')
   },
   urls: {
     compose: 'https://sightai.io/model/local/docker-compose.yml',

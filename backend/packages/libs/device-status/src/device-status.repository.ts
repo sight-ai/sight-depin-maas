@@ -1,15 +1,40 @@
-import { Inject } from "@nestjs/common";
+import { Inject, Logger } from "@nestjs/common";
 import * as R from 'ramda';
 import { PersistentService } from "@saito/persistent";
-import { DatabaseTransactionConnection } from "slonik";
-import { SQL } from "@saito/common";
-import { 
+import {
   ModelOfMiner
 } from "@saito/models";
 
 // Utility functions
 const toISOString = R.curry((date: Date) => date.toISOString());
 const getTimestamp = () => toISOString(new Date());
+const generateUuid = (): string => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
+/**
+ * 安全地解析 JSON 字符串
+ * @param jsonString 要解析的 JSON 字符串
+ * @param logger 用于记录错误的日志记录器
+ * @param errorMessage 错误消息前缀
+ * @returns 解析后的对象，如果解析失败则返回 null
+ */
+const safeJsonParse = <T>(jsonString: any, logger: Logger, errorMessage: string = 'Failed to parse JSON'): T | null => {
+  if (!jsonString) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(jsonString) as T;
+  } catch (error) {
+    logger.error(`${errorMessage}: ${error}`);
+    return null;
+  }
+};
 
 // Data transformers
 const formatDeviceStatus = (row: ModelOfMiner<'DeviceStatusRow'>): ModelOfMiner<'DeviceStatusModule'> => ({
@@ -26,7 +51,7 @@ const formatDeviceStatus = (row: ModelOfMiner<'DeviceStatusRow'>): ModelOfMiner<
   updated_at: row.updated_at
 });
 
-const formatDeviceList = (rows: ModelOfMiner<'DeviceStatusRow'>[]): ModelOfMiner<'DeviceListItem'>[] => 
+const formatDeviceList = (rows: ModelOfMiner<'DeviceStatusRow'>[]): ModelOfMiner<'DeviceListItem'>[] =>
   rows.map(row => ({
     id: row.id,
     name: row.name,
@@ -75,17 +100,19 @@ const defaultDevice: ModelOfMiner<'DeviceStatusModule'> = {
 };
 
 export class DeviceStatusRepository {
+  private readonly logger = new Logger(DeviceStatusRepository.name);
+
   constructor(
     @Inject(PersistentService)
     private readonly persistentService: PersistentService,
   ) { }
 
-  async transaction<T>(handler: (conn: DatabaseTransactionConnection) => Promise<T>) {
-    return this.persistentService.pgPool.transaction(handler);
+  async transaction<T>(handler: (db: any) => T) {
+    return this.persistentService.transaction(handler);
   }
 
   async updateDeviceStatus(
-    conn: DatabaseTransactionConnection,
+    db: any,
     deviceId: string,
     name: string,
     status: "waiting" | "in-progress" | "connected" | "disconnected" | "failed",
@@ -98,90 +125,251 @@ export class DeviceStatusRepository {
     const upTimeStart = status === 'connected' ? now : null;
     const upTimeEnd = status === 'disconnected' ? now : null;
 
-    return conn.query(SQL.unsafe`
-      INSERT INTO saito_miner.device_status (
-        id, name, status, up_time_start, up_time_end, 
-        reward_address, gateway_address, key, code, created_at, updated_at
-      )
-      VALUES (
-        ${deviceId}, ${name}, ${status}, ${upTimeStart}, ${upTimeEnd}, 
-        ${rewardAddress}, ${gatewayAddress}, ${key}, ${code}, ${now}, ${now}
-      )
-      ON CONFLICT (id) 
-      DO UPDATE SET 
-        status = ${status}, 
-        updated_at = ${now}, 
-        up_time_start = CASE WHEN ${status} = 'connected' AND saito_miner.device_status.status = 'disconnected' THEN ${now} ELSE saito_miner.device_status.up_time_start END,
-        up_time_end = CASE WHEN ${status} = 'disconnected' AND saito_miner.device_status.status = 'connected' THEN ${now} ELSE saito_miner.device_status.up_time_end END,
-        reward_address = ${rewardAddress}, 
-        gateway_address = ${gatewayAddress}, 
-        key = ${key}, 
-        code = ${code}
-    `);
+    try {
+      // 使用 LevelDB 原生操作
+      // 首先检查设备是否存在
+      let existingDevice = null;
+      try {
+        const deviceData = await this.persistentService.deviceStatusDb.get(deviceId);
+        existingDevice = safeJsonParse<ModelOfMiner<'DeviceStatusRow'>>(
+          deviceData,
+          this.logger,
+          `Error parsing device data for device ID ${deviceId}`
+        );
+      } catch (error) {
+        if ((error as any).code !== 'LEVEL_NOT_FOUND') {
+          throw error;
+        }
+      }
+
+      if (existingDevice) {
+        // 更新现有设备
+        const updateUpTimeStart = status === 'connected' && existingDevice.status === 'disconnected' ? now : existingDevice.up_time_start;
+        const updateUpTimeEnd = status === 'disconnected' && existingDevice.status === 'connected' ? now : existingDevice.up_time_end;
+
+        const updatedDevice = {
+          ...existingDevice,
+          status,
+          updated_at: now,
+          up_time_start: updateUpTimeStart,
+          up_time_end: updateUpTimeEnd,
+          reward_address: rewardAddress,
+          gateway_address: gatewayAddress,
+          key,
+          code
+        };
+
+        await this.persistentService.deviceStatusDb.put(deviceId, JSON.stringify(updatedDevice));
+        return updatedDevice;
+      } else {
+        // 插入新设备
+        const newDevice = {
+          id: deviceId,
+          name,
+          status,
+          up_time_start: upTimeStart,
+          up_time_end: upTimeEnd,
+          reward_address: rewardAddress,
+          gateway_address: gatewayAddress,
+          key,
+          code,
+          created_at: now,
+          updated_at: now
+        };
+
+        await this.persistentService.deviceStatusDb.put(deviceId, JSON.stringify(newDevice));
+        return newDevice;
+      }
+    } catch (error) {
+      this.logger.error(`Error updating device status: ${error}`);
+      throw error;
+    }
   }
 
-  async findDeviceStatus(conn: DatabaseTransactionConnection, deviceId: string): Promise<ModelOfMiner<'DeviceStatusModule'> | null> {
-    const result = await conn.query(SQL.unsafe`
-      SELECT *
-      FROM saito_miner.device_status
-      WHERE id = ${deviceId};
-    `);
-    
-    const row = result.rows[0] as ModelOfMiner<'DeviceStatusRow'> | undefined;
-    return row ? formatDeviceStatus(row) : null;
+  async findDeviceStatus(db: any, deviceId: string): Promise<ModelOfMiner<'DeviceStatusModule'> | null> {
+    try {
+      const deviceData = await this.persistentService.deviceStatusDb.get(deviceId);
+      const device = safeJsonParse<ModelOfMiner<'DeviceStatusRow'>>(
+        deviceData,
+        this.logger,
+        `Error parsing device data for device ID ${deviceId}`
+      );
+
+      return device ? formatDeviceStatus(device) : null;
+    } catch (error) {
+      if ((error as any).code === 'LEVEL_NOT_FOUND') {
+        return null;
+      }
+      this.logger.error(`Error finding device status: ${error}`);
+      return null; // 返回 null 而不是抛出错误，以提高应用程序的稳定性
+    }
   }
 
-  async markDevicesOffline(conn: DatabaseTransactionConnection, thresholdTime: Date) {
+  async markDevicesOffline(db: any, thresholdTime: Date) {
     const thresholdTimeStr = toISOString(thresholdTime);
-    return conn.query(SQL.unsafe`
-      UPDATE saito_miner.device_status 
-      SET status = 'disconnected', up_time_end = NOW()
-      WHERE updated_at < ${thresholdTimeStr} AND status = 'connected';
-    `);
+
+    try {
+      // 获取所有设备
+      const devices: ModelOfMiner<'DeviceStatusRow'>[] = [];
+
+      // 使用 LevelDB 的迭代器获取所有设备
+      for await (const [key, value] of this.persistentService.deviceStatusDb.iterator()) {
+        if (key === '__schema__') continue; // 跳过 schema 记录
+
+        const device = safeJsonParse<ModelOfMiner<'DeviceStatusRow'>>(
+          value,
+          this.logger,
+          `Failed to parse device data for key ${key}`
+        );
+
+        if (device) {
+          devices.push(device);
+        }
+      }
+
+      // 找出需要标记为离线的设备
+      const devicesToUpdate = devices.filter(device =>
+        device.status === 'connected' &&
+        device.updated_at < thresholdTimeStr
+      );
+
+      // 批量更新设备状态
+      const now = getTimestamp();
+      const operations = devicesToUpdate.map(device => ({
+        type: 'put' as const,
+        key: device.id,
+        value: JSON.stringify({
+          ...device,
+          status: 'disconnected',
+          up_time_end: now,
+          updated_at: now
+        })
+      }));
+
+      if (operations.length > 0) {
+        await this.persistentService.deviceStatusDb.batch(operations);
+      }
+
+      return { changes: operations.length };
+    } catch (error) {
+      this.logger.error(`Error marking devices offline: ${error}`);
+      throw error;
+    }
   }
 
-  async findDeviceList(conn: DatabaseTransactionConnection): Promise<ModelOfMiner<'DeviceListItem'>[]> {
-    const result = await conn.query(SQL.unsafe`
-      SELECT id, name, status 
-      FROM saito_miner.device_status 
-      WHERE status = 'connected';
-    `);
-    
-    return result.rows.map(row => formatDeviceList([row as ModelOfMiner<'DeviceStatusRow'>])[0]);
+  async findDeviceList(db: any): Promise<ModelOfMiner<'DeviceListItem'>[]> {
+    try {
+      const devices: ModelOfMiner<'DeviceListItem'>[] = [];
+
+      // 使用 LevelDB 的迭代器获取所有设备
+      for await (const [key, value] of this.persistentService.deviceStatusDb.iterator()) {
+        if (key === '__schema__') continue; // 跳过 schema 记录
+
+        const device = safeJsonParse<ModelOfMiner<'DeviceStatusRow'>>(
+          value,
+          this.logger,
+          `Failed to parse device data for key ${key}`
+        );
+
+        if (device && device.status === 'connected') {
+          devices.push({
+            id: device.id,
+            name: device.name,
+            status: device.status
+          });
+        }
+      }
+
+      return devices;
+    } catch (error) {
+      this.logger.error(`Error finding device list: ${error}`);
+      return []; // 返回空数组而不是抛出错误，以提高应用程序的稳定性
+    }
   }
 
-  async findCurrentDevice(conn: DatabaseTransactionConnection): Promise<ModelOfMiner<'DeviceStatusModule'>> {  
-    const result = await conn.query(SQL.unsafe`
-      SELECT *
-      FROM saito_miner.device_status 
-      WHERE status = 'connected' 
-      ORDER BY updated_at DESC 
-      LIMIT 1;
-    `);
-    
-    const row = result.rows[0] as ModelOfMiner<'DeviceStatusRow'> | undefined;
-    return row ? formatDeviceStatus(row) : defaultDevice;
+  async findCurrentDevice(db: any): Promise<ModelOfMiner<'DeviceStatusModule'>> {
+    try {
+      let latestDevice: ModelOfMiner<'DeviceStatusRow'> | null = null;
+
+      // 使用 LevelDB 的迭代器获取所有设备
+      for await (const [key, value] of this.persistentService.deviceStatusDb.iterator()) {
+        if (key === '__schema__') continue; // 跳过 schema 记录
+
+        const device = safeJsonParse<ModelOfMiner<'DeviceStatusRow'>>(
+          value,
+          this.logger,
+          `Failed to parse device data for key ${key}`
+        );
+
+        if (device && device.status === 'connected') {
+          if (!latestDevice || device.updated_at > latestDevice.updated_at) {
+            latestDevice = device;
+          }
+        }
+      }
+
+      return latestDevice ? formatDeviceStatus(latestDevice) : defaultDevice;
+    } catch (error) {
+      this.logger.error(`Error finding current device: ${error}`);
+      return defaultDevice;
+    }
   }
-  
-  async findDevicesTasks(conn: DatabaseTransactionConnection, deviceId: string): Promise<ModelOfMiner<'TaskResult'>[]> {
-    const result = await conn.query(SQL.unsafe`
-      SELECT *
-      FROM saito_miner.tasks
-      WHERE device_id = ${deviceId}
-      ORDER BY created_at DESC;
-    `);
-    
-    return result.rows.map(row => formatTask(row as ModelOfMiner<'TaskRow'>));
+
+  async findDevicesTasks(db: any, deviceId: string): Promise<ModelOfMiner<'TaskResult'>[]> {
+    try {
+      const tasks: ModelOfMiner<'TaskResult'>[] = [];
+
+      // 使用 LevelDB 的迭代器获取所有任务
+      for await (const [key, value] of this.persistentService.tasksDb.iterator()) {
+        if (key === '__schema__') continue; // 跳过 schema 记录
+
+        const task = safeJsonParse<ModelOfMiner<'TaskRow'>>(
+          value,
+          this.logger,
+          `Failed to parse task data for key ${key}`
+        );
+
+        if (task && task.device_id === deviceId) {
+          tasks.push(formatTask(task));
+        }
+      }
+
+      // 按创建时间降序排序
+      return tasks.sort((a, b) => {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+    } catch (error) {
+      this.logger.error(`Error finding device tasks: ${error}`);
+      return [];
+    }
   }
-  
-  async findDeviceEarnings(conn: DatabaseTransactionConnection, deviceId: string): Promise<ModelOfMiner<'EarningResult'>[]> {
-    const result = await conn.query(SQL.unsafe`
-      SELECT *
-      FROM saito_miner.earnings
-      WHERE device_id = ${deviceId}
-      ORDER BY created_at DESC;
-    `);
-    
-    return result.rows.map(row => formatEarning(row as ModelOfMiner<'EarningRow'>));
+
+  async findDeviceEarnings(db: any, deviceId: string): Promise<ModelOfMiner<'EarningResult'>[]> {
+    try {
+      const earnings: ModelOfMiner<'EarningResult'>[] = [];
+
+      // 使用 LevelDB 的迭代器获取所有收益记录
+      for await (const [key, value] of this.persistentService.earningsDb.iterator()) {
+        if (key === '__schema__') continue; // 跳过 schema 记录
+
+        const earning = safeJsonParse<ModelOfMiner<'EarningRow'>>(
+          value,
+          this.logger,
+          `Failed to parse earning data for key ${key}`
+        );
+
+        if (earning && earning.device_id === deviceId) {
+          earnings.push(formatEarning(earning));
+        }
+      }
+
+      // 按创建时间降序排序
+      return earnings.sort((a, b) => {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+    } catch (error) {
+      this.logger.error(`Error finding device earnings: ${error}`);
+      return [];
+    }
   }
 }

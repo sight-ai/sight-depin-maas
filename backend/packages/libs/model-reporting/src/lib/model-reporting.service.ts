@@ -1,5 +1,5 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
-import { DeviceStatusService } from '@saito/device-status';
+import { Injectable, Inject, Logger, OnModuleInit } from '@nestjs/common';
+import { DeviceStatusService, RegistrationStorage } from '@saito/device-status';
 import { OllamaService } from '@saito/ollama';
 import got from 'got-cjs';
 import { ModelReportingService } from './model-reporting.interface';
@@ -8,14 +8,42 @@ import { ModelReportingService } from './model-reporting.interface';
  * Service for handling model reporting to gateway
  */
 @Injectable()
-export class DefaultModelReportingService implements ModelReportingService {
+export class DefaultModelReportingService implements ModelReportingService, OnModuleInit {
   private readonly logger = new Logger(ModelReportingService.name);
   private reportedModels: string[] = [];
+  private readonly registrationStorage = new RegistrationStorage();
 
   constructor(
     @Inject(OllamaService) private readonly ollamaService: OllamaService,
     @Inject(DeviceStatusService) private readonly deviceStatusService: DeviceStatusService
   ) {}
+
+  /**
+   * 在模块初始化时自动上报上次的模型信息
+   */
+  async onModuleInit() {
+    try {
+      // 检查设备是否已注册
+      const isRegistered = await this.deviceStatusService.isRegistered();
+      if (!isRegistered) {
+        this.logger.debug('Device is not registered. Skipping auto model reporting.');
+        return;
+      }
+
+      // 从存储中获取上次上报的模型信息
+      const savedModels = this.registrationStorage.getReportedModels();
+      if (savedModels && savedModels.length > 0) {
+        this.logger.log(`Found ${savedModels.length} previously reported models. Auto-reporting...`);
+
+        // 自动上报模型
+        await this.reportModels(savedModels);
+      } else {
+        this.logger.debug('No previously reported models found.');
+      }
+    } catch (error) {
+      this.logger.error(`Error in auto model reporting: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
 
   /**
    * Get the list of reported models
@@ -63,8 +91,14 @@ export class DefaultModelReportingService implements ModelReportingService {
       // Prepare the models data according to the API specification
       const modelsData = this.prepareModelsData(models, modelDetails);
 
+      // 保存上报的模型信息到用户目录
+      this.registrationStorage.updateReportedModels(models);
+      this.logger.log('Saved reported models to user directory');
+
       // Report to the gateway
-      return await this.sendToGateway(deviceId, gatewayAddress, modelsData);
+      const result = await this.sendToGateway(deviceId, gatewayAddress, modelsData);
+
+      return result;
     } catch (error) {
       this.logger.error(`Error reporting models: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return false;

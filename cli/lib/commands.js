@@ -3,10 +3,11 @@
  */
 const inquirer = require('inquirer');
 const { CONFIG } = require('./config');
-const { logInfo, logSuccess, logError } = require('./logger');
+const { logInfo, logSuccess, logError, logWarning } = require('./logger');
 const { checkRequirements, checkOllamaService, getGpuInfo } = require('./system-check');
 const { pullDeepseekModel, handleReportModelsCommand } = require('./model-manager');
-const { registerDevice, checkMinerStatus } = require('./device-manager');
+const { registerDevice, reRegisterDevice, checkMinerStatus } = require('./device-manager');
+const { hasRegistrationParams, saveRegistrationParams, loadRegistrationParams } = require('./storage');
 const {
   downloadComposeFile,
   createOverrideFile,
@@ -14,6 +15,8 @@ const {
   deployOpenWebUI,
   stopMiner,
   showLogs,
+  saveContainerLogs,
+  saveAllContainerLogs,
   updateMiner,
   cleanMiner
 } = require('./docker-manager');
@@ -204,6 +207,102 @@ const setupCommands = (program) => {
       }
     });
 
+  // 注册命令
+  program
+    .command('register')
+    .description('Register device with gateway without starting services')
+    .option('-g, --gateway-url <url>', 'Gateway API URL')
+    .option('-n, --node-code <code>', 'Node code')
+    .option('-k, --gateway-api-key <key>', 'Gateway API key')
+    .option('-r, --reward-address <address>', 'Reward address')
+    .option('-a, --api-base-path <path>', 'API server base path')
+    .option('-i, --interactive', 'Use interactive mode to input parameters')
+    .action(async (cmdOptions) => {
+      try {
+        let options = { ...cmdOptions, mode: 'remote' };
+
+        // 如果使用交互模式或缺少参数，则提示用户输入
+        if (options.interactive || !options.gatewayUrl || !options.nodeCode ||
+            !options.gatewayApiKey || !options.rewardAddress || !options.apiBasePath) {
+
+          if (!options.interactive) {
+            const missingParams = [];
+            if (!options.gatewayUrl) missingParams.push('--gateway-url');
+            if (!options.nodeCode) missingParams.push('--node-code');
+            if (!options.gatewayApiKey) missingParams.push('--gateway-api-key');
+            if (!options.rewardAddress) missingParams.push('--reward-address');
+            if (!options.apiBasePath) missingParams.push('--api-base-path');
+
+            logInfo(`Missing parameters: ${missingParams.join(', ')}. Entering interactive mode.`);
+          }
+
+          const remoteParams = await inquirer.prompt([
+            {
+              type: 'input',
+              name: 'gatewayUrl',
+              message: 'Gateway URL:',
+              default: options.gatewayUrl || '',
+              validate: input => input ? true : 'Gateway URL is required'
+            },
+            {
+              type: 'input',
+              name: 'nodeCode',
+              message: 'Node code:',
+              default: options.nodeCode || '',
+              validate: input => input ? true : 'Node code is required'
+            },
+            {
+              type: 'input',
+              name: 'gatewayApiKey',
+              message: 'Gateway API key:',
+              default: options.gatewayApiKey || '',
+              validate: input => input ? true : 'Gateway API key is required'
+            },
+            {
+              type: 'input',
+              name: 'rewardAddress',
+              message: 'Reward address:',
+              default: options.rewardAddress || '',
+              validate: input => input ? true : 'Reward address is required'
+            },
+            {
+              type: 'input',
+              name: 'apiBasePath',
+              message: 'API server base path:',
+              default: options.apiBasePath || '',
+              validate: input => input ? true : 'API server base path is required'
+            }
+          ]);
+
+          options = { ...options, ...remoteParams };
+        }
+
+        // 检查系统要求
+        if (!await checkRequirements()) {
+          return false;
+        }
+
+        // 检查Ollama服务
+        if (!await checkOllamaService()) {
+          return false;
+        }
+
+        // 获取GPU信息
+        const gpuInfo = await getGpuInfo();
+        options.gpuInfo = gpuInfo;
+
+        logInfo('Registering device with gateway...');
+        logInfo(`Gateway URL: ${options.gatewayUrl}`);
+        logInfo(`Node Code: ${options.nodeCode}`);
+        logInfo(`Reward Address: ${options.rewardAddress}`);
+
+        // 执行注册
+        await registerDevice(options);
+      } catch (error) {
+        handleError(error);
+      }
+    });
+
   // 报告模型命令
   program
     .command('report-models')
@@ -249,6 +348,9 @@ const setupCommands = (program) => {
     .description('View miner logs')
     .option('-f, --follow', 'Follow log output')
     .option('-n, --lines <number>', 'Number of lines to show', '100')
+    .option('-s, --save', 'Save logs to file')
+    .option('-c, --container <name>', 'Save logs for a specific container')
+    .option('-a, --all', 'Save logs for all running containers')
     .action(async (options) => {
       try {
         const lines = parseInt(options.lines, 10);
@@ -260,7 +362,20 @@ const setupCommands = (program) => {
           );
         }
 
-        await showLogs(lines, options.follow);
+        // 如果指定了保存所有容器日志
+        if (options.all) {
+          await saveAllContainerLogs(lines);
+          return;
+        }
+
+        // 如果指定了容器名称，则保存该容器的日志
+        if (options.container) {
+          await saveContainerLogs(options.container, lines);
+          return;
+        }
+
+        // 否则显示所有日志
+        await showLogs(lines, options.follow, options.save);
       } catch (error) {
         handleError(error);
       }
@@ -319,6 +434,57 @@ const setupCommands = (program) => {
         }
 
         await cleanMiner(options.all);
+      } catch (error) {
+        handleError(error);
+      }
+    });
+
+  // 重新注册命令
+  program
+    .command('re-register')
+    .description('Re-register device using previously saved registration parameters')
+    .option('-f, --force', 'Force remove existing containers if they exist')
+    .action(async (cmdOptions) => {
+      try {
+        // 检查是否有保存的注册参数
+        if (!hasRegistrationParams()) {
+          logError('No saved registration parameters found. Please register first using the "run" command with remote mode.');
+          return;
+        }
+
+        // 检查系统要求
+        if (!await checkRequirements()) {
+          return false;
+        }
+
+        // 检查Ollama服务
+        if (!await checkOllamaService()) {
+          return false;
+        }
+
+        // 拉取deepscaler模型
+        if (!await pullDeepseekModel()) {
+          return false;
+        }
+
+        // 获取GPU信息
+        const gpuInfo = await getGpuInfo();
+
+        // 下载docker-compose.yml文件
+        if (!await downloadComposeFile()) {
+          return false;
+        }
+
+        // 创建docker-compose.override.yml文件 (将在reRegisterDevice中获取保存的参数)
+        createOverrideFile('remote', { gpuInfo });
+
+        // 启动服务
+        if (!await startServices({ mode: 'remote', force: cmdOptions.force })) {
+          return false;
+        }
+
+        // 使用保存的参数重新注册设备
+        await reRegisterDevice({ gpuInfo });
       } catch (error) {
         handleError(error);
       }

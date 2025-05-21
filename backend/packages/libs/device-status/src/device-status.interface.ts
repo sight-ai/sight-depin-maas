@@ -29,4 +29,5 @@ export abstract class DeviceStatusService {
   abstract checkStatus(): Promise<boolean>;
   abstract isOllamaOnline(): Promise<boolean>;
   abstract heartbeat(): Promise<void>;
+  abstract clearRegistration(): Promise<boolean>;
 }
