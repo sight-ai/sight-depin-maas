@@ -188,6 +188,7 @@ export class DefaultMinerService implements MinerService {
           R.reject(([_, value]) => R.isNil(value)),
           R.map(([key, value]) => `${String(key)} = ${typeof value === 'string' ? `'${value}'` : value}`),
           R.join(', ')
+          // @ts-expect-error
         )(updates);
 
         const task = R.isEmpty(updateFields)

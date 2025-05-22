@@ -17,6 +17,7 @@
     "baseUrl": ".",
     "typeRoots": ["node_modules/@types", "types"],
     "paths": {
+      "@saito/api-server/*": ["packages/apps/api-server/src/*"],
       "@saito/common": ["packages/libs/common/src/index.ts"],
       "@saito/configs": ["packages/libs/configs/src/index.ts"],
       "@saito/models": ["packages/libs/models/src/index.ts"],

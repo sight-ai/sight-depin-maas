@@ -29,6 +29,7 @@
     "@uniswap/v3-periphery": "^1.4.4",
     "@uniswap/v3-sdk": "^3.10.0",
     "axios": "^1.8.1",
+    "boxen": "^8.0.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
     "crypto": "^1.0.1",
@@ -139,12 +140,16 @@
     ]
   },
   "bin": {
+    "sight": "dist/packages/apps/cli-wrapper/main.js",
     "sight-ai": "dist/packages/apps/unified-app/main.js",
     "sight-cli": "dist/packages/apps/cli-tool/main.js",
     "sight-backend": "dist/packages/apps/api-server/main.js"
   },
   "pkg": {
-    "scripts": "dist/**/*.js",
+    "scripts": [
+      "dist/packages/apps/cli-wrapper/**/*.js",
+      "dist/packages/apps/app-server/**/*.js"
+    ],
     "assets": [
       "node_modules/**/*",
       "dist/packages/libs/**/*",
@@ -152,7 +157,7 @@
       ".env.example"
     ],
     "targets": [
-      "node20-linux-x64"
+      "node20-macos-arm64"
     ],
     "outputPath": "dist-pkg"
   }
