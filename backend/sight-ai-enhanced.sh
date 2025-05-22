@@ -95,33 +95,6 @@ check_ports() {
     done
 }
 
-# 检查和编译统一应用
-check_and_compile() {
-    local unified_path="packages/apps/unified-app"
-    local cli_path="packages/apps/cli-tool"
-    
-    log_info "检查应用编译状态..."
-    
-    # 检查统一应用
-        log_warning "统一应用未编译，正在编译..."
-        cd $unified_path
-        npm install --silent
-        npx tsc -p tsconfig.app.json
-        chmod +x dist/main.js
-        cd ../../../
-        log_success "统一应用编译完成"
-  
-  
-        log_warning "CLI 工具未编译，正在编译..."
-        cd $cli_path
-        npm install --silent
-        npx tsc -p tsconfig.app.json
-        chmod +x dist/main.js
-        cd ../../../
-        log_success "CLI 工具编译完成"
-   
-}
-
 # 显示使用提示
 show_usage() {
     echo -e "\n${CYAN}使用方法:${NC}"
@@ -146,7 +119,6 @@ main() {
     check_directory
     check_nodejs
     check_ports
-    check_and_compile
     
     log_success "所有检查完成！"
     
@@ -156,14 +128,14 @@ main() {
         exit 0
     elif [ "$1" = "status" ]; then
         log_info "检查系统状态..."
-        node packages/apps/unified-app/dist/main.js check-status
+        node dist/packages/apps/unified-app/main.js check-status
         exit 0
     else
         echo -e "${PURPLE}${ROCKET} 准备就绪！${NC}\n"
         sleep 1
         
         # 启动统一应用
-        node packages/apps/unified-app/dist/main.js "$@"
+        node dist/packages/apps/unified-app/main.js "$@"
     fi
 }
 

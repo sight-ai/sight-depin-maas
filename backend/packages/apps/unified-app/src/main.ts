@@ -132,12 +132,20 @@ class SightAIUnified {
 
       spinner.text = '正在启动 NestJS 服务器...';
 
-      // 启动 nx serve api-server
+      if(!(process as any).pkg) {
+        // 启动 nx serve api-server
       this.backendProcess = spawn('npx', ['nx', 'serve', 'api-server'], {
         cwd: projectRoot,
         stdio: ['pipe', 'pipe', 'pipe'],
         detached: false
       });
+      } else {
+        this.backendProcess = spawn('node', ['dist/packages/apps/api-server/main.js'], {
+          cwd: projectRoot,
+          stdio: ['pipe', 'pipe', 'pipe'],
+          detached: false
+        });
+      }
 
       let startupTimeout: NodeJS.Timeout;
       let isResolved = false;
@@ -283,8 +291,8 @@ class SightAIUnified {
       return;
     }
     console.log(projectRoot);
-    const cliPath = path.join(projectRoot, 'packages/apps/cli-tool/dist/main.js');
-
+    const cliPath = path.join(projectRoot, 'dist/packages/apps/cli-tool/main.js');
+    console.log(cliPath);
     if (!fs.existsSync(cliPath)) {
       console.log(chalk.red('❌ CLI 工具未编译，请先编译 CLI 工具'));
       console.log(chalk.grey('提示: 运行以下命令编译 CLI 工具:'));
@@ -339,17 +347,41 @@ class SightAIUnified {
 
   // 查找项目根目录
   findProjectRoot(): string | null {
+    // 检查是否在 pkg 打包环境中
+    if ((process as any).pkg) {
+      // 在 pkg 环境中，使用 pkg 内部的根目录
+      // pkg 会将所有文件打包到一个虚拟文件系统中，根目录通常是 /snapshot/项目名
+      const pkgRoot = path.dirname(path.dirname(__dirname)); // 从当前文件位置向上找到项目根
+      console.log(chalk.green('✅ PKG 环境：项目根目录已找到'));
+      console.log(chalk.grey(`PKG 根目录: ${pkgRoot}`));
+      return pkgRoot+'/../../';
+    }
+
     let currentDir = __dirname;
 
-    // 向上查找，直到找到包含 nx.json 的目录
+    // 向上查找，直到找到包含标识文件的目录
     while (currentDir !== path.dirname(currentDir)) {
+      // 优先查找 nx.json，然后查找 root 文件
       const nxConfigPath = path.join(currentDir, 'nx.json');
-      if (fs.existsSync(nxConfigPath)) {
+      const rootMarkerPath = path.join(currentDir, 'nx.json');
+
+      if (fs.existsSync(nxConfigPath) || fs.existsSync(rootMarkerPath)) {
         console.log(chalk.green('✅ 项目根目录已找到'));
         return currentDir;
       }
       currentDir = path.dirname(currentDir);
     }
+
+    // 如果找不到，尝试使用当前工作目录
+    const cwd = process.cwd();
+    const cwdNxPath = path.join(cwd, 'nx.json');
+    const cwdRootPath = path.join(cwd, 'root');
+
+    if (fs.existsSync(cwdNxPath) || fs.existsSync(cwdRootPath)) {
+      console.log(chalk.green('✅ 使用当前工作目录作为项目根目录'));
+      return cwd;
+    }
+
     console.log(chalk.red('❌ 无法找到项目根目录'));
     return null;
   }
@@ -532,8 +564,8 @@ class SightAIUnified {
     console.log(chalk.bold('\n📁 文件状态:'));
     const projectRoot = this.findProjectRoot();
     if (projectRoot) {
-      const cliPath = path.join(projectRoot, 'packages/apps/cli-tool/dist/main.js');
-      const unifiedPath = path.join(projectRoot, 'packages/apps/unified-app/dist/main.js');
+      const cliPath = path.join(projectRoot, 'dist/packages/apps/cli-tool/main.js');
+      const unifiedPath = path.join(projectRoot, 'dist/packages/apps/unified-app/main.js');
 
       console.log(`  CLI 工具: ${fs.existsSync(cliPath) ? chalk.green('✅ 已编译') : chalk.red('❌ 未编译')}`);
       console.log(`  统一应用: ${fs.existsSync(unifiedPath) ? chalk.green('✅ 已编译') : chalk.red('❌ 未编译')}`);
