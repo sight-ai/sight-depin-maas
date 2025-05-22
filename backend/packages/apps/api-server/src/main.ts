@@ -9,6 +9,7 @@ import { AllExceptionsFilter } from './app/interceptors/all-exceptions.filter';
 import { env } from './env';
 import { Logger } from '@nestjs/common';
 import { PlainTextToJsonMiddleware } from "./app/plaintext-to-json-middleware";
+import { FileLoggerService } from './app/logger/file-logger.service';
 
 const clientJsonPayloadLimit = '10mb';
 
@@ -29,7 +30,10 @@ function amendActionPath(document: OpenAPIObject) {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {});
+  const fileLogger = new FileLoggerService();
+  const app = await NestFactory.create(AppModule, {
+    logger: fileLogger
+  });
   const logger = new Logger('bootstrap');
 
   app.enableCors();

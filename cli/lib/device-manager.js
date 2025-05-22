@@ -4,11 +4,18 @@
 const fetch = require('node-fetch');
 const inquirer = require('inquirer');
 const { logInfo, logSuccess, logError, logWarning } = require('./logger');
+const { CONFIG } = require('./config');
 const { saveRegistrationParams, loadRegistrationParams } = require('./storage');
 const { handleReportModelsCommand } = require('./model-manager');
 
 // 注册设备到服务器
 const registerDevice = async (options) => {
+  // 检查后端服务是否运行
+  if (!await checkBackendService()) {
+    logError('Backend service is not available. Cannot proceed with registration.');
+    return false;
+  }
+
   const registerUrl = 'http://localhost:8716/api/v1/device-status/register';
   logInfo('Registering device with server...');
 
@@ -16,9 +23,7 @@ const registerDevice = async (options) => {
     code: options.nodeCode,
     gateway_address: options.gatewayUrl,
     reward_address: options.rewardAddress,
-    key: options.gatewayApiKey,
-    device_type: process.platform,
-    gpu_type: options.gpuInfo.model,
+    key: options.gatewayApiKey
   };
 
   logInfo('Sending registration data...');
@@ -117,15 +122,56 @@ const reRegisterDevice = async (options = {}) => {
   return await registerDevice(registrationOptions);
 };
 
+// 检查后端服务是否运行
+const checkBackendService = async () => {
+  try {
+    const response = await fetch('http://localhost:8716/api/v1/health', {
+      method: 'GET',
+      timeout: 3000
+    });
+
+    if (response.ok) {
+      logSuccess('Backend service is running');
+      return true;
+    }
+  } catch (error) {
+    // 后端服务未运行
+  }
+
+  // 根据环境给出不同的提示
+  if (CONFIG.isDocker) {
+    logError('Backend service is not running on port 8716.\n' +
+      'In Docker environment, the backend service should be started by docker-entrypoint.sh.\n' +
+      'Please ensure you are using the correct Docker command:\n' +
+      '1. For daemon mode: docker run -d -p 8716:8716 sightai-miner:latest daemon\n' +
+      '2. For CLI with auto-backend: Use the daemon mode first, then run CLI commands');
+  } else {
+    logError('Backend service is not running on port 8716.\n' +
+      'Please ensure the SightAI backend service is started:\n' +
+      '1. If using Windows installer: Start SightAI Miner from Start menu\n' +
+      '2. If using manual setup: Run the backend service manually\n' +
+      '3. Ensure port 8716 is accessible');
+  }
+
+  return false;
+};
+
 // 检查矿工状态
-const checkMinerStatus = () => {
+const checkMinerStatus = async () => {
   logInfo('Checking miner status...');
-  const { exec } = require('shelljs');
-  exec('docker ps | grep -E "sight-miner|open-webui"');
+
+  // 检查后端服务是否运行
+  if (!await checkBackendService()) {
+    return false;
+  }
+
+  logInfo('✅ Miner service is running on port 8716');
+  return true;
 };
 
 module.exports = {
   registerDevice,
   reRegisterDevice,
-  checkMinerStatus
+  checkMinerStatus,
+  checkBackendService
 };

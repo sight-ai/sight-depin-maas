@@ -2,11 +2,13 @@
   "name": "@saito-miner/sightai",
   "version": "0.0.0",
   "license": "UNLICENSED",
+  "main": "dist/packages/apps/unified-app/main.js",
   "scripts": {
     "postinstall": "patch-package"
   },
   "private": true,
   "dependencies": {
+    "@inquirer/prompts": "^3.3.2",
     "@nestjs/axios": "^4.0.0",
     "@nestjs/common": "^10.2.10",
     "@nestjs/core": "^10.2.10",
@@ -40,6 +42,7 @@
     "gpu-info": "^0.0.1",
     "ip": "^2.0.1",
     "jsonwebtoken": "^9.0.2",
+    "level": "^10.0.0",
     "lodash": "^4.17.21",
     "memoizee": "^0.4.15",
     "nats": "^2.18.0",
@@ -70,8 +73,7 @@
     "uuid": "^9.0.1",
     "viem": "^1.19.9",
     "zod": "^3.22.4",
-    "zod-to-json-schema": "^3.22.0",
-    "level": "^10.0.0"
+    "zod-to-json-schema": "^3.22.0"
   },
   "devDependencies": {
     "@milahu/patch-package": "^6.4.14",
@@ -137,19 +139,20 @@
     ]
   },
   "bin": {
-    "sightai-miner": "dist/packages/apps/api-server/main.js",
-    "sightai-autostart": "dist/packages/apps/api-server/autostart.js"
+    "sight-ai": "dist/packages/apps/unified-app/main.js",
+    "sight-cli": "dist/packages/apps/cli-tool/main.js",
+    "sight-backend": "dist/packages/apps/api-server/main.js"
   },
   "pkg": {
     "scripts": "dist/**/*.js",
     "assets": [
       "node_modules/**/*",
-      ".env"
+      "dist/packages/libs/**/*",
+      ".env",
+      ".env.example"
     ],
     "targets": [
-      "node22-linux-x64",
-      "node22-macos-x64",
-      "node22-win-x64"
+      "node20-linux-x64"
     ],
     "outputPath": "dist-pkg"
   }

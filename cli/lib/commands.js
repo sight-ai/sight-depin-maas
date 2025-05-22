@@ -2,44 +2,52 @@
  * 命令模块 - 定义CLI命令
  */
 const inquirer = require('inquirer');
-const { CONFIG } = require('./config');
-const { logInfo, logSuccess, logError, logWarning } = require('./logger');
-const { checkRequirements, checkOllamaService, getGpuInfo } = require('./system-check');
+const { logInfo, logSuccess, logError } = require('./logger');
+const { checkOllamaService, getGpuInfo } = require('./system-check');
 const { pullDeepseekModel, handleReportModelsCommand } = require('./model-manager');
-const { registerDevice, reRegisterDevice, checkMinerStatus } = require('./device-manager');
-const { hasRegistrationParams, saveRegistrationParams, loadRegistrationParams } = require('./storage');
-const {
-  downloadComposeFile,
-  createOverrideFile,
-  startServices,
-  deployOpenWebUI,
-  stopMiner,
-  showLogs,
-  saveContainerLogs,
-  saveAllContainerLogs,
-  updateMiner,
-  cleanMiner
-} = require('./docker-manager');
+const { registerDevice, reRegisterDevice, checkMinerStatus, checkBackendService } = require('./device-manager');
+const { hasRegistrationParams } = require('./storage');
+const { openBrowser } = require('./browser-utils');
 const { MinerError, ErrorCodes, handleError } = require('./error-handler');
 
 // 运行本地模式
-const runLocalMode = async (gpuInfo) => {
+const runLocalMode = async () => {
   logInfo('Starting local mode setup...');
 
-  // 下载docker-compose.yml文件
-  if (!await downloadComposeFile()) {
+  // 检查后端服务是否运行
+  if (!await checkBackendService()) {
+    logError('Backend service is not available. Cannot proceed with local mode setup.');
     return false;
   }
 
-  // 创建docker-compose.override.yml文件
-  createOverrideFile('local', { gpuInfo });
+  // 打开Web界面
+  logInfo('Opening web interface...');
+  openBrowser(`http://localhost:8716`);
 
-  // 启动服务
-  return await startServices({ mode: 'local' });
+  logSuccess('Local mode setup completed');
+
+  // 打印成功消息
+  console.log('\n╔════════════════════════════════════════════════════════════╗');
+  console.log('║                   Setup Complete! 🎉                        ║');
+  console.log('╠════════════════════════════════════════════════════════════╣');
+  console.log('║  Service is running on:                                    ║');
+  console.log('║                                                            ║');
+  console.log('║  📊 Sight AI Miner API:                                   ║');
+  console.log('║     http://localhost:8716                                  ║');
+  console.log('║                                                            ║');
+  console.log('╚════════════════════════════════════════════════════════════╝');
+
+  return true;
 };
 
 // 运行远程模式
 const runRemoteMode = async (options) => {
+  // 检查后端服务是否运行
+  if (!await checkBackendService()) {
+    logError('Backend service is not available. Cannot proceed with remote mode setup.');
+    return false;
+  }
+
   logInfo('Starting remote mode setup...');
 
   // 验证远程模式参数
@@ -49,21 +57,30 @@ const runRemoteMode = async (options) => {
     return false;
   }
 
-  // 下载docker-compose.yml文件
-  if (!await downloadComposeFile()) {
-    return false;
-  }
-
-  // 创建docker-compose.override.yml文件
-  createOverrideFile('remote', options);
-
-  // 启动服务
-  if (!await startServices(options)) {
-    return false;
-  }
-
   // 注册设备
-  return await registerDevice(options);
+  const registrationSuccess = await registerDevice(options);
+
+  if (registrationSuccess) {
+    // 打开Web界面
+    logInfo('Opening web interface...');
+    openBrowser(`http://localhost:8716`);
+
+    logSuccess('Remote mode setup completed');
+
+    // 打印成功消息
+    console.log('\n╔════════════════════════════════════════════════════════════╗');
+    console.log('║                   Setup Complete! 🎉                        ║');
+    console.log('╠════════════════════════════════════════════════════════════╣');
+    console.log('║  Service is running on:                                    ║');
+    console.log('║                                                            ║');
+    console.log('║  📊 Sight AI Miner API:                                   ║');
+    console.log('║     http://localhost:8716                                  ║');
+    console.log('║                                                            ║');
+    console.log('║  Device registered to gateway successfully!                ║');
+    console.log('╚════════════════════════════════════════════════════════════╝');
+  }
+
+  return registrationSuccess;
 };
 
 // 交互式模式选择
@@ -124,11 +141,6 @@ const selectMode = async () => {
 
 // 主运行函数
 const run = async (options) => {
-  // 检查系统要求
-  if (!await checkRequirements()) {
-    return false;
-  }
-
   // 检查Ollama服务
   if (!await checkOllamaService()) {
     return false;
@@ -145,7 +157,7 @@ const run = async (options) => {
 
   // 根据选择的模式运行
   if (options.mode === 'local') {
-    return await runLocalMode(gpuInfo);
+    return await runLocalMode();
   } else if (options.mode === 'remote') {
     return await runRemoteMode(options);
   } else {
@@ -166,19 +178,9 @@ const setupCommands = (program) => {
     .option('-k, --gateway-api-key <key>', 'Gateway API key (for remote mode)')
     .option('-r, --reward-address <address>', 'Reward address (for remote mode)')
     .option('-a, --api-base-path <path>', 'API server base path (for remote mode)')
-    .option('-f, --force', 'Force remove existing containers if they exist')
-    .option('-p, --port <port>', 'Port for the miner service (default: 3000, can also be set with SIGHT_MINER_PORT env var)')
     .action(async (cmdOptions) => {
       try {
         let options = { ...cmdOptions };
-
-        // 如果通过命令行指定了端口，则覆盖环境变量
-        if (options.port) {
-          process.env.SIGHT_MINER_PORT = options.port;
-          // 重新加载配置以应用新端口
-          const { CONFIG } = require('./config');
-          options.port = CONFIG.ports.miner;
-        }
 
         if (!options.mode) {
           options = { ...await selectMode(), ...options };
@@ -277,11 +279,6 @@ const setupCommands = (program) => {
           options = { ...options, ...remoteParams };
         }
 
-        // 检查系统要求
-        if (!await checkRequirements()) {
-          return false;
-        }
-
         // 检查Ollama服务
         if (!await checkOllamaService()) {
           return false;
@@ -322,139 +319,26 @@ const setupCommands = (program) => {
   program
     .command('status')
     .description('Check miner status')
-    .action(() => {
-      try {
-        checkMinerStatus();
-      } catch (error) {
-        handleError(error);
-      }
-    });
-
-  // 停止命令
-  program
-    .command('stop')
-    .description('Stop the miner')
     .action(async () => {
       try {
-        await stopMiner();
+        await checkMinerStatus();
       } catch (error) {
         handleError(error);
       }
     });
 
-  // 日志命令
-  program
-    .command('logs')
-    .description('View miner logs')
-    .option('-f, --follow', 'Follow log output')
-    .option('-n, --lines <number>', 'Number of lines to show', '100')
-    .option('-s, --save', 'Save logs to file')
-    .option('-c, --container <name>', 'Save logs for a specific container')
-    .option('-a, --all', 'Save logs for all running containers')
-    .action(async (options) => {
-      try {
-        const lines = parseInt(options.lines, 10);
-        if (isNaN(lines) || lines < 1) {
-          throw new MinerError(
-            'Invalid number of lines',
-            ErrorCodes.SERVICE_START_FAILED,
-            { lines: options.lines }
-          );
-        }
 
-        // 如果指定了保存所有容器日志
-        if (options.all) {
-          await saveAllContainerLogs(lines);
-          return;
-        }
-
-        // 如果指定了容器名称，则保存该容器的日志
-        if (options.container) {
-          await saveContainerLogs(options.container, lines);
-          return;
-        }
-
-        // 否则显示所有日志
-        await showLogs(lines, options.follow, options.save);
-      } catch (error) {
-        handleError(error);
-      }
-    });
-
-  // 更新命令
-  program
-    .command('update')
-    .description('Update the miner to latest version')
-    .option('-f, --force', 'Force update without confirmation and remove existing containers if they conflict')
-    .action(async (options) => {
-      try {
-        if (!options.force) {
-          const { confirm } = await inquirer.prompt([
-            {
-              type: 'confirm',
-              name: 'confirm',
-              message: 'Are you sure you want to update the miner? This will stop all running services.',
-              default: false
-            }
-          ]);
-
-          if (!confirm) {
-            logInfo('Update cancelled by user');
-            return;
-          }
-        }
-
-        await updateMiner(options.force);
-      } catch (error) {
-        handleError(error);
-      }
-    });
-
-  // 清理命令
-  program
-    .command('clean')
-    .description('Clean up miner resources')
-    .option('-a, --all', 'Clean all resources including volumes')
-    .action(async (options) => {
-      try {
-        if (options.all) {
-          const { confirm } = await inquirer.prompt([
-            {
-              type: 'confirm',
-              name: 'confirm',
-              message: 'Are you sure you want to clean all resources? This will remove all data including volumes.',
-              default: false
-            }
-          ]);
-
-          if (!confirm) {
-            logInfo('Clean operation cancelled by user');
-            return;
-          }
-        }
-
-        await cleanMiner(options.all);
-      } catch (error) {
-        handleError(error);
-      }
-    });
 
   // 重新注册命令
   program
     .command('re-register')
     .description('Re-register device using previously saved registration parameters')
-    .option('-f, --force', 'Force remove existing containers if they exist')
-    .action(async (cmdOptions) => {
+    .action(async () => {
       try {
         // 检查是否有保存的注册参数
         if (!hasRegistrationParams()) {
           logError('No saved registration parameters found. Please register first using the "run" command with remote mode.');
           return;
-        }
-
-        // 检查系统要求
-        if (!await checkRequirements()) {
-          return false;
         }
 
         // 检查Ollama服务
@@ -470,19 +354,6 @@ const setupCommands = (program) => {
         // 获取GPU信息
         const gpuInfo = await getGpuInfo();
 
-        // 下载docker-compose.yml文件
-        if (!await downloadComposeFile()) {
-          return false;
-        }
-
-        // 创建docker-compose.override.yml文件 (将在reRegisterDevice中获取保存的参数)
-        createOverrideFile('remote', { gpuInfo });
-
-        // 启动服务
-        if (!await startServices({ mode: 'remote', force: cmdOptions.force })) {
-          return false;
-        }
-
         // 使用保存的参数重新注册设备
         await reRegisterDevice({ gpuInfo });
       } catch (error) {
@@ -490,48 +361,6 @@ const setupCommands = (program) => {
       }
     });
 
-  // 部署OpenWebUI命令
-  program
-    .command('deploy-webui')
-    .description('Deploy Open WebUI for Ollama')
-    .option('-p, --port <port>', 'Port for Open WebUI (default: 8080, can also be set with SIGHT_WEBUI_PORT env var)')
-    .option('-f, --force', 'Force remove existing container if it exists')
-    .option('-m, --mode <mode>', 'Mode (local or remote)', 'local')
-    .option('-g, --gateway-url <url>', 'Gateway URL for remote mode')
-    .option('-n, --no-browser', 'Do not open browser after deployment')
-    .action(async (options) => {
-      try {
-        // 如果通过命令行指定了端口，则覆盖环境变量
-        if (options.port) {
-          process.env.SIGHT_WEBUI_PORT = options.port;
-          // 重新加载配置以应用新端口
-          const { CONFIG } = require('./config');
-        }
-
-        // 检查系统要求
-        if (!await checkRequirements()) {
-          return false;
-        }
-
-        // 检查Ollama服务
-        if (!await checkOllamaService()) {
-          return false;
-        }
-
-        // 部署OpenWebUI
-        const deployOptions = {
-          port: options.port || CONFIG.ports.webui,
-          force: options.force || false,
-          mode: options.mode,
-          gatewayUrl: options.gatewayUrl || 'http://host.docker.internal:8716',
-          openBrowserAfterDeploy: options.browser
-        };
-
-        await deployOpenWebUI(deployOptions);
-      } catch (error) {
-        handleError(error);
-      }
-    });
 };
 
 module.exports = {
