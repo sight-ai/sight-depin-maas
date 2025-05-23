@@ -5,6 +5,7 @@ import { bootstrap } from '@saito/api-server/bootstrap';
 import { DeviceCommands } from './commands/device';
 import { ModelCommands } from './commands/models';
 import { AppServices } from './services/app-services';
+import { ProcessManager } from './services/process-manager';
 import { UIUtils } from './utils/ui';
 import inquirer from 'inquirer';
 
@@ -52,7 +53,10 @@ async function startInteractiveCli(): Promise<void> {
             { name: '📊 Model report status', value: 'models-status' },
             new inquirer.Separator(),
             { name: '🚀 Start backend server', value: 'start-server' },
-            { name: '🔄 Refresh service status', value: 'refresh' },
+            { name: '� Stop backend server', value: 'stop-server' },
+            { name: '📊 Server status', value: 'server-status' },
+            { name: '📋 View server logs', value: 'view-logs' },
+            { name: '�🔄 Refresh service status', value: 'refresh' },
             { name: '❌ Exit', value: 'exit' }
           ]
         }
@@ -81,11 +85,61 @@ async function startInteractiveCli(): Promise<void> {
           break;
         case 'start-server':
           UIUtils.info('Starting backend server in background...');
-          // 在后台启动 bootstrap，不等待完成
-          bootstrap().catch(error => {
-            UIUtils.error(`Backend server error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          });
-          UIUtils.success('Backend server started in background');
+          const startResult = ProcessManager.startDaemonProcess();
+          if (startResult.success) {
+            UIUtils.success('Backend server started in background');
+            UIUtils.info(`Process ID: ${startResult.pid}`);
+          } else {
+            UIUtils.error(`Failed to start server: ${startResult.error}`);
+          }
+          break;
+        case 'stop-server':
+          UIUtils.info('Stopping backend server...');
+          const stopResult = ProcessManager.stopDaemonProcess();
+          if (stopResult.success) {
+            UIUtils.success('Backend server stopped successfully');
+          } else {
+            UIUtils.error(`Failed to stop server: ${stopResult.error}`);
+          }
+          break;
+        case 'server-status':
+          const status = ProcessManager.getServerStatus();
+          if (status.running) {
+            UIUtils.success('Backend server is running');
+            console.log(`  Process ID: ${status.pid}`);
+            console.log(`  Started: ${status.startTime}`);
+          } else {
+            UIUtils.warning('Backend server is not running');
+          }
+          break;
+        case 'view-logs':
+          const logInfo = ProcessManager.getLogFileInfo();
+          if (!logInfo.exists) {
+            UIUtils.warning('No log file found');
+            UIUtils.info('Backend server may not have been started in daemon mode yet');
+          } else {
+            console.log(`📁 Log file: ${logInfo.path}`);
+            console.log(`📊 Size: ${(logInfo.size! / 1024).toFixed(2)} KB`);
+            console.log(`🕒 Last modified: ${logInfo.lastModified!.toLocaleString()}`);
+            console.log('');
+
+            const logResult = ProcessManager.readLogs(30); // 显示最后30行
+            if (logResult.success && logResult.logs) {
+              if (logResult.logs.length === 0) {
+                UIUtils.info('Log file is empty');
+              } else {
+                UIUtils.info(`Showing last ${logResult.logs.length} lines:`);
+                console.log('');
+                console.log('─'.repeat(60));
+                logResult.logs.forEach(line => {
+                  console.log(line);
+                });
+                console.log('─'.repeat(60));
+              }
+            } else {
+              UIUtils.error(`Failed to read logs: ${logResult.error}`);
+            }
+          }
           break;
         case 'refresh':
           UIUtils.clear();
@@ -145,16 +199,22 @@ program
       UIUtils.showSection('Starting Backend Server');
 
       if (options.daemon) {
-        // 后台模式：不等待 bootstrap 完成
+        // 后台模式：使用 ProcessManager 创建独立进程
         UIUtils.info('Starting server in background mode...');
-        bootstrap().catch(error => {
-          UIUtils.error(`Backend server error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        });
-        UIUtils.success('Backend server started in background');
 
-        // 给服务器一些时间启动
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        UIUtils.info('You can now use other commands while the server runs in background');
+        const result = ProcessManager.startDaemonProcess();
+
+        if (result.success) {
+          UIUtils.success('Backend server started in background');
+          UIUtils.info(`Process ID: ${result.pid}`);
+          UIUtils.info('You can now use other commands while the server runs in background');
+
+          // 给服务器一些时间启动
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        } else {
+          UIUtils.error(`Failed to start background server: ${result.error}`);
+          process.exit(1);
+        }
       } else {
         // 前台模式：等待 bootstrap 完成
         UIUtils.info('Starting server in foreground mode...');
@@ -162,6 +222,140 @@ program
       }
     } catch (error) {
       UIUtils.error(`Failed to start server: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    }
+  });
+
+/**
+ * 停止服务器命令
+ */
+program
+  .command('stop')
+  .description('Stop the Sight AI backend server')
+  .action(async () => {
+    try {
+      UIUtils.showSection('Stopping Backend Server');
+
+      const spinner = UIUtils.createSpinner('Stopping server...');
+      spinner.start();
+
+      const result = ProcessManager.stopDaemonProcess();
+      spinner.stop();
+
+      if (result.success) {
+        UIUtils.success('Backend server stopped successfully');
+      } else {
+        UIUtils.error(`Failed to stop server: ${result.error}`);
+        process.exit(1);
+      }
+    } catch (error) {
+      UIUtils.error(`Failed to stop server: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    }
+  });
+
+/**
+ * 服务器状态命令
+ */
+program
+  .command('server-status')
+  .description('Check backend server status')
+  .action(async () => {
+    try {
+      UIUtils.showSection('Backend Server Status');
+
+      const status = ProcessManager.getServerStatus();
+
+      if (status.running) {
+        UIUtils.success('Backend server is running');
+        console.log('');
+        console.log(`  Process ID: ${status.pid}`);
+        console.log(`  Started: ${status.startTime}`);
+        console.log(`  Executable: ${status.executable}`);
+      } else {
+        UIUtils.warning('Backend server is not running');
+        UIUtils.info('Use "sight start --daemon" to start the server in background');
+      }
+    } catch (error) {
+      UIUtils.error(`Failed to check server status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    }
+  });
+
+/**
+ * 查看后台服务日志命令
+ */
+program
+  .command('logs')
+  .description('View backend server logs')
+  .option('-n, --lines <number>', 'Number of lines to show', '50')
+  .option('-f, --follow', 'Follow log output (not implemented yet)')
+  .option('-c, --clear', 'Clear log file')
+  .action(async (options) => {
+    try {
+      if (options.clear) {
+        UIUtils.showSection('Clearing Backend Server Logs');
+
+        const result = ProcessManager.clearLogs();
+        if (result.success) {
+          UIUtils.success('Log file cleared successfully');
+        } else {
+          UIUtils.error(`Failed to clear logs: ${result.error}`);
+          process.exit(1);
+        }
+        return;
+      }
+
+      UIUtils.showSection('Backend Server Logs');
+
+      // 检查服务器状态
+      const status = ProcessManager.getServerStatus();
+      if (!status.running) {
+        UIUtils.warning('Backend server is not running');
+        UIUtils.info('Use "sight start --daemon" to start the server in background');
+        console.log('');
+      }
+
+      // 获取日志文件信息
+      const logInfo = ProcessManager.getLogFileInfo();
+      if (!logInfo.exists) {
+        UIUtils.warning('No log file found');
+        UIUtils.info('Backend server may not have been started in daemon mode yet');
+        return;
+      }
+
+      // 显示日志文件信息
+      console.log(`📁 Log file: ${logInfo.path}`);
+      console.log(`📊 Size: ${(logInfo.size! / 1024).toFixed(2)} KB`);
+      console.log(`🕒 Last modified: ${logInfo.lastModified!.toLocaleString()}`);
+      console.log('');
+
+      // 读取日志
+      const lines = parseInt(options.lines, 10) || 50;
+      const result = ProcessManager.readLogs(lines);
+
+      if (result.success && result.logs) {
+        if (result.logs.length === 0) {
+          UIUtils.info('Log file is empty');
+        } else {
+          UIUtils.info(`Showing last ${result.logs.length} lines:`);
+          console.log('');
+          console.log('─'.repeat(80));
+          result.logs.forEach(line => {
+            console.log(line);
+          });
+          console.log('─'.repeat(80));
+
+          if (options.follow) {
+            UIUtils.info('Follow mode is not implemented yet. Use "sight logs" to refresh.');
+          }
+        }
+      } else {
+        UIUtils.error(`Failed to read logs: ${result.error}`);
+        process.exit(1);
+      }
+    } catch (error) {
+      UIUtils.error(`Failed to read logs: ${error instanceof Error ? error.message : 'Unknown error'}`);
       process.exit(1);
     }
   });
@@ -189,9 +383,20 @@ program
 program
   .command('register')
   .description('Register device with gateway')
-  .action(async () => {
+  .option('-c, --code <code>', 'Registration code')
+  .option('-g, --gateway <address>', 'Gateway address', 'https://gateway.saito.ai')
+  .option('-r, --reward <address>', 'Reward address')
+  .option('-k, --key <key>', 'Authentication key')
+  .option('-b, --base-path <path>', 'API server base path for WebSocket connection')
+  .action(async (options) => {
     try {
-      await DeviceCommands.register();
+      await DeviceCommands.register({
+        code: options.code,
+        gatewayAddress: options.gateway,
+        rewardAddress: options.reward,
+        key: options.key,
+        basePath: options.basePath
+      });
     } catch (error) {
       UIUtils.error(`Registration error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       process.exit(1);
@@ -226,6 +431,20 @@ program
   .action(async () => {
     try {
       await DeviceCommands.unregister();
+      UIUtils.showSection('Stopping Backend Server');
+
+      const spinner = UIUtils.createSpinner('Stopping server...');
+      spinner.start();
+
+      const result = ProcessManager.stopDaemonProcess();
+      spinner.stop();
+
+      if (result.success) {
+        UIUtils.success('Backend server stopped successfully');
+      } else {
+        UIUtils.error(`Failed to stop server: ${result.error}`);
+        process.exit(1);
+      }
     } catch (error) {
       UIUtils.error(`Unregistration error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       process.exit(1);

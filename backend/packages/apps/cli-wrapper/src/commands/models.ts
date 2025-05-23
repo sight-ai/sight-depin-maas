@@ -13,13 +13,12 @@ export class ModelCommands {
   static async list(): Promise<void> {
     try {
       UIUtils.showSection('Local Models');
-      
+
       const spinner = UIUtils.createSpinner('Fetching model list...');
       spinner.start();
 
       try {
-        const ollamaService = await AppServices.getOllamaService();
-        const modelList = await ollamaService.listModelTags();
+        const modelList = await AppServices.getOllamaModels();
         spinner.stop();
 
         if (modelList.models.length === 0) {
@@ -38,7 +37,7 @@ export class ModelCommands {
       } catch (error) {
         spinner.stop();
         UIUtils.error(`Error listing models: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        
+
         // 提供故障排除建议
         UIUtils.showBox(
           'Troubleshooting',
@@ -57,13 +56,12 @@ export class ModelCommands {
   static async report(): Promise<void> {
     try {
       UIUtils.showSection('Model Reporting');
-      
+
       const spinner = UIUtils.createSpinner('Fetching available models...');
       spinner.start();
 
       try {
-        const ollamaService = await AppServices.getOllamaService();
-        const modelList = await ollamaService.listModelTags();
+        const modelList = await AppServices.getOllamaModels();
         spinner.stop();
 
         if (modelList.models.length === 0) {
@@ -78,10 +76,10 @@ export class ModelCommands {
         // 显示可用模型
         console.log('');
         TableUtils.showSelectionTable(
-          modelList.models.map((model, index) => ({
+          modelList.models.map((model: any, index: number) => ({
             index: index + 1,
             name: model.name,
-            description: model.details.family || 'Unknown family',
+            description: model.details?.family || 'Unknown family',
             size: `${(model.size / (1024 * 1024 * 1024)).toFixed(2)} GB`
           }))
         );
@@ -101,14 +99,14 @@ export class ModelCommands {
         let selectedModels: string[] = [];
 
         if (selectionType === 'all') {
-          selectedModels = modelList.models.map(model => model.name);
+          selectedModels = modelList.models.map((model: any) => model.name);
         } else {
           const { selectedIndices } = await inquirer.prompt([
             {
               type: 'checkbox',
               name: 'selectedIndices',
               message: 'Select models to report:',
-              choices: modelList.models.map((model, index) => ({
+              choices: modelList.models.map((model: any, index: number) => ({
                 name: `${model.name} (${(model.size / (1024 * 1024 * 1024)).toFixed(2)} GB)`,
                 value: index
               })),
@@ -150,8 +148,8 @@ export class ModelCommands {
         reportSpinner.start();
 
         try {
-          const modelReportingService = await AppServices.getModelReportingService();
-          const success = await modelReportingService.reportModels(selectedModels);
+          const result = await AppServices.reportModels(selectedModels);
+          const success = result.success;
           reportSpinner.stop();
 
           if (success) {
@@ -180,13 +178,12 @@ export class ModelCommands {
   static async reportAll(): Promise<void> {
     try {
       UIUtils.showSection('Report All Models');
-      
+
       const spinner = UIUtils.createSpinner('Fetching available models...');
       spinner.start();
 
       try {
-        const ollamaService = await AppServices.getOllamaService();
-        const modelList = await ollamaService.listModelTags();
+        const modelList = await AppServices.getOllamaModels();
         spinner.stop();
 
         if (modelList.models.length === 0) {
@@ -198,11 +195,11 @@ export class ModelCommands {
           return;
         }
 
-        const allModels = modelList.models.map(model => model.name);
-        
+        const allModels = modelList.models.map((model: any) => model.name);
+
         console.log('');
         UIUtils.info(`Found ${allModels.length} model(s) to report:`);
-        allModels.forEach((model, index) => {
+        allModels.forEach((model: string, index: number) => {
           UIUtils.showListItem(index + 1, model);
         });
 
@@ -224,8 +221,8 @@ export class ModelCommands {
         reportSpinner.start();
 
         try {
-          const modelReportingService = await AppServices.getModelReportingService();
-          const success = await modelReportingService.reportModels(allModels);
+          const result = await AppServices.reportModels(allModels);
+          const success = result.success;
           reportSpinner.stop();
 
           if (success) {
@@ -254,22 +251,20 @@ export class ModelCommands {
   static async status(): Promise<void> {
     try {
       UIUtils.showSection('Model Reporting Status');
-      
+
       const spinner = UIUtils.createSpinner('Checking model status...');
       spinner.start();
 
       try {
-        const modelReportingService = await AppServices.getModelReportingService();
-        const reportedModels = modelReportingService.getReportedModels();
-        
         const registrationStorage = AppServices.getRegistrationStorage();
         const savedModels = registrationStorage.getReportedModels();
-        
+        const reportedModels = savedModels; // 使用本地存储的模型信息
+
         spinner.stop();
 
         console.log('');
         TableUtils.showModelReportStatusTable(reportedModels, savedModels);
-        
+
         if (reportedModels.length === 0 && savedModels.length === 0) {
           console.log('');
           UIUtils.showBox(
