@@ -71,7 +71,6 @@
     "slonik": "^37.2.0",
     "slonik-interceptor-query-logging": "^1.4.7",
     "socket.io-client": "^4.8.1",
-    "string-width": "^4.2.3",
     "strip-ansi": "^6.0.1",
     "systeminformation": "^5.25.11",
     "telegraf": "^4.15.0",
@@ -157,11 +156,10 @@
     "assets": [
       "node_modules/**/*",
       "dist/packages/libs/**/*",
-      ".env",
-      ".env.example"
+      ".env"
     ],
     "targets": [
-      "node20-linux-x64"
+      "node22-linux-x64"
     ],
     "outputPath": "dist-pkg"
   }

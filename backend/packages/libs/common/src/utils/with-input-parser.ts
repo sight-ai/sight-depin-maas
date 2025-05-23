@@ -1,5 +1,5 @@
 import { ZodType } from 'zod';
-import { ZodTypeDef } from 'zod/lib/types';
+import { ZodTypeDef } from 'zod';
 
 /**
  * @description parse input with zod parser
