@@ -2,7 +2,6 @@
   "name": "@saito-miner/sightai",
   "version": "0.0.0",
   "license": "UNLICENSED",
-  "main": "dist/packages/apps/unified-app/main.js",
   "scripts": {
     "postinstall": "patch-package"
   },
@@ -24,14 +23,19 @@
     "@temporalio/client": "1.8.6",
     "@temporalio/worker": "1.8.6",
     "@temporalio/workflow": "1.8.6",
+    "@types/inquirer": "^8.2.11",
     "@uniswap/sdk-core": "^4.0.9",
     "@uniswap/v3-core": "^1.0.1",
     "@uniswap/v3-periphery": "^1.4.4",
     "@uniswap/v3-sdk": "^3.10.0",
+    "ansi-regex": "^5.0.1",
     "axios": "^1.8.1",
     "boxen": "^8.0.1",
+    "chalk": "^4.1.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
+    "cli-table3": "^0.6.5",
+    "commander": "^11.1.0",
     "crypto": "^1.0.1",
     "dedent": "^1.5.1",
     "dnum-cjs": "^2.9.0",
@@ -41,6 +45,7 @@
     "express": "^4.18.2",
     "got-cjs": "^12.5.4",
     "gpu-info": "^0.0.1",
+    "inquirer": "^8.2.6",
     "ip": "^2.0.1",
     "jsonwebtoken": "^9.0.2",
     "level": "^10.0.0",
@@ -53,6 +58,7 @@
     "oclif": "^4.0.4",
     "openai": "^4.17.5",
     "openpipe": "^0.6.2",
+    "ora": "^5.4.1",
     "p-queue": "^6.6.2",
     "p-retry": "^4.6.2",
     "pino": "^8.16.2",
@@ -65,6 +71,8 @@
     "slonik": "^37.2.0",
     "slonik-interceptor-query-logging": "^1.4.7",
     "socket.io-client": "^4.8.1",
+    "string-width": "^4.2.3",
+    "strip-ansi": "^6.0.1",
     "systeminformation": "^5.25.11",
     "telegraf": "^4.15.0",
     "telegramify-markdown": "^1.1.0",
@@ -140,15 +148,11 @@
     ]
   },
   "bin": {
-    "sight": "dist/packages/apps/cli-wrapper/main.js",
-    "sight-ai": "dist/packages/apps/unified-app/main.js",
-    "sight-cli": "dist/packages/apps/cli-tool/main.js",
-    "sight-backend": "dist/packages/apps/api-server/main.js"
+    "sight": "dist/packages/apps/cli-wrapper/main.js"
   },
   "pkg": {
     "scripts": [
-      "dist/packages/apps/cli-wrapper/**/*.js",
-      "dist/packages/apps/app-server/**/*.js"
+      "dist/packages/apps/cli-wrapper/**/*.js"
     ],
     "assets": [
       "node_modules/**/*",
@@ -157,7 +161,7 @@
       ".env.example"
     ],
     "targets": [
-      "node20-macos-arm64"
+      "node20-linux-x64"
     ],
     "outputPath": "dist-pkg"
   }
