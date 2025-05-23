@@ -5,7 +5,8 @@ export const DeviceCredentials = z.object({
   code: z.string(),
   gateway_address: z.string(),
   reward_address: z.string(),
-  key: z.string()
+  key: z.string(),
+  basePath: z.string().optional()
 });
 
 // Base DeviceStatus schema

@@ -233,12 +233,16 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     try {
       this.logger.log(`Auto-reconnecting to gateway: ${this.deviceConfig.gatewayAddress}`);
 
+      // 从存储中获取完整的注册信息，包括basePath
+      const savedInfo = this.registrationStorage.loadRegistrationInfo();
+
       // 重新调用注册接口
       const credentials: ModelOfMiner<'DeviceCredentials'> = {
         gateway_address: this.deviceConfig.gatewayAddress,
         reward_address: this.deviceConfig.rewardAddress,
         key: this.deviceConfig.key,
-        code: this.deviceConfig.code
+        code: this.deviceConfig.code,
+        basePath: savedInfo?.basePath
       };
 
       this.logger.log('Re-registering with gateway...');
@@ -260,7 +264,8 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         await this.tunnelService.createSocket(
           this.deviceConfig.gatewayAddress,
           this.deviceConfig.key,
-          this.deviceConfig.code
+          this.deviceConfig.code,
+          savedInfo?.basePath
         );
 
         // 连接Socket
@@ -286,6 +291,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
 
   async register(credentials: ModelOfMiner<'DeviceCredentials'>, isAutoReconnect: boolean = false): Promise<ModelOfMiner<'RegistrationResponse'>> {
     try {
+
       const [ipAddress, deviceType, deviceModel] = await Promise.all([
         address(),
         this.getDeviceType(),
@@ -342,7 +348,8 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
             gatewayAddress: this.deviceConfig.gatewayAddress,
             key: this.deviceConfig.key,
             code: this.deviceConfig.code,
-            isRegistered: true
+            isRegistered: true,
+            basePath: credentials.basePath
           });
           this.logger.log('Registration information saved to system user directory');
         }
@@ -358,7 +365,8 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         await this.tunnelService.createSocket(
           this.deviceConfig.gatewayAddress,
           this.deviceConfig.key,
-          this.deviceConfig.code
+          this.deviceConfig.code,
+          credentials.basePath
         );
         await this.tunnelService.connectSocket(response.data.node_id || '');
 

@@ -16,6 +16,7 @@ export interface RegistrationInfo {
   isRegistered: boolean;
   timestamp?: string;
   reportedModels?: string[]; // 已上报的模型列表
+  basePath?: string; // API服务器基础路径
 }
 
 /**

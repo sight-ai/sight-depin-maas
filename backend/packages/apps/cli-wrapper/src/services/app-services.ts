@@ -14,6 +14,16 @@ export class AppServices {
    */
   static async register(credentials: any): Promise<any> {
     try {
+      // // 构造请求体，包含basePath参数
+      // const requestBody = {
+      //   ...credentials,
+      //   // 从环境变量中获取basePath并传递给后端
+      //   basePath: process.env.API_SERVER_BASE_PATH
+      // };
+
+      // const response = await axios.post(`${this.BACKEND_BASE_URL}/api/v1/device-status/register`, requestBody, {
+      //   timeout: 10000
+      // });
       const response = await axios.post(`${this.BACKEND_BASE_URL}/api/v1/device-status/register`, credentials, {
         timeout: 10000
       });

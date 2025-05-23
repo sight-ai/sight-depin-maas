@@ -6,7 +6,7 @@ export class MockedTunnelService implements TunnelService {
   gatewayUrl: string = 'mock-gateway-url';
   socket: any = null;
 
-  async createSocket(gatewayAddress: string, key: string, code: string): Promise<void> {
+  async createSocket(gatewayAddress: string, key: string, code?: string, basePath?: string): Promise<void> {
     // Mock implementation
   }
 
@@ -41,4 +41,4 @@ export class MockedTunnelService implements TunnelService {
   handleDisconnect(): void {
     // Mock implementation
   }
-} 
+}

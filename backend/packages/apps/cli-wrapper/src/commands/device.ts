@@ -36,16 +36,13 @@ export class DeviceCommands {
           code: options.code.trim(),
           gateway_address: options.gatewayAddress.trim(),
           reward_address: options.rewardAddress.trim(),
-          key: options.key.trim()
+          key: options.key.trim(),
+          basePath: options.basePath
         };
 
-        // 设置API_SERVER_BASE_PATH环境变量
+        // 显示basePath信息
         if (options.basePath !== undefined) {
-          process.env.API_SERVER_BASE_PATH = options.basePath;
-          UIUtils.info(`Setting API_SERVER_BASE_PATH to: "${options.basePath}"`);
-        } else if (!process.env.API_SERVER_BASE_PATH) {
-          // 如果没有提供basePath参数且环境变量也没有设置，使用默认值
-          process.env.API_SERVER_BASE_PATH = '';
+          UIUtils.info(`Using basePath: "${options.basePath}"`);
         }
 
         // 验证URL格式
@@ -140,21 +137,18 @@ export class DeviceCommands {
         const answers = await inquirer.prompt(questions);
 
         // 合并命令行参数和交互式输入
+        const basePath = options?.basePath !== undefined ? options.basePath : answers.basePath;
         credentials = {
           code: (options?.code || answers.code).trim(),
           gateway_address: (options?.gatewayAddress || answers.gatewayAddress).trim(),
           reward_address: (options?.rewardAddress || answers.rewardAddress).trim(),
-          key: (options?.key || answers.key).trim()
+          key: (options?.key || answers.key).trim(),
+          basePath: basePath?.trim()
         };
 
-        // 设置API_SERVER_BASE_PATH环境变量
-        const basePath = options?.basePath !== undefined ? options.basePath : answers.basePath;
-        if (basePath !== undefined) {
-          process.env.API_SERVER_BASE_PATH = basePath.trim();
-          UIUtils.info(`Setting API_SERVER_BASE_PATH to: "${basePath.trim()}"`);
-        } else if (!process.env.API_SERVER_BASE_PATH) {
-          // 如果没有提供basePath且环境变量也没有设置，使用默认值
-          process.env.API_SERVER_BASE_PATH = '';
+        // 显示basePath信息
+        if (basePath !== undefined && basePath.trim()) {
+          UIUtils.info(`Using basePath: "${basePath.trim()}"`);
         }
       }
 
