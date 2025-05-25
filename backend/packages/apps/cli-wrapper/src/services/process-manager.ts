@@ -14,11 +14,21 @@ export class ProcessManager {
   private static readonly LOG_FILE_NAME = 'sightai.log';
 
   /**
-   * 获取用户目录下的.sightai路径
+   * 获取用户目录下的.sightai路径或Docker数据目录
    */
   private static getSightAIDir(): string {
-    const homeDir = os.homedir();
-    const sightaiDir = path.join(homeDir, '.sightai');
+    // 在 Docker 环境中，优先使用 SIGHTAI_DATA_DIR 环境变量
+    const dataDir = process.env['SIGHTAI_DATA_DIR'];
+
+    let sightaiDir: string;
+    if (dataDir) {
+      // Docker 环境：使用数据卷目录
+      sightaiDir = dataDir;
+    } else {
+      // 本地环境：使用用户主目录
+      const homeDir = os.homedir();
+      sightaiDir = path.join(homeDir, '.sightai');
+    }
 
     // 确保目录存在
     if (!fs.existsSync(sightaiDir)) {

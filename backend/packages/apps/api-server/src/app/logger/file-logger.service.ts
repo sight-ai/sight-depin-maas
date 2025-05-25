@@ -10,7 +10,18 @@ export class FileLoggerService extends ConsoleLogger implements LoggerService {
 
   constructor() {
     super('SightAI');
-    this.logDir = path.join(os.homedir(), '.sightai', 'logs');
+
+    // 在 Docker 环境中，优先使用 SIGHTAI_DATA_DIR 环境变量
+    const dataDir = process.env['SIGHTAI_DATA_DIR'];
+
+    if (dataDir) {
+      // Docker 环境：使用数据卷目录
+      this.logDir = path.join(dataDir, 'logs');
+    } else {
+      // 本地环境：使用用户主目录
+      this.logDir = path.join(os.homedir(), '.sightai', 'logs');
+    }
+
     this.ensureLogDir();
     this.logFile = this.getLogFilePath();
   }
@@ -30,7 +41,7 @@ export class FileLoggerService extends ConsoleLogger implements LoggerService {
     const timestamp = new Date().toISOString();
     const contextStr = context ? `[${context}]` : '';
     const logLine = `${timestamp} ${level.toUpperCase().padEnd(5)} ${contextStr} ${message}`;
-    
+
     try {
       fs.appendFileSync(this.logFile, logLine + '\n');
     } catch (error) {

@@ -29,11 +29,17 @@ export class RegistrationStorage {
   private readonly registrationFile: string;
 
   constructor() {
-    // 获取用户主目录
-    const homeDir = os.homedir();
+    // 在 Docker 环境中，优先使用 SIGHTAI_DATA_DIR 环境变量
+    const dataDir = process.env['SIGHTAI_DATA_DIR'];
 
-    // 创建.sightai/config目录路径
-    this.configDir = path.join(homeDir, '.sightai', 'config');
+    if (dataDir) {
+      // Docker 环境：使用数据卷目录
+      this.configDir = path.join(dataDir, 'config');
+    } else {
+      // 本地环境：使用用户主目录
+      const homeDir = os.homedir();
+      this.configDir = path.join(homeDir, '.sightai', 'config');
+    }
 
     // 注册信息文件路径
     this.registrationFile = path.join(this.configDir, 'device-registration.json');
