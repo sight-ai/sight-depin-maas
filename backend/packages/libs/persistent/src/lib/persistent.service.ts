@@ -504,18 +504,26 @@ export class DefaultPersistentService
 
     this.logger.log(`Connecting to LevelDB database at ${levelDbPath}`);
 
-    // 打开主数据库
-    this._db = new Level(levelDbPath, { valueEncoding: 'json' });
+    try {
+      // 打开主数据库
+      this._db = new Level(levelDbPath, { valueEncoding: 'json' });
 
-    // 创建子数据库 - 使用 any 类型避免类型错误
-    this._deviceStatusDb = this._db.sublevel('device_status', { valueEncoding: 'json' }) as any;
-    this._tasksDb = this._db.sublevel('tasks', { valueEncoding: 'json' }) as any;
-    this._earningsDb = this._db.sublevel('earnings', { valueEncoding: 'json' }) as any;
+      // 等待数据库完全打开
+      await this._db.open();
 
-    // 初始化数据库元数据
-    await this.initializeDatabase();
+      // 创建子数据库 - 使用 any 类型避免类型错误
+      this._deviceStatusDb = this._db.sublevel('device_status', { valueEncoding: 'json' }) as any;
+      this._tasksDb = this._db.sublevel('tasks', { valueEncoding: 'json' }) as any;
+      this._earningsDb = this._db.sublevel('earnings', { valueEncoding: 'json' }) as any;
 
-    this.logger.log('LevelDB database connected successfully');
+      // 初始化数据库元数据
+      await this.initializeDatabase();
+
+      this.logger.log('LevelDB database connected successfully');
+    } catch (error) {
+      this.logger.error('Failed to connect to LevelDB database:', error);
+      throw error;
+    }
   }
 
   /**

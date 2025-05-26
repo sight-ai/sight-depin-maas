@@ -1,3 +1,9 @@
+# SightAI Miner
+
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/sightai/miner)
+[![Docker](https://img.shields.io/badge/docker-supported-green.svg)](https://hub.docker.com/r/sightai/miner)
+[![License](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
+
 ## ✨ Introduction
 
 Welcome to **Sight AI** — a decentralized AI compute network where anyone can turn idle hardware into productive AI infrastructure.
@@ -9,6 +15,36 @@ This guide will walk you through everything you need to:
 - 🌐 **Connect to the Sight Gateway to process real user requests**
 - 💰 **Earn rewards by contributing compute power**
 - 🔁 *(Optional)* **Integrate with Dify for advanced AI workflows**
+
+## 📚 Documentation
+
+- **[CLI Quick Start Guide](QUICK_START.md)** - 5分钟快速部署 CLI 工具
+- **[CLI Complete Documentation](CLI_DOCUMENTATION.md)** - 详细的 CLI 命令参考
+- **[Docker Architecture](DOCKER_ARCHITECTURE.md)** - Docker 架构和部署模式
+- **[Convenience Script](sightai-cli.sh)** - 便捷的管理脚本
+
+## 🛠️ CLI Tool
+
+SightAI Miner 提供了强大的 CLI 工具来管理您的挖矿节点：
+
+### 快速开始
+```bash
+# Docker 方式（推荐）
+docker volume create sightai-data
+docker run --rm --network=host \
+  -v sightai-data:/home/sightai/.sightai \
+  sightai-miner:latest register --interactive
+
+# 使用便捷脚本
+./sightai-cli.sh start
+./sightai-cli.sh register --interactive
+```
+
+### 主要命令
+- `sight-cli register` - 注册设备到网关
+- `sight-cli status` - 检查挖矿状态
+- `sight-cli report-models` - 报告可用模型
+- `sight-cli re-register` - 重新注册设备
 
 ---
 
@@ -82,7 +118,7 @@ A web-based AI chat interface where users can talk with models like `deepscaler`
 3. Choose an available model (e.g., `deepscaler`) to start chatting
 
 > If no models appear, ensure your ollama list includes at least one model, and that Ollama is running.
-> 
+>
 
 ---
 
@@ -135,7 +171,7 @@ You will be redirected to:
 Click **“Connect Wallet”** in the top-right corner and sign the login message.
 
 > This connects your node to your wallet identity and lets you receive rewards for processing tasks.
-> 
+>
 
 ---
 
@@ -177,13 +213,13 @@ This script will:
     - **Sight AI Miner Dashboard**: `http://localhost:3000`
     - **Open WebUI (Chat Interface)**: `http://localhost:8080`
 - Once the setup is complete, return to the Gateway interface and click **"I have completed all steps."** You will then be automatically redirected to the **Gateway Device** page, where you can view the status of currently connected devices.
-    
+
 ![2](https://github.com/user-attachments/assets/4dbf6285-12e7-4b45-a343-1449b5df30e5)
 
-    
+
 
 > ✅ This setup is now connected to the Gateway, meaning all AI chat requests from users are distributed through the official Sight Gateway and assigned to your local node.
-> 
+>
 
 ---
 

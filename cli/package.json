@@ -1,5 +1,5 @@
 {
-  "name": "@sight-ai/sight-cli",
+  "name": "test-sight-cli",
   "version": "1.0.11",
   "description": "Sight AI Node CLI - A tool for running and managing the Sight AI node",
   "main": "bin/index.js",
@@ -21,10 +21,7 @@
   "license": "MIT",
   "dependencies": {
     "chalk": "^4.1.2",
-    "cli-spinners": "^3.2.0",
-    "cli-table3": "^0.6.5",
     "commander": "^10.0.1",
-    "gradient-string": "^3.0.0",
     "inquirer": "^8.2.5",
     "node-fetch": "^2.6.9",
     "ora": "^5.4.1",

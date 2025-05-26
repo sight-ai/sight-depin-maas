@@ -17,8 +17,9 @@ export abstract class TunnelService {
    * @param gatewayAddress 网关地址
    * @param key 认证密钥
    * @param code 一次性认证码
+   * @param basePath API服务器基础路径
    */
-  abstract createSocket(gatewayAddress: string, key: string, code?: string): Promise<void>;
+  abstract createSocket(gatewayAddress: string, key: string, code?: string, basePath?: string): Promise<void>;
 
   /**
    * 向设备发送消息

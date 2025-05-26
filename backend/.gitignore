@@ -53,3 +53,6 @@ packages/dev/database/bin/cli-hasura-*
 packages/libs/intent-resolver/assets/*.api-schema-ts
 
 .nx/cache
+
+.cursor/rules/nx-rules.mdc
+.github/instructions/nx.instructions.md

@@ -41,14 +41,16 @@ export class DefaultTunnelService implements TunnelService {
    * @param gatewayAddress 网关地址
    * @param key 认证密钥
    * @param code 一次性认证码（可选）
+   * @param basePath API服务器基础路径（可选）
    */
-  async createSocket(gatewayAddress: string, key: string, code?: string): Promise<void> {
+  async createSocket(gatewayAddress: string, key: string, code?: string, basePath?: string): Promise<void> {
     try {
       // 从完整地址中提取基础URL
       const url = new URL(gatewayAddress);
       this.gatewayUrl = `${url.protocol}//${url.host}`;
-      const basePath = env().API_SERVER_BASE_PATH;
-      const socketPath = `${basePath}/socket.io`;
+      // 使用传入的basePath参数，如果没有提供则使用空字符串
+      const apiBasePath = basePath || '';
+      const socketPath = `${apiBasePath}/socket.io`;
 
       this.logger.debug('Socket连接配置信息:');
       this.logger.debug(`基础URL: ${this.gatewayUrl}`);

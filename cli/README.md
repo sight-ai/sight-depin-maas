@@ -5,9 +5,9 @@ A command-line tool for running and managing Sight AI mining software.
 ## Features
 
 - Support for local and remote operation modes
-- Automatic system requirements and GPU information detection
+- Automatic GPU information detection
 - Interactive and command-line parameter configuration
-- Simplified Docker management
+- Direct communication with Sight AI Miner API (port 8716)
 - Cross-platform support (Windows, macOS, Linux)
 
 ## Usage
@@ -29,9 +29,8 @@ sight-cli run --mode local
 
 The following components are required to use this CLI tool:
 
-- Docker (20.10.0+)
-- Docker Compose (2.0.0+)
-- Ollama service running
+- Ollama service running on port 11434
+- Sight AI Miner service running on port 8716
 
 ## Command Overview
 
@@ -41,11 +40,11 @@ sight-cli [command] [options]
 
 ### Commands
 
-- `run`: Run the mining software
+- `run`: Connect to and interact with the mining software
+- `register`: Register device with gateway
+- `re-register`: Re-register device using saved parameters
+- `report-models`: Report available models to gateway
 - `status`: Check mining software status
-- `stop`: Stop the mining software
-- `logs`: View mining software logs
-- `update`: Update mining software to latest version
 
 ### Options
 
@@ -80,13 +79,13 @@ npx @sight-ai/sight-cli run --mode remote --gateway-url https://example.com --no
 
 ## How It Works
 
-1. CLI tool first checks system requirements (Docker and Docker Compose)
-2. Detects if Ollama service is running
-3. Pulls required AI models
-4. Collects GPU information
-5. Creates configuration file based on selected mode
-6. Starts Docker container services
-7. Opens mining dashboard and Web UI interface
+1. CLI tool detects if Ollama service is running on port 11434
+2. Pulls required AI models via Ollama
+3. Collects GPU information from the system
+4. Communicates with Sight AI Miner API on port 8716
+5. Registers device with gateway (remote mode)
+6. Reports available models to gateway
+7. Opens mining dashboard interface
 
 ## Logs and Cache
 

@@ -73,232 +73,6 @@ interface SystemInfo {
 }
 
 /**
- * 获取系统信息
- * 使用 systeminformation 库获取所有系统信息
- */
-const getSystemInfo = async (logger: Logger): Promise<SystemInfo> => {
-  try {
-    // 并行获取所有系统信息
-    const [cpuLoad, cpuInfo, cpuTemp, memInfo, gpuInfo, diskInfo, networkInfo, osInfo] = await Promise.all([
-      si.currentLoad().catch(err => {
-        logger.warn(`Failed to get CPU load: ${err.message}`);
-        return { currentLoad: 0 };
-      }),
-      si.cpu().catch(err => {
-        logger.warn(`Failed to get CPU info: ${err.message}`);
-        return { manufacturer: '', brand: '', cores: 0, physicalCores: 0, speed: 0 };
-      }),
-      si.cpuTemperature().catch(err => {
-        logger.warn(`Failed to get CPU temperature: ${err.message}`);
-        return { main: 0, cores: [], max: 0 };
-      }),
-      si.mem().catch(err => {
-        logger.warn(`Failed to get memory info: ${err.message}`);
-        return { total: 1, used: 0, free: 1 };
-      }),
-      si.graphics().catch(err => {
-        logger.warn(`Failed to get GPU info: ${err.message}`);
-        return { controllers: [], displays: [] };
-      }),
-      si.fsSize().catch(err => {
-        logger.warn(`Failed to get disk info: ${err.message}`);
-        return [];
-      }),
-      si.networkStats().catch(err => {
-        logger.warn(`Failed to get network info: ${err.message}`);
-        return [];
-      }),
-      si.osInfo().catch(err => {
-        logger.warn(`Failed to get OS info: ${err.message}`);
-        return { distro: '', release: '', arch: '', platform: '', uptime: 0 };
-      })
-    ]);
-
-    // 处理 CPU 信息
-    const cpu = {
-      model: `${cpuInfo.manufacturer} ${cpuInfo.brand}`.trim(),
-      cores: cpuInfo.physicalCores || 0,
-      threads: cpuInfo.cores || 0,
-      usage: formatNumber(cpuLoad.currentLoad || 0),
-      temperature: formatNumber(cpuTemp.main || 0)
-    };
-
-    // 处理内存信息
-    // 在Linux上，memInfo.used包括缓存和缓冲区，这会导致显示的内存使用率过高
-    // 实际可用内存应该是 free + buffers + cached
-    // 实际使用内存应该是 total - (free + buffers + cached)
-    let memUsed = memInfo.used || 0;
-    let memTotal = memInfo.total || 1;
-    let memFree = (memInfo as any).free || 0;
-
-    // 使用更准确的内存计算方法
-    // 尝试使用不同的属性来计算实际使用的内存
-    if ((memInfo as any).available !== undefined) {
-      // 如果有available字段，使用它来计算实际使用的内存
-      memUsed = memTotal - (memInfo as any).available;
-    }
-    else if ((memInfo as any).free !== undefined) {
-      // 如果有free字段，使用它
-      memUsed = memTotal - (memInfo as any).free;
-
-      // 如果有buffers和cached字段，进一步调整
-      if ((memInfo as any).buffers !== undefined && (memInfo as any).cached !== undefined) {
-        memUsed = memUsed - (memInfo as any).buffers - (memInfo as any).cached;
-      }
-    }
-
-    // 确保使用率不会超过100%或小于0%
-    const memUsage = Math.min(100, Math.max(0, formatNumber((memUsed / memTotal) * 100)));
-
-    // 记录详细的内存信息以便调试
-    logger.debug(`Memory details: total=${bytesToGB(memTotal)}GB, used=${bytesToGB(memUsed)}GB, free=${bytesToGB(memFree)}GB, available=${(memInfo as any).available ? bytesToGB((memInfo as any).available) : 'N/A'}GB, buffers=${(memInfo as any).buffers ? bytesToGB((memInfo as any).buffers) : 'N/A'}GB, cached=${(memInfo as any).cached ? bytesToGB((memInfo as any).cached) : 'N/A'}GB`);
-
-    const memory = {
-      total: bytesToGB(memTotal),
-      used: bytesToGB(memUsed),
-      usage: memUsage
-    };
-
-    // 处理 GPU 信息
-    const gpuControllers = gpuInfo.controllers || [];
-    const isAppleSilicon = osInfo.platform === 'darwin' && osInfo.arch.includes('arm');
-
-    // 处理 GPU 信息，特别处理 Apple Silicon
-    const gpu = gpuControllers.map(controller => {
-      // 确定 GPU 厂商
-      let vendor = controller.vendor || '';
-      if (!vendor) {
-        const model = (controller.model || '').toLowerCase();
-        if (model.includes('nvidia')) vendor = 'NVIDIA';
-        else if (model.includes('amd') || model.includes('radeon')) vendor = 'AMD';
-        else if (model.includes('intel')) vendor = 'Intel';
-        else if (model.includes('apple')) vendor = 'Apple';
-        else vendor = 'Unknown';
-      }
-
-      // 特殊处理 Apple Silicon
-      const isAppleGpu = vendor.toLowerCase().includes('apple') ||
-                         (controller.model || '').toLowerCase().includes('apple');
-
-      // 获取 GPU 内存
-      let gpuMemory = 0;
-      if (controller.memoryTotal) {
-        // 如果内存值很大，可能是以字节为单位
-        gpuMemory = controller.memoryTotal > 1024 * 1024 * 1024
-          ? bytesToGB(controller.memoryTotal)
-          : bytesToMB(controller.memoryTotal) / 1024; // 转换 MB 到 GB
-      } else if (isAppleGpu && isAppleSilicon && memInfo.total) {
-        // Apple Silicon 使用统一内存，估算 GPU 可用内存为系统内存的 30%
-        gpuMemory = bytesToGB(memInfo.total * 0.3);
-      }
-
-      return {
-        model: controller.model || 'Unknown GPU',
-        vendor,
-        memory: formatNumber(gpuMemory),
-        usage: formatNumber(controller.utilizationGpu || 0),
-        temperature: formatNumber(controller.temperatureGpu || 0),
-        isAppleSilicon: isAppleGpu && isAppleSilicon
-      };
-    });
-
-    // 如果没有检测到 GPU，但是是 Apple Silicon，添加一个默认的 Apple GPU
-    if (gpu.length === 0 && isAppleSilicon) {
-      // 尝试从 CPU 品牌中提取 M 芯片型号
-      const cpuBrand = cpuInfo.brand || '';
-      const mChipMatch = cpuBrand.match(/Apple\s+(M\d+)(?:\s+(Pro|Max|Ultra))?/i);
-
-      const chipModel = mChipMatch ? mChipMatch[1] : 'Apple Silicon';
-      const chipVariant = mChipMatch && mChipMatch[2] ? mChipMatch[2] : '';
-
-      gpu.push({
-        model: `${chipModel}${chipVariant ? ' ' + chipVariant : ''} GPU`,
-        vendor: 'Apple',
-        memory: bytesToGB(memInfo.total * 0.3), // 估算为系统内存的 30%
-        usage: 0, // 无法准确获取
-        temperature: 0, // 无法准确获取
-        isAppleSilicon: true
-      });
-    }
-
-    // 处理磁盘信息
-    let diskTotal = 0;
-    let diskUsed = 0;
-
-    if (Array.isArray(diskInfo) && diskInfo.length > 0) {
-      // 累加所有磁盘容量
-      diskInfo.forEach(disk => {
-        diskTotal += disk.size || 0;
-        diskUsed += disk.used || 0;
-      });
-    } else if (diskInfo && typeof diskInfo === 'object' && 'size' in diskInfo) {
-      // 单个磁盘信息
-      diskTotal = (diskInfo as any).size || 0;
-      diskUsed = (diskInfo as any).used || 0;
-    }
-
-    const disk = {
-      total: bytesToGB(diskTotal),
-      used: bytesToGB(diskUsed),
-      usage: diskTotal > 0 ? formatNumber((diskUsed / diskTotal) * 100) : 0
-    };
-
-    // 处理网络信息
-    let networkInbound = 0;
-    let networkOutbound = 0;
-
-    if (Array.isArray(networkInfo) && networkInfo.length > 0) {
-      // 累加所有网络接口的流量
-      networkInfo.forEach(net => {
-        if (net.operstate === 'up') {
-          networkInbound += net.rx_sec || 0;
-          networkOutbound += net.tx_sec || 0;
-        }
-      });
-    } else if (networkInfo && typeof networkInfo === 'object' && 'rx_sec' in networkInfo) {
-      // 单个网络接口信息
-      networkInbound = (networkInfo as any).rx_sec || 0;
-      networkOutbound = (networkInfo as any).tx_sec || 0;
-    }
-
-    const network = {
-      inbound: kbpsToMbps(networkInbound / 1024), // 转换为 Mbps
-      outbound: kbpsToMbps(networkOutbound / 1024) // 转换为 Mbps
-    };
-
-    // 处理操作系统信息
-    const os = {
-      name: osInfo.distro || '',
-      version: osInfo.release || '',
-      arch: osInfo.arch || '',
-      platform: osInfo.platform || '',
-      uptime: typeof (osInfo as any).uptime === 'number' ? (osInfo as any).uptime : process.uptime()
-    };
-
-    return {
-      cpu,
-      memory,
-      gpu,
-      disk,
-      network,
-      os
-    };
-  } catch (error) {
-    logger.error(`Failed to get system info: ${error instanceof Error ? error.message : 'Unknown error'}`);
-
-    // 返回默认值
-    return {
-      cpu: { model: 'Unknown', cores: 0, threads: 0, usage: 0 },
-      memory: { total: 0, used: 0, usage: 0 },
-      gpu: [{ model: 'Unknown', vendor: 'Unknown', memory: 0, usage: 0 }],
-      disk: { total: 0, used: 0, usage: 0 },
-      network: { inbound: 0, outbound: 0 },
-      os: { name: '', version: '', arch: '', platform: '', uptime: 0 }
-    };
-  }
-};
-
-/**
  * 创建新版 API 的心跳数据
  */
 const createHeartbeatData = (systemInfo: SystemInfo, deviceConfig: any, ipAddress: string, deviceType: string, deviceModel: string): any => {
@@ -459,12 +233,16 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     try {
       this.logger.log(`Auto-reconnecting to gateway: ${this.deviceConfig.gatewayAddress}`);
 
+      // 从存储中获取完整的注册信息，包括basePath
+      const savedInfo = this.registrationStorage.loadRegistrationInfo();
+
       // 重新调用注册接口
       const credentials: ModelOfMiner<'DeviceCredentials'> = {
         gateway_address: this.deviceConfig.gatewayAddress,
         reward_address: this.deviceConfig.rewardAddress,
         key: this.deviceConfig.key,
-        code: this.deviceConfig.code
+        code: this.deviceConfig.code,
+        basePath: savedInfo?.basePath
       };
 
       this.logger.log('Re-registering with gateway...');
@@ -486,7 +264,8 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         await this.tunnelService.createSocket(
           this.deviceConfig.gatewayAddress,
           this.deviceConfig.key,
-          this.deviceConfig.code
+          this.deviceConfig.code,
+          savedInfo?.basePath
         );
 
         // 连接Socket
@@ -512,6 +291,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
 
   async register(credentials: ModelOfMiner<'DeviceCredentials'>, isAutoReconnect: boolean = false): Promise<ModelOfMiner<'RegistrationResponse'>> {
     try {
+
       const [ipAddress, deviceType, deviceModel] = await Promise.all([
         address(),
         this.getDeviceType(),
@@ -568,7 +348,8 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
             gatewayAddress: this.deviceConfig.gatewayAddress,
             key: this.deviceConfig.key,
             code: this.deviceConfig.code,
-            isRegistered: true
+            isRegistered: true,
+            basePath: credentials.basePath
           });
           this.logger.log('Registration information saved to system user directory');
         }
@@ -584,7 +365,8 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
         await this.tunnelService.createSocket(
           this.deviceConfig.gatewayAddress,
           this.deviceConfig.key,
-          this.deviceConfig.code
+          this.deviceConfig.code,
+          credentials.basePath
         );
         await this.tunnelService.connectSocket(response.data.node_id || '');
 

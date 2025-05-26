@@ -15,9 +15,89 @@ const pullDeepseekModel = async () => {
 
   const spinner = ora('Pulling deepscaler model...').start();
 
+  // 在 Docker 环境中使用 API 调用，否则使用命令行
+  // if (CONFIG.isDocker) {
+    return await pullModelViaAPI('deepscaler', spinner);
+  // } else {
+    // return await pullModelViaCommand('deepscaler', spinner);
+  // }
+};
+
+// 通过 API 拉取模型（用于 Docker 环境）
+const pullModelViaAPI = async (modelName, spinner) => {
+  const ollamaUrl = `http://${CONFIG.hosts.ollama}:${CONFIG.ports.ollama}/api/pull`;
+  try {
+    logInfo(`Pulling model via API: ${ollamaUrl}`);
+
+    const response = await fetch(ollamaUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ name: modelName }),
+      timeout: CONFIG.modelPullTimeout
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    // 处理流式响应 - 使用 Node.js 兼容的方式
+    let buffer = '';
+
+    // 使用 for await...of 来处理流
+    for await (const chunk of response.body) {
+      buffer += chunk.toString();
+      const lines = buffer.split('\n');
+
+      // 保留最后一行（可能不完整）
+      buffer = lines.pop() || '';
+
+      // 处理完整的行
+      for (const line of lines) {
+        if (line.trim()) {
+          try {
+            const data = JSON.parse(line);
+            if (data.status) {
+              spinner.text = `Pulling ${modelName} model... ${data.status}`;
+            }
+            if (data.error) {
+              throw new Error(data.error);
+            }
+          } catch (parseError) {
+            // 忽略 JSON 解析错误，继续处理
+          }
+        }
+      }
+    }
+
+    // 处理最后的缓冲区内容
+    if (buffer.trim()) {
+      try {
+        const data = JSON.parse(buffer);
+        if (data.error) {
+          throw new Error(data.error);
+        }
+      } catch (parseError) {
+        // 忽略 JSON 解析错误
+      }
+    }
+
+    spinner.succeed(`Successfully pulled ${modelName} model`);
+    logSuccess(`Successfully pulled ${modelName} model`);
+    return true;
+  } catch (error) {
+    spinner.fail(`Failed to pull ${modelName} model`);
+    logError(`Failed to pull ${modelName} model: ${error.message}`);
+    return false;
+  }
+};
+
+// 通过命令行拉取模型（用于非 Docker 环境）
+const pullModelViaCommand = async (modelName, spinner) => {
   const pullWithTimeout = (retryCount = 0) => {
     return new Promise((resolve, reject) => {
-      const ollamaProcess = spawn('ollama', ['pull', 'deepscaler'], {
+      const ollamaProcess = spawn('ollama', ['pull', modelName], {
         stdio: ['ignore', 'pipe', 'pipe']
       });
 
@@ -37,7 +117,7 @@ const pullDeepseekModel = async () => {
 
         // 更新spinner显示进度
         if (chunk.includes('pulling')) {
-          spinner.text = `Pulling deepscaler model... ${chunk.trim()}`;
+          spinner.text = `Pulling ${modelName} model... ${chunk.trim()}`;
         }
       });
 
@@ -50,8 +130,8 @@ const pullDeepseekModel = async () => {
         clearTimeout(timeoutId);
 
         if (code === 0) {
-          spinner.succeed('Successfully pulled deepscaler model');
-          logSuccess('Successfully pulled deepscaler model');
+          spinner.succeed(`Successfully pulled ${modelName} model`);
+          logSuccess(`Successfully pulled ${modelName} model`);
           resolve(true);
         } else {
           const error = new Error(`Process exited with code ${code}`);
@@ -78,9 +158,9 @@ const pullDeepseekModel = async () => {
       }
     }
   } catch (error) {
-    spinner.fail('Failed to pull deepscaler model');
+    spinner.fail(`Failed to pull ${modelName} model`);
 
-    let errorMessage = 'Failed to pull deepscaler model.\n\n';
+    let errorMessage = `Failed to pull ${modelName} model.\n\n`;
 
     // 处理特定错误情况
     if (error.message.includes('timed out')) {
@@ -104,7 +184,7 @@ const pullDeepseekModel = async () => {
       errorMessage += 'Please try these steps:\n' +
         '1. Ensure you have a stable internet connection\n' +
         '2. Check if Ollama service is running properly\n' +
-        '3. Try running "ollama pull deepscaler" manually\n' +
+        `3. Try running "ollama pull ${modelName}" manually\n` +
         '4. If the issue persists, try:\n' +
         '   - Restarting Ollama service\n' +
         '   - Clearing Ollama cache\n' +
@@ -142,8 +222,9 @@ const fetchModels = async () => {
   } catch (error) {
     // 如果第一次尝试失败，直接从Ollama API获取
     try {
-      logInfo('Trying to fetch models directly from Ollama API...');
-      const ollamaResponse = await fetch(`http://localhost:${CONFIG.ports.ollama}/api/tags`, {
+      const ollamaUrl = `http://${CONFIG.hosts.ollama}:${CONFIG.ports.ollama}/api/tags`;
+      logInfo(`Trying to fetch models directly from Ollama API (${ollamaUrl})...`);
+      const ollamaResponse = await fetch(ollamaUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -191,21 +272,10 @@ const checkGatewayRegistration = async () => {
 
 // 处理报告模型命令
 const handleReportModelsCommand = async (options = {}) => {
-  // 检查后端是否运行
-  logInfo('Checking if backend service is running...');
-
-  try {
-    const response = await fetch('http://localhost:8716/api/v1/health', {
-      method: 'GET',
-      timeout: 3000
-    });
-
-    if (!response.ok) {
-      logError('Backend service is not running. Please start the miner first.');
-      return false;
-    }
-  } catch (error) {
-    logError('Backend service is not running. Please start the miner first.');
+  // 检查后端服务是否运行
+  const { checkBackendService } = require('./device-manager');
+  if (!await checkBackendService()) {
+    logError('Backend service is not available. Cannot proceed with model reporting.');
     return false;
   }
 
@@ -228,7 +298,7 @@ const handleReportModelsCommand = async (options = {}) => {
         return false;
       }
     }
-    
+
     logWarning('Continuing without gateway registration. Models will be stored locally only.');
   } else {
     logSuccess('Device is registered to the gateway. Models will be reported to the gateway.');
@@ -329,7 +399,7 @@ const handleReportModelsCommand = async (options = {}) => {
     if (data.success) {
       if (isRegistered) {
         logSuccess('Models successfully reported to gateway');
-        
+
         // 以表格格式显示报告的模型
         console.log('\n╔════════════════════════════════════════════════════════════╗');
         console.log('║                   Reported Models                          ║');
