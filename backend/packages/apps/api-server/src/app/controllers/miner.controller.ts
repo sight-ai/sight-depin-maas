@@ -5,7 +5,6 @@ import { TaskSyncService, TASK_SYNC_SERVICE } from "@saito/task-sync";
 import { OllamaService } from "@saito/ollama";
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
-import * as R from 'ramda';
 
 const HistoryQuerySchema = z.object({
   page: z.coerce.number().min(1).default(1),

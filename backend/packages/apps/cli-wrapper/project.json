@@ -13,6 +13,7 @@
         "outputPath": "dist/packages/apps/cli-wrapper",
         "main": "packages/apps/cli-wrapper/src/main.ts",
         "tsConfig": "packages/apps/cli-wrapper/tsconfig.app.json",
+        "webpackConfig": "packages/apps/cli-wrapper/webpack.config.js",
         "generatePackageJson": true
       },
       "configurations": {
