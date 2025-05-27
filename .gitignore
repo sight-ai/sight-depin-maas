@@ -42,3 +42,6 @@ next-env.d.ts
 ./backend/.history
 
 ./.env
+backend/scripts/install-native-modules.js
+
+dist-pkg

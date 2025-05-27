@@ -84,6 +84,7 @@
     "zod-to-json-schema": "^3.22.0"
   },
   "devDependencies": {
+    "webpack": "^5.99.9",
     "@milahu/patch-package": "^6.4.14",
     "@nestjs/schematics": "^10.0.3",
     "@nestjs/testing": "^10.2.10",
@@ -116,6 +117,7 @@
     "@typescript-eslint/eslint-plugin": "6.12.0",
     "@typescript-eslint/parser": "6.12.0",
     "archiver": "^7.0.1",
+    "copy-webpack-plugin": "^13.0.0",
     "eslint": "~8.54.0",
     "eslint-config-prettier": "9.0.0",
     "fs-extra": "^11.1.1",
@@ -153,12 +155,11 @@
       "dist/packages/apps/cli-wrapper/**/*.js"
     ],
     "assets": [
-      "node_modules/**/*",
-      "dist/packages/libs/**/*",
+      "dist/**/*",
       ".env"
     ],
     "targets": [
-      "node22-linux-x64"
+      "node22-mac-arm64"
     ],
     "outputPath": "dist-pkg"
   }
