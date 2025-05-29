@@ -63,33 +63,54 @@ module.exports = composePlugins(withNx(), (config, context) => {
   config.optimization = {
     ...config.optimization,
     splitChunks: false,
-    minimize: context.configurationName === 'production',
+    minimize: true, // 始终启用压缩
     usedExports: true,
     sideEffects: false,
-    minimizer: context.configurationName === 'production' ? [
+    providedExports: true,
+    concatenateModules: true, // 启用模块连接
+    mangleExports: true,
+    removeAvailableModules: true,
+    removeEmptyChunks: true,
+    mergeDuplicateChunks: true,
+    flagIncludedChunks: true,
+    minimizer: [
       new (require('terser-webpack-plugin'))({
         terserOptions: {
           compress: {
-            drop_console: true,
+            // 对于CLI应用，保留console输出以显示用户信息
+            drop_console: false,
             drop_debugger: true,
-            pure_funcs: ['console.log', 'console.info', 'console.debug'],
+            // 只删除调试相关的console，保留用户界面输出
+            pure_funcs: ['console.debug'],
             passes: 2,
+            dead_code: true,
+            unused: true,
           },
           mangle: {
-            safari10: true,
+            toplevel: true,
           },
           format: {
             comments: false,
           },
         },
         extractComments: false,
+        parallel: true,
       })
-    ] : [],
+    ],
   };
 
   config.plugins.push(
     new webpack.IgnorePlugin({
       resourceRegExp: /^(pg-native|osx-temperature-sensor|bufferutil|utf-8-validate|@grpc\/grpc-js|@grpc\/proto-loader|kafkajs|mqtt|ioredis|amqplib|amqp-connection-manager|@nestjs\/websockets\/socket-module|class-transformer\/storage|cloudflare:sockets)$/,
+    }),
+    // 添加更多忽略的模块以减少bundle大小
+    new webpack.IgnorePlugin({
+      resourceRegExp: /^(fsevents|chokidar|watchpack|webpack-dev-server|webpack-hot-middleware|webpack-dev-middleware)$/,
+    }),
+    // 忽略不必要的locale文件
+    new webpack.IgnorePlugin({
+      resourceRegExp: /^\.\/locale$/,
+      contextRegExp: /moment$/,
     }),
     new webpack.NormalModuleReplacementPlugin(
       /^clone-deep$/,
