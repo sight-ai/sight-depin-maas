@@ -3,7 +3,13 @@
   "version": "0.0.0",
   "license": "UNLICENSED",
   "scripts": {
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "build:optimized": "node scripts/optimized-build.js",
+    "pkg:yao": "npx @yao-pkg/pkg --compress GZip .",
+    "build:production": "pnpm nx build cli-wrapper --configuration=production && pnpm run pkg:yao",
+    "analyze:bundle": "pnpm nx build cli-wrapper --configuration=production --stats-json && npx webpack-bundle-analyzer dist/packages/apps/cli-wrapper/stats.json",
+    "analyze:deps": "node scripts/analyze-dependencies.js",
+    "clean:all": "rm -rf dist dist-pkg node_modules/.cache"
   },
   "private": true,
   "dependencies": {
@@ -19,7 +25,6 @@
     "@oclif/plugin-help": "6.0.7",
     "@oclif/plugin-plugins": "4.1.8",
     "@t3-oss/env-core": "^0.7.1",
-    "@types/inquirer": "^8.2.11",
     "ansi-regex": "^5.0.1",
     "axios": "^1.8.1",
     "boxen": "^5.1.2",
@@ -28,7 +33,6 @@
     "class-validator": "^0.14.0",
     "cli-table3": "^0.6.5",
     "commander": "^11.1.0",
-    "crypto": "^1.0.1",
     "dedent": "^1.5.1",
     "dnum-cjs": "^2.9.0",
     "dotenv": "^16.3.1",
@@ -67,7 +71,6 @@
     "zod-to-json-schema": "^3.22.0"
   },
   "devDependencies": {
-    "webpack": "^5.99.9",
     "@milahu/patch-package": "^6.4.14",
     "@nestjs/schematics": "^10.0.3",
     "@nestjs/testing": "^10.2.10",
@@ -118,7 +121,10 @@
     "ts-node": "10.9.1",
     "tsconfig-paths": "4.2.0",
     "tsconfig-paths-webpack-plugin": "^4.1.0",
-    "typescript": "~5.2.2"
+    "typescript": "~5.2.2",
+    "@types/inquirer": "^8.2.11",
+    "webpack": "^5.99.9",
+    "webpack-bundle-analyzer": "^4.10.2"
   },
   "prettier": {
     "singleQuote": true,
@@ -143,8 +149,13 @@
       ".env"
     ],
     "targets": [
+      "node20-mac-arm64",
       "node22-win-x86_64"
     ],
-    "outputPath": "dist-pkg"
+    "outputPath": "dist-pkg",
+    "options": [
+      "--compress",
+      "GZip"
+    ]
   }
 }
