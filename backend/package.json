@@ -6,7 +6,7 @@
     "postinstall": "patch-package",
     "build:optimized": "node scripts/optimized-build.js",
     "pkg:yao": "npx @yao-pkg/pkg --compress GZip .",
-    "build:production": "pnpm run build:optimized && pnpm run pkg:yao",
+    "build:production": "pnpm nx build cli-wrapper --configuration=production && pnpm run pkg:yao",
     "analyze:bundle": "pnpm nx build cli-wrapper --configuration=production --stats-json && npx webpack-bundle-analyzer dist/packages/apps/cli-wrapper/stats.json",
     "analyze:deps": "node scripts/analyze-dependencies.js",
     "clean:all": "rm -rf dist dist-pkg node_modules/.cache"
@@ -42,7 +42,7 @@
     "class-validator": "^0.14.0",
     "cli-table3": "^0.6.5",
     "commander": "^11.1.0",
-    "crypto": "^1.0.1",
+
     "dedent": "^1.5.1",
     "dnum-cjs": "^2.9.0",
     "dotenv": "^16.3.1",

@@ -107,6 +107,21 @@ module.exports = composePlugins(withNx(), (config, context) => {
     new webpack.IgnorePlugin({
       resourceRegExp: /^(fsevents|chokidar|watchpack|webpack-dev-server|webpack-hot-middleware|webpack-dev-middleware)$/,
     }),
+    // 忽略大型开发工具和测试相关模块
+    new webpack.IgnorePlugin({
+      resourceRegExp: /^(typescript|prettier|eslint|jest|@types\/.*|webpack-bundle-analyzer|npm-check-updates|ts-jest|ts-node|ts-loader|@typescript-eslint\/.*|tsconfig-paths.*|@swc\/.*|@swc-node\/.*)$/,
+    }),
+    // 忽略可选的原生模块
+    new webpack.IgnorePlugin({
+      resourceRegExp: /^(node-gyp|node-pre-gyp|prebuild|prebuild-install)$/,
+    }),
+    // 忽略 TypeScript 编译器和相关工具
+    new webpack.IgnorePlugin({
+      resourceRegExp: /typescript\/lib\/.*$/,
+    }),
+    new webpack.IgnorePlugin({
+      resourceRegExp: /\.d\.ts$/,
+    }),
     // 忽略不必要的locale文件
     new webpack.IgnorePlugin({
       resourceRegExp: /^\.\/locale$/,
