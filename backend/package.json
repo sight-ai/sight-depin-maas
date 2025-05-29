@@ -25,15 +25,6 @@
     "@oclif/plugin-help": "6.0.7",
     "@oclif/plugin-plugins": "4.1.8",
     "@t3-oss/env-core": "^0.7.1",
-    "@temporalio/activity": "1.8.6",
-    "@temporalio/client": "1.8.6",
-    "@temporalio/worker": "1.8.6",
-    "@temporalio/workflow": "1.8.6",
-
-    "@uniswap/sdk-core": "^4.0.9",
-    "@uniswap/v3-core": "^1.0.1",
-    "@uniswap/v3-periphery": "^1.4.4",
-    "@uniswap/v3-sdk": "^3.10.0",
     "ansi-regex": "^5.0.1",
     "axios": "^1.8.1",
     "boxen": "^5.1.2",
@@ -42,12 +33,9 @@
     "class-validator": "^0.14.0",
     "cli-table3": "^0.6.5",
     "commander": "^11.1.0",
-
     "dedent": "^1.5.1",
     "dnum-cjs": "^2.9.0",
     "dotenv": "^16.3.1",
-    "ethers": "^6.13.5",
-    "ethstorage-sdk": "^2.0.0",
     "express": "^4.18.2",
     "got-cjs": "^12.5.4",
     "gpu-info": "^0.0.1",
@@ -57,13 +45,11 @@
     "level": "^10.0.0",
     "lodash": "^4.17.21",
     "memoizee": "^0.4.15",
-    "nats": "^2.18.0",
     "nestjs-pino": "^3.5.0",
     "nestjs-zod": "^3.0.0",
     "node-nvidia-smi": "^1.0.0",
     "oclif": "^4.0.4",
     "openai": "^4.17.5",
-    "openpipe": "^0.6.2",
     "ora": "^5.4.1",
     "p-queue": "^6.6.2",
     "p-retry": "^4.6.2",
@@ -79,13 +65,8 @@
     "socket.io-client": "^4.8.1",
     "strip-ansi": "^6.0.1",
     "systeminformation": "^5.25.11",
-    "telegraf": "^4.15.0",
-    "telegramify-markdown": "^1.1.0",
     "tslib": "^2.6.2",
-    "typechat": "^0.0.10",
-
     "uuid": "^9.0.1",
-    "viem": "^1.19.9",
     "zod": "^3.22.4",
     "zod-to-json-schema": "^3.22.0"
   },
@@ -168,7 +149,8 @@
       ".env"
     ],
     "targets": [
-      "node20-mac-arm64"
+      "node20-mac-arm64",
+      "node22-win-x86_64"
     ],
     "outputPath": "dist-pkg",
     "options": [
