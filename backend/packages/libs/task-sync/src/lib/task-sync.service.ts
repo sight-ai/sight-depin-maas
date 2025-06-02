@@ -3,7 +3,6 @@ import { MinerService } from "@saito/miner";
 import { TaskSyncService, TASK_SYNC_SERVICE, GatewayResponse } from "./task-sync.interface";
 import { Task, Earning } from "@saito/models";
 import got from "got-cjs";
-import { env } from "../../env";
 import { TaskSyncRepository } from "./task-sync.repository";
 import { DeviceStatusService } from "@saito/device-status";
 import { Cron, CronExpression } from "@nestjs/schedule";

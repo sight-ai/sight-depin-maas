@@ -1,7 +1,6 @@
 import { TunnelService } from "./tunnel.interface";
 import { Injectable, Logger } from "@nestjs/common";
 import { io, Socket } from "socket.io-client";
-import { env } from "../env";
 import * as http from 'http';
 import { URL } from 'url';
 
@@ -645,7 +644,7 @@ export class DefaultTunnelService implements TunnelService {
       // 确定目标API
       let targetPath = '';
       let targetMethod = method;
-      let targetBody = body;
+      const targetBody = body;
 
       // 根据路径确定目标Ollama API
       if (path.includes('/api/chat')) {

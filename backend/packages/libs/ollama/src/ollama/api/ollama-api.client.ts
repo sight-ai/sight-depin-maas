@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import got from 'got-cjs';
-import { env } from '../../env';
 import { ApiRequestOptions, DEFAULT_REQUEST_TIMEOUT, HttpMethod, MAX_RETRIES } from '../types/ollama.types';
 
 /**
@@ -9,7 +8,7 @@ import { ApiRequestOptions, DEFAULT_REQUEST_TIMEOUT, HttpMethod, MAX_RETRIES } f
 @Injectable()
 export class OllamaApiClient {
   private readonly logger = new Logger(OllamaApiClient.name);
-  private readonly baseUrl = env().OLLAMA_API_URL;
+  private readonly baseUrl = process.env['OLLAMA_API_URL'];
 
   constructor() {
     
