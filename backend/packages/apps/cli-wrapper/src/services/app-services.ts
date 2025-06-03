@@ -1,6 +1,5 @@
 import { RegistrationStorage } from '@saito/device-status';
 import axios from 'axios';
-import { env } from '@saito/device-status';
 
 /**
  * 应用服务访问层
@@ -8,7 +7,7 @@ import { env } from '@saito/device-status';
  */
 export class AppServices {
   private static readonly BACKEND_BASE_URL = process.env['SIGHTAI_BACKEND_URL'] || 'http://localhost:8716';
-  private static readonly OLLAMA_BASE_URL =  env().OLLAMA_API_URL || 'http://localhost:11434';
+  private static readonly OLLAMA_BASE_URL =  process.env.OLLAMA_API_URL || 'http://localhost:11434';
 
   /**
    * 模拟DeviceStatusService的注册功能

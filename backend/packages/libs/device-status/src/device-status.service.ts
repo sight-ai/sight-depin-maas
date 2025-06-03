@@ -6,7 +6,6 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import got from "got-cjs";
 import si from 'systeminformation';
 import { address } from 'ip';
-import { env } from '../env'
 import { DeviceStatusService } from "./device-status.interface";
 import { TunnelService } from "@saito/tunnel";
 import {
@@ -1108,11 +1107,11 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
   }
 
   async getDeviceType(): Promise<string> {
-    return env().DEVICE_TYPE;
+    return process.env["DEVICE_TYPE"]!;
   }
 
   async getDeviceModel(): Promise<string> {
-    return env().GPU_MODEL;
+    return process.env["GPU_MODEL"]!;
   }
 
   async getDeviceInfo(): Promise<string> {
@@ -1156,7 +1155,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
 
   async checkStatus(): Promise<boolean> {
     try {
-      const url = new URL(`api/version`, env().OLLAMA_API_URL);
+      const url = new URL(`api/version`, process.env["OLLAMA_API_URL"]);
       const response = await got.get(url.toString(), {
         timeout: {
           request: STATUS_CHECK_TIMEOUT,
@@ -1174,7 +1173,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
   }
   async getLocalModels(): Promise<z.infer<typeof OllamaModelList>> {
     try {
-      const url = new URL(`api/tags`, env().OLLAMA_API_URL);
+      const url = new URL(`api/tags`, process.env["OLLAMA_API_URL"]);
       const response = await got.get(url.toString(), {
         timeout: {
           request: STATUS_CHECK_TIMEOUT,

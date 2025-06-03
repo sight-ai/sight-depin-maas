@@ -1,6 +1,5 @@
 import { Logger, LogLevel } from '@nestjs/common';
 import memoizee from 'memoizee';
-import { env } from '../env';
 import { ZLogLevel } from './log.model';
 
 export const getLogger = memoizee((name = 'saito') => {
@@ -18,6 +17,7 @@ export function expandLogLevel(level?: ZLogLevel): LogLevel[] {
 }
 
 export function setLogLevelFromEnv() {
-  const logLevel = env().LOG_LEVEL;
+  const logLevel = process.env['LOG_LEVEL'] as ZLogLevel;
+  
   Logger.overrideLogger(expandLogLevel(logLevel));
 }
