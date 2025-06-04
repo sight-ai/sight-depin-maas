@@ -33,7 +33,7 @@ export class OpenAIController {
   ) { }
 
   @Post('/chat/completions')
-  async chatCompletions(@Body() args: OpenAIChatCompletionRequestDto, @Res() res: Response) {
+  async chatCompletions(@Body() args: OpenAIChatCompletionRequestDto, @Res() res: Response, req: Request) {
     try {
       
 
@@ -53,7 +53,7 @@ export class OpenAIController {
   }
 
   @Post('/completions')
-  async completions(@Body() args: OpenAICompletionRequestDto, @Res() res: Response) {
+  async completions(@Body() args: OpenAICompletionRequestDto, @Res() res: Response, req: Request) {
     try {
       
 
@@ -73,45 +73,13 @@ export class OpenAIController {
   }
 
   @Post('/embeddings')
-  async embeddings(@Body() args: OpenAIEmbeddingsRequestDto, @Res() res: Response) {
+  async embeddings(@Body() args: OpenAIEmbeddingsRequestDto, @Res() res: Response, req: Request) {
     try {
       
 
-      // Convert OpenAI format to Ollama format
-      const ollamaRequest = {
-        model: args.model,
-        input: args.input,
-      };
+      const embeddings = await this.ollamaService.generateEmbeddingsOpenai(args);
 
-      const embeddings = await this.ollamaService.generateEmbeddings(ollamaRequest);
-
-      // Convert Ollama response to OpenAI format
-      // Estimate token count based on input length
-      let inputText = '';
-      if (typeof args.input === 'string') {
-        inputText = args.input;
-      } else if (Array.isArray(args.input)) {
-        inputText = args.input.join(' ');
-      }
-
-      // Rough estimate: 1 token ≈ 4 characters for English text
-      const estimatedTokens = Math.ceil(inputText.length / 4);
-
-      const openAIResponse = {
-        object: 'list',
-        data: embeddings.embeddings.map((embedding, index) => ({
-          object: 'embedding',
-          embedding,
-          index,
-        })),
-        model: args.model,
-        usage: {
-          prompt_tokens: estimatedTokens,
-          total_tokens: estimatedTokens,
-        },
-      };
-
-      res.status(200).json(openAIResponse);
+      res.status(200).json(embeddings);
     } catch (error) {
       this.logger.error('Error during OpenAI embeddings:', error);
       handleApiError(res, error, args.model);
@@ -121,22 +89,8 @@ export class OpenAIController {
   @Get('/models')
   async listModels(@Res() res: Response) {
     try {
-      
-
-      const ollamaModels = await this.ollamaService.listModelTags();
-
-      // Convert Ollama response to OpenAI format
-      const openAIResponse = {
-        object: 'list',
-        data: ollamaModels.models.map(model => ({
-          id: model.name,
-          object: 'model',
-          created: new Date(model.modified_at).getTime() / 1000,
-          owned_by: 'organization',
-        })),
-      };
-
-      res.status(200).json(openAIResponse);
+      const models = await this.ollamaService.listModelOpenai();
+      res.status(200).json(models);
     } catch (error) {
       this.logger.error('Error during OpenAI list models:', error);
       handleApiError(res, error);
@@ -148,19 +102,8 @@ export class OpenAIController {
     try {
       
 
-      const modelInfo = await this.ollamaService.showModelInformation({ name: modelName });
-
-      // Convert Ollama response to OpenAI format
-      const openAIResponse = {
-        id: modelName,
-        object: 'model',
-        created: Math.floor(Date.now() / 1000), // Current time as we don't have the actual creation time
-        owned_by: 'organization',
-        // Add additional details from Ollama
-        details: modelInfo.details,
-      };
-
-      res.status(200).json(openAIResponse);
+      const modelInfo = await this.ollamaService.showModelInformationOpenai({ name: modelName });
+      res.status(200).json(modelInfo);
     } catch (error) {
       this.logger.error(`Error during OpenAI get model (${modelName}):`, error);
       handleApiError(res, error, modelName);
@@ -170,14 +113,9 @@ export class OpenAIController {
   @Get('/version')
   async getVersion(@Res() res: Response) {
     try {
-      
+      const versionInfo = await this.ollamaService.showModelVersionOpenai();
 
-      const versionInfo = await this.ollamaService.showModelVersion();
-
-      res.status(200).json({
-        version: versionInfo.version,
-        openai_compatibility: true,
-      });
+      res.status(200).json(versionInfo);
     } catch (error) {
       this.logger.error('Error during OpenAI version request:', error);
       handleApiError(res, error);

@@ -27,4 +27,8 @@ export abstract class OllamaService extends BaseModelService {
   abstract listModels(): Promise<z.infer<typeof OllamaModelList>>;
   abstract generateEmbeddings(args: z.infer<typeof OllamaEmbeddingsRequest>): Promise<z.infer<typeof OllamaEmbeddingsResponse>>;
   abstract listRunningModels(): Promise<z.infer<typeof OllamaRunningModels>>;
+  abstract listModelOpenai(): Promise<z.infer<typeof OllamaModelList>>;
+  abstract showModelVersionOpenai(): Promise<z.infer<typeof OllamaVersionResponse>>;
+  abstract showModelInformationOpenai(args: { name: string }): Promise<z.infer<typeof OllamaModelInfo>>;
+  abstract generateEmbeddingsOpenai(args: z.infer<typeof OllamaEmbeddingsRequest>): Promise<z.infer<typeof OllamaEmbeddingsResponse>>;
 }

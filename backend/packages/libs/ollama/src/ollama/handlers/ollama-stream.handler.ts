@@ -44,7 +44,7 @@ export class OllamaStreamHandler {
       try {
         hasReceivedData = true;
         const chunkStr = chunk.toString();
-        
+        console.log(isOpenAI, chunkStr);
 
         if (isOpenAI) {
           await this.handleOpenAIStreamChunk(chunk, chunkStr, res, taskId, endpoint, updateTask, createEarnings);

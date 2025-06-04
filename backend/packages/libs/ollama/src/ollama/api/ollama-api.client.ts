@@ -31,6 +31,21 @@ export class OllamaApiClient {
   }
 
   /**
+   * Check if vllm service is available
+   */
+  async checkVllmStatus(): Promise<boolean> {
+    try {
+      const url = new URL('/version', this.baseUrl);
+      const response = await got.get(url.toString(), {
+        timeout: { request: 5000 },
+        retry: { limit: 0 }
+      });
+      return response.statusCode === 200;
+    } catch (error) {
+      return false;
+    }
+  }
+  /**
    * Create a stream for streaming responses
    */
   createStream(endpoint: string, data: any): any {

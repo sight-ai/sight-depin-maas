@@ -110,11 +110,46 @@ export class DefaultOllamaService extends BaseModelService implements OllamaServ
   }
 
   /**
+   * List model tags
+   */
+  async listModelOpenai(): Promise<z.infer<typeof OllamaModelList>> {
+    try {
+      return await this.apiClient.sendRequest<z.infer<typeof OllamaModelList>>('v1/models');
+    } catch (error) {
+      this.logger.error('Failed to list model tags:', error);
+      return { models: [] };
+    }
+  }
+  /**
    * Show model information
    */
   async showModelInformation(args: { name: string }): Promise<z.infer<typeof OllamaModelInfo>> {
     try {
       return await this.apiClient.sendRequest<z.infer<typeof OllamaModelInfo>>('show', 'POST', args);
+    } catch (error) {
+      this.logger.error(`Failed to show model information for ${args.name}:`, error);
+      return {
+        template: '',
+        parameters: '',
+        modelfile: '',
+        details: {
+          format: '',
+          parent_model: '',
+          family: '',
+          families: [],
+          parameter_size: '',
+          quantization_level: ''
+        },
+        model_info: {},
+      };
+    }
+  }
+   /**
+   * Show model information
+   */
+  async showModelInformationOpenai(args: { name: string }): Promise<z.infer<typeof OllamaModelInfo>> {
+    try {
+      return await this.apiClient.sendRequest<z.infer<typeof OllamaModelInfo>>('v1/models', 'POST', args);
     } catch (error) {
       this.logger.error(`Failed to show model information for ${args.name}:`, error);
       return {
@@ -139,13 +174,23 @@ export class DefaultOllamaService extends BaseModelService implements OllamaServ
    */
   async showModelVersion(): Promise<z.infer<typeof OllamaVersionResponse>> {
     try {
+      return await this.apiClient.sendRequest<z.infer<typeof OllamaVersionResponse>>('api/version');
+    } catch (error) {
+      this.logger.error('Failed to show model version:', error);
+      return { version: 'unknown' };
+    }
+  }
+  /**
+   * Show model version
+   */
+  async showModelVersionOpenai(): Promise<z.infer<typeof OllamaVersionResponse>> {
+    try {
       return await this.apiClient.sendRequest<z.infer<typeof OllamaVersionResponse>>('version');
     } catch (error) {
       this.logger.error('Failed to show model version:', error);
       return { version: 'unknown' };
     }
   }
-
   /**
    * List models (alias for listModelTags)
    */
@@ -164,7 +209,17 @@ export class DefaultOllamaService extends BaseModelService implements OllamaServ
       throw new Error('Failed to generate embeddings');
     }
   }
-
+  /**
+   * Generate embeddings
+   */
+  async generateEmbeddingsOpenai(args: z.infer<typeof OllamaEmbeddingsRequest>): Promise<z.infer<typeof OllamaEmbeddingsResponse>> {
+    try {
+      return await this.apiClient.sendRequest<z.infer<typeof OllamaEmbeddingsResponse>>('v1/embeddings', 'POST', args);
+    } catch (error) {
+      this.logger.error('Failed to generate embeddings:', error);
+      throw new Error('Failed to generate embeddings');
+    }
+  }
   /**
    * List running models
    */

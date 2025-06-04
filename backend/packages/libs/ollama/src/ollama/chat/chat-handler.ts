@@ -50,6 +50,7 @@ export class ChatHandler {
     updateTask: (taskId: string, data: TaskUpdateData) => Promise<void>,
     createEarnings: (taskId: string, data: any, deviceId?: string) => Promise<void>
   ): Promise<void> {
+    this.logger.debug(`处理聊天请求: ${endpoint}`);
     const isOpenAI = this.isOpenAIFormat(endpoint);
     const processedArgs = args;
     await this.handleRequest(
@@ -101,10 +102,10 @@ export class ChatHandler {
     returnOpenAIFormat: boolean
   ): Promise<void> {
     const processedArgs = { ...args, stream: args.stream !== false };
-
+    console.log(!await this.apiClient.checkStatus(), !await this.apiClient.checkVllmStatus())
     try {
       // Check if service is available
-      if (!await this.apiClient.checkStatus()) {
+      if (!await this.apiClient.checkStatus() && !await this.apiClient.checkVllmStatus()) {
         if (!res.headersSent) {
           res.status(400).json({
             error: 'Ollama service is not available',
@@ -163,6 +164,7 @@ export class ChatHandler {
     _returnOpenAIFormat: boolean // Unused parameter, kept for compatibility
   ): Promise<void> {
     try {
+      this.logger.log(`处理非流式响应: ${endpoint}`);
       const responseBody = await this.apiClient.sendRequest<any>(endpoint, 'POST', args);
 
       // Update task status
