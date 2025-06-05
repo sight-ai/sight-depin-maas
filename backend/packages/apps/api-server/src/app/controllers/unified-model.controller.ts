@@ -71,11 +71,12 @@ export class UnifiedModelController {
         };
       }
 
-      // 检查框架是否已注册
-      if (!this.frameworkManager.isFrameworkRegistered(framework)) {
+      // 检查框架是否支持
+      const supportedFrameworks = [ModelFramework.OLLAMA, ModelFramework.VLLM];
+      if (!supportedFrameworks.includes(framework)) {
         return {
           success: false,
-          error: `Framework ${framework} is not available. Available frameworks: ${this.frameworkManager.getRegisteredFrameworks().join(', ')}`
+          error: `Framework ${framework} is not supported. Available frameworks: ${supportedFrameworks.join(', ')}`
         };
       }
 

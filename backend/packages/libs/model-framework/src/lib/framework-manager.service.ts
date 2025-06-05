@@ -1,12 +1,21 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { FrameworkRegistry } from './registry/framework-registry';
-import { AbstractFrameworkProvider, FrameworkHealthStatus } from './abstracts/framework-provider.abstract';
 import { ModelFramework } from './types/framework.types';
-import { OllamaFrameworkProvider } from './providers/ollama-framework.provider';
-import { VllmFrameworkProvider } from './providers/vllm-framework.provider';
+import axios from 'axios';
 
 /**
- * 框架检测结果（新版本）
+ * 框架健康状态
+ */
+export interface FrameworkHealthStatus {
+  isAvailable: boolean;
+  url: string;
+  version?: string;
+  error?: string;
+  lastChecked: Date;
+  responseTime?: number;
+}
+
+/**
+ * 框架检测结果（简化版本）
  */
 export interface FrameworkDetectionResultV2 {
   available: ModelFramework[];
@@ -16,42 +25,78 @@ export interface FrameworkDetectionResultV2 {
 }
 
 /**
- * 框架管理器服务
- * 
+ * 简化的框架管理器服务
+ *
  * 负责：
- * 1. 自动注册内置框架提供者
- * 2. 统一的框架检测和管理
- * 3. 动态框架切换
- * 4. 服务实例创建
+ * 1. 框架检测和管理
+ * 2. 动态框架切换
+ * 3. 服务实例创建
  */
 @Injectable()
 export class FrameworkManagerService implements OnModuleInit {
   private readonly logger = new Logger(FrameworkManagerService.name);
-  private readonly registry = FrameworkRegistry.getInstance();
   private currentFramework: ModelFramework | null = null;
   private overriddenFramework: ModelFramework | null = null;
 
   async onModuleInit() {
-    await this.registerBuiltinProviders();
     await this.initializeCurrentFramework();
   }
 
   /**
-   * 注册内置框架提供者
+   * 检查 Ollama 框架状态
    */
-  private async registerBuiltinProviders(): Promise<void> {
+  private async checkOllamaHealth(): Promise<FrameworkHealthStatus> {
+    const url = process.env['OLLAMA_API_URL'] || 'http://127.0.0.1:11434';
+    const startTime = Date.now();
+
     try {
-      // 注册 Ollama 提供者（优先级较高）
-      const ollamaProvider = new OllamaFrameworkProvider();
-      this.registry.register(ollamaProvider, 10, true);
+      const response = await axios.get(`${url}/api/version`, { timeout: 5000 });
+      const responseTime = Date.now() - startTime;
 
-      // 注册 vLLM 提供者
-      const vllmProvider = new VllmFrameworkProvider();
-      this.registry.register(vllmProvider, 20, true);
-
-      this.logger.log('Built-in framework providers registered successfully');
+      return {
+        isAvailable: response.status === 200,
+        url,
+        version: response.data?.version || 'unknown',
+        lastChecked: new Date(),
+        responseTime
+      };
     } catch (error) {
-      this.logger.error(`Failed to register built-in providers: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return {
+        isAvailable: false,
+        url,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        lastChecked: new Date(),
+        responseTime: Date.now() - startTime
+      };
+    }
+  }
+
+  /**
+   * 检查 vLLM 框架状态
+   */
+  private async checkVllmHealth(): Promise<FrameworkHealthStatus> {
+    const url = process.env['VLLM_API_URL'] || 'http://localhost:8000';
+    const startTime = Date.now();
+
+    try {
+      const response = await axios.get(`${url}/v1/models`, { timeout: 5000 });
+      const responseTime = Date.now() - startTime;
+
+      return {
+        isAvailable: response.status === 200,
+        url,
+        version: 'vLLM (OpenAI Compatible)',
+        lastChecked: new Date(),
+        responseTime
+      };
+    } catch (error) {
+      return {
+        isAvailable: false,
+        url,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        lastChecked: new Date(),
+        responseTime: Date.now() - startTime
+      };
     }
   }
 
@@ -97,15 +142,14 @@ export class FrameworkManagerService implements OnModuleInit {
   }
 
   /**
-   * 切换框架
+   * 切换框架 (简化版本)
    */
   async switchFramework(framework: ModelFramework, options: { force?: boolean; validateAvailability?: boolean } = {}): Promise<void> {
     this.logger.log(`Switching to framework: ${framework}`);
 
-    // 验证框架是否已注册
-    const provider = this.registry.getProvider(framework);
-    if (!provider) {
-      throw new Error(`Framework provider not found: ${framework}. Available frameworks: ${this.getRegisteredFrameworks().join(', ')}`);
+    // 验证框架是否支持
+    if (![ModelFramework.OLLAMA, ModelFramework.VLLM].includes(framework)) {
+      throw new Error(`Unsupported framework: ${framework}. Available frameworks: ollama, vllm`);
     }
 
     // 如果需要验证可用性且不是强制切换
@@ -126,106 +170,87 @@ export class FrameworkManagerService implements OnModuleInit {
   }
 
   /**
-   * 检查框架是否已注册（不检查服务是否运行）
-   */
-  isFrameworkRegistered(framework: ModelFramework): boolean {
-    return this.registry.getProvider(framework) !== null;
-  }
-
-  /**
-   * 检测所有框架的可用性
+   * 检测所有框架的可用性 (简化版本)
    */
   async detectFrameworks(): Promise<FrameworkDetectionResultV2> {
-    const providers = this.registry.getAllProviders(true);
     const available: ModelFramework[] = [];
     const unavailable: ModelFramework[] = [];
-    const details: Record<string, FrameworkHealthStatus> = {};
+    const details: Record<ModelFramework | string, FrameworkHealthStatus> = {};
 
     // 并行检查所有框架
-    const checkPromises = providers.map(async (provider) => {
-      try {
-        const url = this.getFrameworkUrl(provider.frameworkId);
-        const status = await provider.checkHealth(url);
-        
-        details[provider.frameworkId] = status;
-        
-        if (status.isAvailable) {
-          available.push(provider.frameworkId);
-        } else {
-          unavailable.push(provider.frameworkId);
-        }
-      } catch (error) {
-        const errorStatus: FrameworkHealthStatus = {
-          isAvailable: false,
-          url: this.getFrameworkUrl(provider.frameworkId),
-          error: error instanceof Error ? error.message : 'Unknown error',
-          lastChecked: new Date()
-        };
-        
-        details[provider.frameworkId] = errorStatus;
-        unavailable.push(provider.frameworkId);
-      }
-    });
+    const [ollamaStatus, vllmStatus] = await Promise.all([
+      this.checkOllamaHealth(),
+      this.checkVllmHealth()
+    ]);
 
-    await Promise.all(checkPromises);
+    // 处理 Ollama 结果
+    details[ModelFramework.OLLAMA] = ollamaStatus;
+    if (ollamaStatus.isAvailable) {
+      available.push(ModelFramework.OLLAMA);
+    } else {
+      unavailable.push(ModelFramework.OLLAMA);
+    }
 
-    // 确定推荐框架（优先级最高的可用框架）
-    const recommended = available.length > 0 ? available[0] : undefined;
+    // 处理 vLLM 结果
+    details[ModelFramework.VLLM] = vllmStatus;
+    if (vllmStatus.isAvailable) {
+      available.push(ModelFramework.VLLM);
+    } else {
+      unavailable.push(ModelFramework.VLLM);
+    }
+
+    // 确定推荐框架（优先 Ollama）
+    const recommended = available.includes(ModelFramework.OLLAMA)
+      ? ModelFramework.OLLAMA
+      : available[0];
 
     return {
       available,
       unavailable,
-      details: details as Record<ModelFramework, FrameworkHealthStatus>,
+      details,
       recommended
     };
   }
 
   /**
-   * 检查特定框架是否可用
+   * 检查特定框架是否可用 (简化版本)
    */
   async isFrameworkAvailable(framework: ModelFramework): Promise<boolean> {
-    const provider = this.registry.getProvider(framework);
-    if (!provider) {
-      return false;
-    }
-
     try {
-      const url = this.getFrameworkUrl(framework);
-      const status = await provider.checkHealth(url);
-      return status.isAvailable;
+      switch (framework) {
+        case ModelFramework.OLLAMA:
+          const ollamaStatus = await this.checkOllamaHealth();
+          return ollamaStatus.isAvailable;
+        case ModelFramework.VLLM:
+          const vllmStatus = await this.checkVllmHealth();
+          return vllmStatus.isAvailable;
+        default:
+          return false;
+      }
     } catch {
       return false;
     }
   }
 
   /**
-   * 创建框架服务实例
+   * 创建框架服务实例 (简化版本)
    */
   async createFrameworkService(framework?: ModelFramework): Promise<any> {
     const targetFramework = framework || this.getCurrentFramework();
-    const provider = this.registry.getProvider(targetFramework);
-    
-    if (!provider) {
-      throw new Error(`Framework provider not found: ${targetFramework}`);
+
+    // 直接创建服务，无需复杂的 provider 层
+    switch (targetFramework) {
+      case ModelFramework.OLLAMA:
+        const { CleanOllamaService } = await import('./services/clean-ollama.service');
+        return new CleanOllamaService();
+
+      case ModelFramework.VLLM:
+        const { CleanVllmService } = await import('./services/clean-vllm.service');
+        return new CleanVllmService();
+
+      default:
+        throw new Error(`Unsupported framework: ${targetFramework}`);
     }
-
-    return provider.createService({
-      logger: this.logger,
-      config: this.getFrameworkConfig(targetFramework)
-    });
-  }
-
-  /**
-   * 获取框架配置
-   */
-  private getFrameworkConfig(framework: ModelFramework): Record<string, any> {
-    const url = this.getFrameworkUrl(framework);
-    
-    return {
-      url,
-      timeout: 5000,
-      retries: 3
-    };
   }
 
   /**
@@ -240,64 +265,5 @@ export class FrameworkManagerService implements OnModuleInit {
       default:
         throw new Error(`Unknown framework: ${framework}`);
     }
-  }
-
-  /**
-   * 注册新的框架提供者
-   */
-  registerProvider(provider: AbstractFrameworkProvider, priority?: number): void {
-    this.registry.register(provider, priority);
-    this.logger.log(`Registered external framework provider: ${provider.frameworkId}`);
-  }
-
-  /**
-   * 注销框架提供者
-   */
-  unregisterProvider(frameworkId: ModelFramework): boolean {
-    return this.registry.unregister(frameworkId);
-  }
-
-  /**
-   * 获取所有已注册的框架
-   */
-  getRegisteredFrameworks(): ModelFramework[] {
-    return this.registry.getRegisteredFrameworks();
-  }
-
-  /**
-   * 获取框架提供者信息
-   */
-  getProviderInfo(framework: ModelFramework) {
-    const provider = this.registry.getProvider(framework);
-    return provider?.getFrameworkInfo();
-  }
-
-  /**
-   * 获取所有框架信息
-   */
-  getAllFrameworksInfo() {
-    const providers = this.registry.getAllProviders();
-    return providers.map(provider => provider.getFrameworkInfo());
-  }
-
-  /**
-   * 启用/禁用框架
-   */
-  setFrameworkEnabled(framework: ModelFramework, enabled: boolean): boolean {
-    return this.registry.setEnabled(framework, enabled);
-  }
-
-  /**
-   * 设置框架优先级
-   */
-  setFrameworkPriority(framework: ModelFramework, priority: number): boolean {
-    return this.registry.setPriority(framework, priority);
-  }
-
-  /**
-   * 获取注册统计信息
-   */
-  getRegistryStats() {
-    return this.registry.getStats();
   }
 }
