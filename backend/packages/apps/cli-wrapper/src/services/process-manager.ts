@@ -182,7 +182,8 @@ export class ProcessManager {
       // 创建后台进程，将输出重定向到日志文件
       const child = spawn(currentExecutable, [currentScript, 'start'], {
         detached: true,
-        stdio: ['ignore', logStream, logStream]
+        stdio: ['ignore', logStream, logStream],
+        env: process.env // 传递当前进程的环境变量
       });
 
       // 分离子进程，让它独立运行

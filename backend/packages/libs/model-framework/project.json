@@ -1,17 +1,17 @@
 {
-  "name": "ollama",
+  "name": "model-framework",
   "$schema": "../../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "packages/libs/ollama/src",
+  "sourceRoot": "packages/libs/model-framework/src",
   "projectType": "library",
   "targets": {
     "build": {
       "executor": "@nx/js:tsc",
       "outputs": ["{options.outputPath}"],
       "options": {
-        "outputPath": "dist/packages/libs/ollama",
-        "main": "packages/libs/ollama/src/index.ts",
-        "tsConfig": "packages/libs/ollama/tsconfig.lib.json",
-        "assets": ["packages/libs/ollama/*.md"]
+        "outputPath": "dist/packages/libs/model-framework",
+        "main": "packages/libs/model-framework/src/index.ts",
+        "tsConfig": "packages/libs/model-framework/tsconfig.lib.json",
+        "assets": ["packages/libs/model-framework/*.md"]
       }
     },
     "lint": {
@@ -19,8 +19,8 @@
       "outputs": ["{options.outputFile}"],
       "options": {
         "lintFilePatterns": [
-          "packages/libs/ollama/**/*.ts",
-          "packages/libs/ollama/package.json"
+          "packages/libs/model-framework/**/*.ts",
+          "packages/libs/model-framework/package.json"
         ]
       }
     },
@@ -28,7 +28,7 @@
       "executor": "@nx/jest:jest",
       "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
       "options": {
-        "jestConfig": "packages/libs/ollama/jest.config.ts"
+        "jestConfig": "packages/libs/model-framework/jest.config.ts"
       }
     }
   },

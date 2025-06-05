@@ -1,8 +1,8 @@
 import { Injectable, Inject, Logger, OnModuleInit } from '@nestjs/common';
 import { DeviceStatusService, RegistrationStorage } from '@saito/device-status';
-import { OllamaService } from '@saito/ollama';
 import got from 'got-cjs';
 import { ModelReportingService } from './model-reporting.interface';
+import { ModelReportingModule } from './model-reporting.module';
 
 /**
  * Service for handling model reporting to gateway
@@ -14,7 +14,7 @@ export class DefaultModelReportingService implements ModelReportingService, OnMo
   private readonly registrationStorage = new RegistrationStorage();
 
   constructor(
-    @Inject(OllamaService) private readonly ollamaService: OllamaService,
+    @Inject('ModelServiceFactory') private readonly modelServiceFactory: any,
     @Inject(DeviceStatusService) private readonly deviceStatusService: DeviceStatusService
   ) {}
 
@@ -88,8 +88,8 @@ export class DefaultModelReportingService implements ModelReportingService, OnMo
       // Get model details
       const modelDetails = await this.getModelDetails(models);
 
-      // Prepare the models data according to the API specification
-      const modelsData = this.prepareModelsData(models, modelDetails);
+      // Prepare the models data for gateway reporting
+      const modelsData = modelDetails;
 
       // 保存上报的模型信息到用户目录
       this.registrationStorage.updateReportedModels(models);
@@ -106,13 +106,36 @@ export class DefaultModelReportingService implements ModelReportingService, OnMo
   }
 
   /**
-   * Get model details from Ollama
+   * Get model details from current model service
    * @param models List of model names
    */
   private async getModelDetails(models: string[]): Promise<any[]> {
     try {
-      const ollamaModels = await this.ollamaService.listModelTags();
-      return ollamaModels.models.filter(model => models.includes(model.name));
+      const service = await this.modelServiceFactory.getCurrentService();
+      const modelList = await service.listModels();
+
+      // 确保模型列表格式正确，无论来自哪个框架
+      // 如果是 vLLM 框架，需要转换为 Ollama 格式以便网关接受
+      let processedModels = modelList.models;
+
+      if (modelList.framework === 'vllm') {
+        // 将 vLLM 模型转换为 Ollama 格式
+        processedModels = modelList.models.map((model: any) => ({
+          name: model.name,
+          size: this.estimateModelSize(model.name),
+          modified_at: model.modified_at || new Date().toISOString(),
+          digest: this.generateDigest(model.name),
+          details: {
+            format: 'vllm',
+            family: this.extractModelFamily(model.name),
+            families: [this.extractModelFamily(model.name)],
+            parameter_size: this.extractParameters(model.name),
+            quantization_level: this.extractQuantization(model.name)
+          }
+        }));
+      }
+
+      return processedModels.filter((model: {name: string }) => models.includes(model.name));
     } catch (error) {
       this.logger.error(`Error getting model details: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return [];
@@ -120,89 +143,82 @@ export class DefaultModelReportingService implements ModelReportingService, OnMo
   }
 
   /**
-   * Prepare models data for gateway API
-   * @param models List of model names
-   * @param modelDetails Model details from Ollama
+   * Extract model family from model name
    */
-  private prepareModelsData(models: string[], modelDetails: any[]): any[] {
-    return models.map(modelName => {
-      const modelDetail = modelDetails.find(m => m.name === modelName);
+  private extractModelFamily(modelName: string): string {
+    const familyPatterns = [
+      { pattern: /llama/i, value: 'llama' },
+      { pattern: /mistral/i, value: 'mistral' },
+      { pattern: /deepseek/i, value: 'deepseek' },
+      { pattern: /phi/i, value: 'phi' },
+      { pattern: /qwen/i, value: 'qwen' },
+      { pattern: /gemma/i, value: 'gemma' },
+      { pattern: /mixtral/i, value: 'mixtral' },
+      { pattern: /vicuna/i, value: 'vicuna' },
+      { pattern: /falcon/i, value: 'falcon' }
+    ];
 
-      // Try to extract model information from the name
-      let format = '';
-      let family = '';
-      let parameterSize = '';
-      let quantizationLevel = '';
-
-      // Parse model name to extract information
-      if (modelName.toLowerCase().includes('gguf')) {
-        format = 'gguf';
+    for (const { pattern, value } of familyPatterns) {
+      if (pattern.test(modelName)) {
+        return value;
       }
+    }
 
-      // Extract family (llama, mistral, etc.)
-      const familyMatches = [
-        { pattern: /llama/i, value: 'llama' },
-        { pattern: /mistral/i, value: 'mistral' },
-        { pattern: /deepseek/i, value: 'deepseek' },
-        { pattern: /phi/i, value: 'phi' },
-        { pattern: /qwen/i, value: 'qwen' },
-        { pattern: /gemma/i, value: 'gemma' },
-        { pattern: /mixtral/i, value: 'mixtral' },
-        { pattern: /vicuna/i, value: 'vicuna' },
-        { pattern: /falcon/i, value: 'falcon' }
-      ];
-
-      for (const match of familyMatches) {
-        if (match.pattern.test(modelName)) {
-          family = match.value;
-          break;
-        }
-      }
-
-      // Extract parameter size (7B, 13B, etc.)
-      const paramMatch = modelName.match(/(\d+)[bB]/);
-      if (paramMatch) {
-        parameterSize = `${paramMatch[1]}B`;
-      }
-
-      // Extract quantization level (Q4_0, Q5_K_M, etc.)
-      const quantMatches = [
-        { pattern: /q4_0/i, value: 'Q4_0' },
-        { pattern: /q4_k_m/i, value: 'Q4_K_M' },
-        { pattern: /q5_0/i, value: 'Q5_0' },
-        { pattern: /q5_k_m/i, value: 'Q5_K_M' },
-        { pattern: /q6_k/i, value: 'Q6_K' },
-        { pattern: /q8_0/i, value: 'Q8_0' }
-      ];
-
-      for (const match of quantMatches) {
-        if (match.pattern.test(modelName)) {
-          quantizationLevel = match.value;
-          break;
-        }
-      }
-
-      // Build families array
-      const families = [];
-      if (family) {
-        families.push(family);
-      }
-
-      return {
-        name: modelName,
-        modified_at: modelDetail ? modelDetail.modified_at : new Date().toISOString(),
-        size: modelDetail ? modelDetail.size : 0,
-        digest: '',
-        details: {
-          format,
-          family,
-          families,
-          parameter_size: parameterSize,
-          quantization_level: quantizationLevel
-        }
-      };
-    });
+    return 'unknown';
   }
+
+  /**
+   * Extract parameter size from model name
+   */
+  private extractParameters(modelName: string): string {
+    const paramMatch = modelName.match(/(\d+)[bB]/);
+    return paramMatch ? `${paramMatch[1]}B` : 'unknown';
+  }
+
+  /**
+   * Extract quantization level from model name
+   */
+  private extractQuantization(modelName: string): string {
+    const quantMatches = [
+      { pattern: /q4_0/i, value: 'Q4_0' },
+      { pattern: /q4_k_m/i, value: 'Q4_K_M' },
+      { pattern: /q5_0/i, value: 'Q5_0' },
+      { pattern: /q5_k_m/i, value: 'Q5_K_M' },
+      { pattern: /q6_k/i, value: 'Q6_K' },
+      { pattern: /q8_0/i, value: 'Q8_0' }
+    ];
+
+    for (const { pattern, value } of quantMatches) {
+      if (pattern.test(modelName)) {
+        return value;
+      }
+    }
+
+    return '';
+  }
+
+  /**
+   * Estimate model size based on parameters
+   */
+  private estimateModelSize(modelName: string): number {
+    const params = this.extractParameters(modelName);
+    const paramNum = parseInt(params.replace('B', ''));
+
+    if (isNaN(paramNum)) return 0;
+
+    // Rough estimation: 1B parameters ≈ 2GB
+    return paramNum * 2 * 1024 * 1024 * 1024;
+  }
+
+  /**
+   * Generate a simple digest for models without one
+   */
+  private generateDigest(modelName: string): string {
+    // Simple hash-like string for consistency
+    return `sha256:${Buffer.from(modelName).toString('hex').substring(0, 12)}`;
+  }
+
+
 
   /**
    * Send models data to gateway

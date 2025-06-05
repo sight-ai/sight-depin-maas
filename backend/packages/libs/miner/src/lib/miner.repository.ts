@@ -624,7 +624,8 @@ export class MinerRepository {
 
       return task;
     } catch (error) {
-      this.logger.error(`Error creating task: ${error}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Error creating task: ${errorMessage}`);
       throw error;
     }
   }

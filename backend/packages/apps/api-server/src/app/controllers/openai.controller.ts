@@ -1,124 +1,149 @@
-import { Body, Controller, Get, Inject, Logger, Param, Post, Res } from "@nestjs/common";
-import { createZodDto } from 'nestjs-zod';
-import { OllamaService } from "@saito/ollama";
+import { Controller, Post, Get, Body, Res, Logger } from '@nestjs/common';
+import { FrameworkManagerService } from '@saito/model-framework';
 import { Response } from 'express';
-import * as R from 'ramda';
-import {
-  OpenAIChatCompletionRequest,
-  OpenAICompletionRequest,
-  OpenAIEmbeddingsRequest,
-} from "@saito/models";
 
-export class OpenAIChatCompletionRequestDto extends createZodDto(OpenAIChatCompletionRequest) { }
-export class OpenAICompletionRequestDto extends createZodDto(OpenAICompletionRequest) { }
-export class OpenAIEmbeddingsRequestDto extends createZodDto(OpenAIEmbeddingsRequest) { }
-
-const handleApiError = (res: Response, error: unknown, model?: string) => {
-  if (!res.headersSent) {
-    res.status(400).json({
-      error: 'Error during API request',
-      details: error instanceof Error ? error.message : 'Unknown error',
-      model: model || 'unknown',
-      created_at: new Date().toISOString(),
-      done: true
-    });
-  }
-};
-
-@Controller(['/openai', '/openai/v1'])
+/**
+ * Clean OpenAI Controller
+ * 
+ * Purpose: Provide OpenAI-compatible API endpoints with minimal interference
+ * 
+ * Key Principles:
+ * 1. Direct passthrough to underlying services
+ * 2. No response transformation - let services handle their own formats
+ * 3. Clean error handling
+ * 4. Framework-agnostic operation
+ */
+@Controller('openai')
 export class OpenAIController {
   private readonly logger = new Logger(OpenAIController.name);
+
   constructor(
-    @Inject(OllamaService) private readonly ollamaService: OllamaService
-  ) { }
+    private readonly frameworkManager: FrameworkManagerService
+  ) {}
 
+  /**
+   * OpenAI-compatible chat completions endpoint
+   * Uses new framework manager architecture
+   * Both Ollama and vLLM support OpenAI-compatible endpoints
+   */
   @Post('/chat/completions')
-  async chatCompletions(@Body() args: OpenAIChatCompletionRequestDto, @Res() res: Response, req: Request) {
+  async chatCompletions(@Body() args: any, @Res() res: Response) {
     try {
-      
+      // Get current framework service
+      const service = await this.frameworkManager.createFrameworkService();
 
-      if (args.stream) {
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.flushHeaders();
-      }
+      // Use OpenAI-compatible endpoint for both frameworks
+      // Both Ollama and vLLM support /v1/chat/completions
+      await service.chat(args, res, '/v1/chat/completions');
 
-      // Pass the full endpoint path to identify this as an OpenAI request
-      await this.ollamaService.chat(args, res, 'v1/chat/completions');
     } catch (error) {
-      this.logger.error('Error during OpenAI chat completions:', error);
-      handleApiError(res, error, args.model);
+      this.logger.error(`Chat completions error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: {
+            message: error instanceof Error ? error.message : 'Internal server error',
+            type: 'api_error',
+            code: 'internal_error'
+          }
+        });
+      }
     }
   }
 
+  /**
+   * OpenAI-compatible completions endpoint
+   * Uses new framework manager architecture
+   * Both Ollama and vLLM support OpenAI-compatible endpoints
+   */
   @Post('/completions')
-  async completions(@Body() args: OpenAICompletionRequestDto, @Res() res: Response, req: Request) {
+  async completions(@Body() args: any, @Res() res: Response) {
     try {
-      
+      // Get current framework service
+      const service = await this.frameworkManager.createFrameworkService();
 
-      if (args.stream) {
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.flushHeaders();
+      // Use OpenAI-compatible endpoint for both frameworks
+      // Both Ollama and vLLM support /v1/completions
+      await service.complete(args, res, '/v1/completions');
+
+    } catch (error) {
+      this.logger.error(`Completions error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: {
+            message: error instanceof Error ? error.message : 'Internal server error',
+            type: 'api_error',
+            code: 'internal_error'
+          }
+        });
       }
-
-      // Pass the full endpoint path to identify this as an OpenAI request
-      await this.ollamaService.complete(args, res, 'v1/completions');
-    } catch (error) {
-      this.logger.error('Error during OpenAI completions:', error);
-      handleApiError(res, error, args.model);
     }
   }
 
-  @Post('/embeddings')
-  async embeddings(@Body() args: OpenAIEmbeddingsRequestDto, @Res() res: Response, req: Request) {
-    try {
-      
-
-      const embeddings = await this.ollamaService.generateEmbeddingsOpenai(args);
-
-      res.status(200).json(embeddings);
-    } catch (error) {
-      this.logger.error('Error during OpenAI embeddings:', error);
-      handleApiError(res, error, args.model);
-    }
-  }
-
+  /**
+   * OpenAI-compatible models endpoint
+   * Returns models in OpenAI format regardless of underlying framework
+   */
   @Get('/models')
   async listModels(@Res() res: Response) {
     try {
-      const models = await this.ollamaService.listModelOpenai();
-      res.status(200).json(models);
+      // Get current framework service
+      const service = await this.frameworkManager.createFrameworkService();
+      const currentFramework = this.frameworkManager.getCurrentFramework();
+
+      const modelList = await service.listModels();
+
+      // Convert to OpenAI format for compatibility
+      const openaiFormat = {
+        object: 'list',
+        data: modelList.models.map((model: any) => ({
+          id: model.name,
+          object: 'model',
+          created: model.modified_at ? Math.floor(new Date(model.modified_at).getTime() / 1000) : Math.floor(Date.now() / 1000),
+          owned_by: currentFramework.toLowerCase()
+        }))
+      };
+
+      res.json(openaiFormat);
+
     } catch (error) {
-      this.logger.error('Error during OpenAI list models:', error);
-      handleApiError(res, error);
+      this.logger.error(`List models error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+      res.status(500).json({
+        error: {
+          message: error instanceof Error ? error.message : 'Failed to list models',
+          type: 'api_error',
+          code: 'internal_error'
+        }
+      });
     }
   }
 
-  @Get('/models/:model')
-  async getModel(@Param('model') modelName: string, @Res() res: Response) {
+  /**
+   * OpenAI-compatible embeddings endpoint
+   * Uses new framework manager architecture
+   */
+  @Post('/embeddings')
+  async embeddings(@Body() args: any, @Res() res: Response) {
     try {
-      
+      // Get current framework service
+      const service = await this.frameworkManager.createFrameworkService();
 
-      const modelInfo = await this.ollamaService.showModelInformationOpenai({ name: modelName });
-      res.status(200).json(modelInfo);
+      const result = await service.generateEmbeddings(args);
+
+      res.json(result);
+
     } catch (error) {
-      this.logger.error(`Error during OpenAI get model (${modelName}):`, error);
-      handleApiError(res, error, modelName);
-    }
-  }
+      this.logger.error(`Embeddings error: ${error instanceof Error ? error.message : 'Unknown error'}`);
 
-  @Get('/version')
-  async getVersion(@Res() res: Response) {
-    try {
-      const versionInfo = await this.ollamaService.showModelVersionOpenai();
-
-      res.status(200).json(versionInfo);
-    } catch (error) {
-      this.logger.error('Error during OpenAI version request:', error);
-      handleApiError(res, error);
+      res.status(500).json({
+        error: {
+          message: error instanceof Error ? error.message : 'Failed to generate embeddings',
+          type: 'api_error',
+          code: 'internal_error'
+        }
+      });
     }
   }
 }

@@ -75,7 +75,8 @@ export class DefaultMinerService implements MinerService {
         return await operation();
       } catch (error) {
         if (attempt >= maxRetries) {
-          this.logger.error(`${operationName} failed after ${maxRetries} attempts: ${error}`);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          this.logger.error(`${operationName} failed after ${maxRetries} attempts: ${errorMessage}`);
           throw error;
         }
         const delay = BASE_RETRY_DELAY * Math.pow(2, attempt);
@@ -269,7 +270,8 @@ export class DefaultMinerService implements MinerService {
         }
       });
     }, MAX_DB_RETRIES, 'update stale tasks').catch(error => {
-      this.logger.error('Failed to update stale tasks', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to update stale tasks: ${errorMessage}`);
     });
   }
 

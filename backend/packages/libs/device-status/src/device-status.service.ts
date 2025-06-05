@@ -14,6 +14,10 @@ import {
 } from "@saito/models";
 import { z } from "zod";
 import { RegistrationStorage, RegistrationInfo } from "./registration-storage";
+import {
+  FrameworkDetectorService,
+  ModelFramework
+} from "@saito/model-framework";
 
 const STATUS_CHECK_TIMEOUT = 2000;
 
@@ -157,7 +161,9 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
   constructor(
     private readonly deviceStatusRepository: DeviceStatusRepository,
     @Inject(forwardRef(() => TunnelService))
-    private readonly tunnelService: TunnelService
+    private readonly tunnelService: TunnelService,
+    @Inject(FrameworkDetectorService)
+    private readonly frameworkDetector: FrameworkDetectorService
   ) {
     this.initFromStorage();
   }
@@ -1155,25 +1161,41 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
 
   async checkStatus(): Promise<boolean> {
     try {
-      const url = new URL(`api/version`, process.env["OLLAMA_API_URL"]);
-      const response = await got.get(url.toString(), {
-        timeout: {
-          request: STATUS_CHECK_TIMEOUT,
-        },
-        retry: {
-          limit: 0
+      // 使用框架检测器来确定当前使用的框架
+      const detection = await this.frameworkDetector.detectFrameworks();
+
+      if (!detection.primary.isAvailable) {
+        // 如果主框架不可用，尝试次要框架
+        if (detection.secondary?.isAvailable) {
+          return true;
         }
-      });
+        return false;
+      }
 
-      return response.statusCode === 200;
+      return detection.primary.isAvailable;
     } catch (error: any) {
-
+      this.logger.debug(`Framework detection failed: ${error.message}`);
       return false;
     }
   }
   async getLocalModels(): Promise<z.infer<typeof OllamaModelList>> {
     try {
-      const url = new URL(`api/tags`, process.env["OLLAMA_API_URL"]);
+      // 使用框架检测器获取当前框架的URL
+      const detection = await this.frameworkDetector.detectFrameworks();
+
+      if (!detection.primary.isAvailable) {
+        return { models: [] };
+      }
+
+      let url: URL;
+      if (detection.detected === ModelFramework.OLLAMA) {
+        url = new URL(`api/tags`, detection.primary.url);
+      } else if (detection.detected === ModelFramework.VLLM) {
+        url = new URL(`v1/models`, detection.primary.url);
+      } else {
+        return { models: [] };
+      }
+
       const response = await got.get(url.toString(), {
         timeout: {
           request: STATUS_CHECK_TIMEOUT,
@@ -1182,9 +1204,27 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
           limit: 0
         }
       }).json();
-      return response as Promise<z.infer<typeof OllamaModelList>>;
-    } catch (error: any) {
 
+      // 如果是vLLM，需要转换格式
+      if (detection.detected === ModelFramework.VLLM) {
+        const vllmResponse = response as any;
+        return {
+          models: vllmResponse.data?.map((model: any) => ({
+            name: model.id,
+            size: 0,
+            digest: '',
+            modified_at: new Date(model.created * 1000).toISOString(),
+            details: {
+              family: 'vllm',
+              format: 'vllm'
+            }
+          })) || []
+        };
+      }
+
+      return response as z.infer<typeof OllamaModelList>;
+    } catch (error: any) {
+      this.logger.debug(`Failed to get local models: ${error.message}`);
       return {
         models: []
       };
@@ -1197,6 +1237,13 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     } catch (error) {
       return false;
     }
+  }
+
+  /**
+   * 检查当前框架是否在线（更通用的方法名）
+   */
+  async isFrameworkOnline(): Promise<boolean> {
+    return this.isOllamaOnline();
   }
 
   /**
@@ -1252,7 +1299,7 @@ export class DefaultDeviceStatusService implements DeviceStatusService {
     }
 
     try {
-      const isOnline = await this.isOllamaOnline();
+      const isOnline = await this.isFrameworkOnline();
       const status = isOnline ? "connected" : "disconnected";
 
       if (isOnline) {

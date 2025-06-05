@@ -1,14 +1,25 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import ModelReportingServiceProvider from './model-reporting.service';
-import { OllamaModule } from '@saito/ollama';
+import {
+  ModelFrameworkModule,
+  ModelServiceFactoryImpl,
+  FrameworkDetectorService
+} from '@saito/model-framework';
 import { DeviceStatusModule } from '@saito/device-status';
 
 @Module({
   imports: [
-    forwardRef(() => OllamaModule),
     DeviceStatusModule
   ],
-  providers: [ModelReportingServiceProvider],
+  providers: [
+    ModelReportingServiceProvider,
+    FrameworkDetectorService,
+    ModelServiceFactoryImpl,
+    {
+      provide: 'ModelServiceFactory',
+      useClass: ModelServiceFactoryImpl
+    }
+  ],
   exports: [ModelReportingServiceProvider]
 })
 export class ModelReportingModule {}

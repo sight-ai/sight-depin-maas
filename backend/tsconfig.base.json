@@ -21,13 +21,15 @@
       "@saito/common": ["packages/libs/common/src/index.ts"],
       "@saito/configs": ["packages/libs/configs/src/index.ts"],
       "@saito/models": ["packages/libs/models/src/index.ts"],
-      "@saito/ollama": ["packages/libs/ollama/src/index.ts"],
       "@saito/persistent": ["packages/libs/persistent/src/index.ts"],
       "@saito/miner": ["packages/libs/miner/src/index.ts"],
       "@saito/tunnel": ["packages/libs/tunnel/src/index.ts"],
       "@saito/device-status": ["packages/libs/device-status/src/index.ts"],
       "@saito/task-sync": ["packages/libs/task-sync/src/index.ts"],
-      "@saito/model-reporting": ["packages/libs/model-reporting/src/index.ts"]
+      "@saito/model-reporting": ["packages/libs/model-reporting/src/index.ts"],
+      "@saito/model-framework": ["packages/libs/model-framework/src/index.ts"],
+      "@saito/ollama": ["packages/libs/ollama1/src/index.ts"],
+      "@saito/vllm": ["packages/libs/vllm1/src/index.ts"],
     }
   },
   "exclude": ["node_modules", "tmp"],
