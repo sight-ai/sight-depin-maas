@@ -193,7 +193,6 @@ export class DeviceCommands {
 
       const registrationStorage = AppServices.getRegistrationStorage();
       const savedInfo = registrationStorage.loadRegistrationInfo();
-
       if (savedInfo && savedInfo.isRegistered) {
         TableUtils.showDeviceStatusTable({
           deviceId: savedInfo.deviceId,

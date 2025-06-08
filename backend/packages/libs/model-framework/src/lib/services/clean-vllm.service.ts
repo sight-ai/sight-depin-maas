@@ -1,161 +1,244 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { Response } from 'express';
-import { BaseModelService } from './base-model.service';
-import { UnifiedChatRequest, UnifiedCompletionRequest, UnifiedEmbeddingsRequest, UnifiedEmbeddingsResponse } from '../interfaces/service.interface';
+import axios from 'axios';
+import { BaseModelService } from '../abstracts/base-model-service';
+import {
+  ChatRequest,
+  CompletionRequest,
+  EmbeddingsRequest,
+  EmbeddingsResponse
+} from '../interfaces/service.interface';
 import { ModelFramework, UnifiedModelList, UnifiedModelInfo } from '../types/framework.types';
+import { DynamicModelConfigService } from './dynamic-model-config.service';
 
 /**
- * Clean vLLM Service Implementation
+ * 优化的 vLLM 服务实现
+ * 继承抽象基类，实现 vLLM 特定的功能
  *
- * Core Principles:
- * 1. Minimal interference - only handle earnings and task management
- * 2. NO response transformation - let vLLM handle its own OpenAI-compatible responses
- * 3. NO header modification - let vLLM set appropriate headers
- * 4. Clean separation of concerns
+ * 新增功能：
+ * - 智能模型选择：如果请求的模型不存在，自动使用第一个可用模型
+ * - 与 Ollama 服务保持一致的模型选择逻辑
  */
 @Injectable()
 export class CleanVllmService extends BaseModelService {
   readonly framework = ModelFramework.VLLM;
-  protected readonly baseUrl: string;
 
-  constructor() {
+  constructor(
+    @Inject(forwardRef(() => DynamicModelConfigService))
+    private readonly dynamicModelConfig: DynamicModelConfigService
+  ) {
     super();
-    // Normalize URL by removing trailing slash
-    const rawUrl = process.env['VLLM_API_URL'] || 'http://localhost:8000';
-    this.baseUrl = rawUrl.replace(/\/$/, '');
   }
 
   /**
-   * Chat completion - direct passthrough to vLLM
-   * vLLM natively supports OpenAI format
+   * 获取动态默认模型
+   * 如果客户端传入的模型不存在，使用动态检测到的默认模型
    */
-  async chat(args: UnifiedChatRequest, res: Response, pathname = '/v1/chat/completions'): Promise<void> {
-    const taskId = this.generateTaskId();
-    await this.passthroughRequest(args, res, pathname, taskId);
-  }
+  private async getEffectiveModel(requestedModel?: string): Promise<string> {
+    // 如果没有请求特定模型，使用动态检测的默认模型
+    if (!requestedModel) {
+      try {
+        const defaultModel = await this.dynamicModelConfig.getDefaultModel(ModelFramework.VLLM);
+        this.logger.debug(`Using dynamic default model: ${defaultModel}`);
+        return defaultModel;
+      } catch (error) {
+        this.logger.warn('Failed to get dynamic default model, using fallback');
+        return 'default';
+      }
+    }
 
-  /**
-   * Text completion - direct passthrough to vLLM
-   */
-  async complete(args: UnifiedCompletionRequest, res: Response, pathname = '/v1/completions'): Promise<void> {
-    const taskId = this.generateTaskId();
-    await this.passthroughRequest(args, res, pathname, taskId);
-  }
-
-  /**
-   * Check service status
-   */
-  async checkStatus(): Promise<boolean> {
+    // 检查请求的模型是否存在
     try {
-      await this.makeRequest('/v1/models');
-      return true;
+      const availableModels = await this.dynamicModelConfig.getAvailableModels(ModelFramework.VLLM);
+      const modelExists = availableModels.some(model => model.name === requestedModel);
+
+      if (modelExists) {
+        this.logger.debug(`Using requested model: ${requestedModel}`);
+        return requestedModel;
+      } else {
+        // 请求的模型不存在，使用动态检测的默认模型
+        const defaultModel = await this.dynamicModelConfig.getDefaultModel(ModelFramework.VLLM);
+        this.logger.warn(`Requested model '${requestedModel}' not found, using default: ${defaultModel}`);
+        return defaultModel;
+      }
     } catch (error) {
+      // 如果检测失败，使用请求的模型（让 vLLM 处理错误）
+      this.logger.warn(`Failed to validate model '${requestedModel}', proceeding with request`);
+      return requestedModel;
+    }
+  }
+
+  // =============================================================================
+  // 实现抽象方法
+  // =============================================================================
+
+  /**
+   * 处理聊天请求
+   */
+  protected async handleChatRequest(args: ChatRequest, res: Response, pathname?: string): Promise<void> {
+    const baseUrl = this.getBaseUrl();
+    const endpoint = `${baseUrl}/v1/chat/completions`;
+
+    // 获取有效的模型名称（动态检测）
+    const effectiveModel = await this.getEffectiveModel(args.model);
+
+    // vLLM 使用 OpenAI 兼容格式
+    const vllmRequest = {
+      model: effectiveModel,
+      messages: args.messages,
+      stream: args.stream === undefined ? true : args.stream,
+      temperature: args.temperature,
+      max_tokens: args.max_tokens
+    };
+
+    if (args.stream) {
+      await this.handleStreamingRequest(endpoint, vllmRequest, res);
+    } else {
+      await this.handleNonStreamingRequest(endpoint, vllmRequest, res);
+    }
+  }
+
+  /**
+   * 处理补全请求
+   */
+  protected async handleCompletionRequest(args: CompletionRequest, res: Response, pathname?: string): Promise<void> {
+    const baseUrl = this.getBaseUrl();
+    const endpoint = `${baseUrl}/v1/completions`;
+
+    // 获取有效的模型名称（动态检测）
+    const effectiveModel = await this.getEffectiveModel(args.model);
+
+    const vllmRequest = {
+      model: effectiveModel,
+      prompt: args.prompt,
+      stream: args.stream === undefined ? true : args.stream,
+      temperature: args.temperature,
+      max_tokens: args.max_tokens
+    };
+
+    if (args.stream) {
+      await this.handleStreamingRequest(endpoint, vllmRequest, res);
+    } else {
+      await this.handleNonStreamingRequest(endpoint, vllmRequest, res);
+    }
+  }
+
+  /**
+   * 执行健康检查
+   */
+  protected async performHealthCheck(): Promise<boolean> {
+    try {
+      const baseUrl = this.getBaseUrl();
+      const config = this.getHttpConfig();
+      const response = await axios.get(`${baseUrl}/v1/models`, {
+        ...config,
+        timeout: 5000
+      });
+      return this.isSuccessResponse(response.status);
+    } catch {
       return false;
     }
   }
 
   /**
-   * List available models
+   * 获取模型列表
    */
-  async listModels(): Promise<UnifiedModelList> {
-    try {
-      const response = await this.makeRequest('/v1/models');
+  protected async fetchModelList(): Promise<UnifiedModelList> {
+    const baseUrl = this.getBaseUrl();
+    const response = await axios.get(`${baseUrl}/v1/models`, this.getHttpConfig());
 
-      const models: UnifiedModelInfo[] = response.data?.map((model: any) => ({
-        name: model.id,
-        size: 'unknown', // vLLM doesn't provide size info
-        family: this.extractModelFamily(model.id),
-        parameters: this.extractParameters(model.id),
-        format: 'vllm',
-        modified_at: model.created ? new Date(model.created * 1000).toISOString() : undefined,
-        details: {
-          object: model.object,
-          owned_by: model.owned_by,
-          permission: model.permission
-        }
-      })) || [];
+    const models = response.data.data?.map((model: any) => ({
+      name: model.id,
+      size: 'unknown', // vLLM 不提供大小信息
+      modified_at: model.created ? new Date(model.created * 1000).toISOString() : undefined
+    })) || [];
 
-      return {
-        models,
-        total: models.length,
-        framework: ModelFramework.VLLM
-      };
-    } catch (error) {
-      this.logger.error(`List models error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      return {
-        models: [],
-        total: 0,
-        framework: ModelFramework.VLLM
-      };
-    }
+    return {
+      models,
+      total: models.length,
+      framework: this.framework
+    };
   }
 
   /**
-   * Get model information
+   * 获取模型信息
    */
-  async getModelInfo(modelName: string): Promise<UnifiedModelInfo> {
-    try {
-      const modelList = await this.listModels();
-      const model = modelList.models.find(m => m.name === modelName);
-      
-      if (!model) {
-        throw new Error(`Model ${modelName} not found`);
+  protected async fetchModelInfo(modelName: string): Promise<UnifiedModelInfo> {
+    const modelList = await this.fetchModelList();
+    const model = modelList.models.find(m => m.name === modelName);
+
+    if (!model) {
+      throw new Error(`Model ${modelName} not found`);
+    }
+
+    return model;
+  }
+
+  /**
+   * 处理嵌入向量请求
+   */
+  protected async handleEmbeddingsRequest(args: EmbeddingsRequest): Promise<EmbeddingsResponse> {
+    const baseUrl = this.getBaseUrl();
+
+    // 获取有效的模型名称（动态检测）
+    const effectiveModel = await this.getEffectiveModel(args.model);
+
+    const vllmRequest = {
+      ...args,
+      model: effectiveModel
+    };
+
+    const response = await axios.post(`${baseUrl}/v1/embeddings`, vllmRequest, this.getHttpConfig());
+    return response.data;
+  }
+
+  /**
+   * 获取版本信息
+   */
+  protected async fetchVersion(): Promise<string> {
+    // vLLM 没有版本端点，所以我们检查模型端点
+    const baseUrl = this.getBaseUrl();
+    await axios.get(`${baseUrl}/v1/models`, this.getHttpConfig());
+    return 'vLLM (OpenAI Compatible)';
+  }
+
+  // =============================================================================
+  // 私有辅助方法
+  // =============================================================================
+
+  /**
+   * 处理流式请求
+   */
+  private async handleStreamingRequest(endpoint: string, requestData: any, res: Response): Promise<void> {
+    const response = await axios.post(endpoint, requestData, {
+      ...this.getHttpConfig(),
+      responseType: 'stream'
+    });
+
+    // res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    // res.setHeader('Transfer-Encoding', 'chunked');
+
+    response.data.on('data', (chunk: Buffer) => {
+      res.write(chunk);
+    });
+
+    response.data.on('end', () => {
+      res.end();
+    });
+
+    response.data.on('error', (error: Error) => {
+      this.logger.error('Streaming error:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: error.message });
       }
-      
-      return model;
-    } catch (error) {
-      this.logger.error(`Get model info error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
-    }
+    });
   }
 
   /**
-   * Generate embeddings
+   * 处理非流式请求
    */
-  async generateEmbeddings(args: UnifiedEmbeddingsRequest): Promise<UnifiedEmbeddingsResponse> {
-    try {
-      return await this.makeRequest('/v1/embeddings', {
-        method: 'POST',
-        data: args
-      });
-    } catch (error) {
-      this.logger.error(`Embeddings error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
-    }
-  }
-
-  /**
-   * Get service version
-   */
-  async getVersion(): Promise<{ version: string; framework: ModelFramework }> {
-    try {
-      // vLLM doesn't have a version endpoint, so we check models endpoint
-      await this.makeRequest('/v1/models');
-      return {
-        version: 'vLLM (OpenAI Compatible)',
-        framework: ModelFramework.VLLM
-      };
-    } catch (error) {
-      return {
-        version: 'unknown',
-        framework: ModelFramework.VLLM
-      };
-    }
-  }
-
-  /**
-   * Record earnings (vLLM-specific implementation)
-   */
-  private async recordEarnings(taskId: string, responseData: any): Promise<void> {
-    try {
-      // Simple earnings calculation based on token usage
-      const promptTokens = responseData.usage?.prompt_tokens || 0;
-      const completionTokens = responseData.usage?.completion_tokens || 0;
-
-      // Log earnings (in production, this would save to database)
-      this.logger.debug(`Task ${taskId}: ${promptTokens} prompt tokens, ${completionTokens} completion tokens`);
-    } catch (error) {
-      this.logger.warn(`Earnings recording failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
+  private async handleNonStreamingRequest(endpoint: string, requestData: any, res: Response): Promise<void> {
+    const response = await axios.post(endpoint, requestData, this.getHttpConfig());
+    res.json(response.data);
   }
 }

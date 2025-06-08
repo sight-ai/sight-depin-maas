@@ -630,6 +630,42 @@ export class MinerRepository {
     }
   }
 
+  // 更新任务 - 简单版本
+  async updateTask(
+    db: any,
+    id: string,
+    updates: Partial<ModelOfMiner<'Task'>>
+  ): Promise<ModelOfMiner<'Task'>> {
+    try {
+      // 获取现有任务
+      const taskData = await this.persistentService.tasksDb.get(id);
+      const task = safeJsonParse<ModelOfMiner<'Task'>>(
+        taskData,
+        this.logger,
+        `Error parsing task data for task ID ${id}`
+      );
+
+      if (!task) {
+        throw new Error(`Task with ID ${id} not found or could not be parsed`);
+      }
+
+      // 更新任务
+      const updatedTask = {
+        ...task,
+        ...updates,
+        updated_at: new Date().toISOString()
+      };
+
+      // 保存到 LevelDB
+      await this.persistentService.tasksDb.put(id, JSON.stringify(updatedTask));
+
+      return updatedTask;
+    } catch (error) {
+      this.logger.error(`Error updating task: ${error}`);
+      throw error;
+    }
+  }
+
   // 更新任务 - 直接接收更新对象
   async updateTaskWithSql(
     db: any,
@@ -721,7 +757,7 @@ export class MinerRepository {
     jobRewards: number,
     deviceId: string,
     taskId: string
-  ): Promise<ModelOfMiner<'Earning'>> {
+  ): Promise<void> {
     try {
       // 生成UUID
       const id = crypto.randomUUID();
@@ -741,8 +777,6 @@ export class MinerRepository {
 
       // 保存到 LevelDB
       await this.persistentService.earningsDb.put(id, JSON.stringify(earning));
-
-      return earning;
     } catch (error) {
       this.logger.error(`Error creating earning: ${error}`);
       throw error;

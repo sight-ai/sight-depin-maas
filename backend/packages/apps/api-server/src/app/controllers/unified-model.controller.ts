@@ -1,20 +1,18 @@
-import { Controller, Get, Post, Body, Res, Param, Query, Logger, Inject } from '@nestjs/common';
+import { Controller, Get, Post, Body, Res, Param, Query, Logger } from '@nestjs/common';
 import {
-  FrameworkDetectorService,
   FrameworkManagerService,
   ModelFramework
 } from '@saito/model-framework';
 
 /**
  * Unified model controller that works with both Ollama and vLLM
+ * Uses modern FrameworkManagerService architecture
  */
 @Controller('/api/unified')
 export class UnifiedModelController {
   private readonly logger = new Logger(UnifiedModelController.name);
 
   constructor(
-    @Inject('ModelServiceFactory') private readonly modelServiceFactory: any,
-    private readonly frameworkDetector: FrameworkDetectorService,
     private readonly frameworkManager: FrameworkManagerService
   ) {}
 
@@ -24,15 +22,17 @@ export class UnifiedModelController {
   @Get('/framework/status')
   async getFrameworkStatus() {
     try {
-      const detection = await this.frameworkDetector.detectFrameworks();
+      const detection = await this.frameworkManager.detectFrameworks();
+      const currentFramework = this.frameworkManager.getCurrentFramework();
+
       return {
         success: true,
         data: {
-          current: detection.detected,
+          current: currentFramework,
+          recommended: detection.recommended,
           available: detection.available,
-          primary: detection.primary,
-          secondary: detection.secondary,
-          config: detection.config
+          unavailable: detection.unavailable,
+          details: detection.details
         }
       };
     } catch (error) {
@@ -108,15 +108,15 @@ export class UnifiedModelController {
   async listModels(@Query('framework') framework?: string) {
     try {
       let service;
-      
+
       if (framework && Object.values(ModelFramework).includes(framework as ModelFramework)) {
-        service = await this.modelServiceFactory.createService(framework as ModelFramework);
+        service = await this.frameworkManager.createFrameworkService(framework as ModelFramework);
       } else {
-        service = await this.modelServiceFactory.getCurrentService();
+        service = await this.frameworkManager.createFrameworkService();
       }
 
       const models = await service.listModels();
-      
+
       return {
         success: true,
         data: models
@@ -136,8 +136,17 @@ export class UnifiedModelController {
   @Get('/health')
   async checkHealth() {
     try {
-      const healthStatus = await this.modelServiceFactory.getHealthStatus();
-      
+      const detection = await this.frameworkManager.detectFrameworks();
+      const currentFramework = this.frameworkManager.getCurrentFramework();
+
+      const healthStatus = {
+        current: currentFramework,
+        available: detection.available,
+        unavailable: detection.unavailable,
+        details: detection.details,
+        recommended: detection.recommended
+      };
+
       return {
         success: true,
         data: healthStatus
@@ -158,15 +167,15 @@ export class UnifiedModelController {
   async getVersion(@Query('framework') framework?: string) {
     try {
       let service;
-      
+
       if (framework && Object.values(ModelFramework).includes(framework as ModelFramework)) {
-        service = await this.modelServiceFactory.createService(framework as ModelFramework);
+        service = await this.frameworkManager.createFrameworkService(framework as ModelFramework);
       } else {
-        service = await this.modelServiceFactory.getCurrentService();
+        service = await this.frameworkManager.createFrameworkService();
       }
 
       const version = await service.getVersion();
-      
+
       return {
         success: true,
         data: version

@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Inject, Logger, Post, Query } from "@nestjs/common";
 import { MinerService } from "@saito/miner";
 import { DeviceStatusService } from "@saito/device-status";
-import { TaskSyncService, TASK_SYNC_SERVICE } from "@saito/task-sync";
+import { TTaskSyncService, TASK_SYNC_SERVICE } from "@saito/task-sync";
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 
@@ -53,7 +53,7 @@ export class MinerController {
   constructor(
     @Inject(MinerService) private readonly minerService: MinerService,
     @Inject(DeviceStatusService) private readonly deviceStatusService: DeviceStatusService,
-    @Inject(TASK_SYNC_SERVICE) private readonly taskSyncService: TaskSyncService,
+    @Inject(TASK_SYNC_SERVICE) private readonly taskSyncService: TTaskSyncService,
   ) {}
 
   @Get('/summary')

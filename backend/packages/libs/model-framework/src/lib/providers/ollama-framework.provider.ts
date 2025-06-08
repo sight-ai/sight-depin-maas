@@ -76,26 +76,28 @@ export class OllamaFrameworkProvider extends AbstractFrameworkProvider {
 
   /**
    * 创建 Ollama 服务实例
+   * 注意：这是遗留代码，新架构使用依赖注入
    */
   async createService(options?: ServiceCreationOptions): Promise<any> {
     try {
-      // 动态导入 Ollama 服务
-      const { CleanOllamaService } = await import('../services/clean-ollama.service');
-      
-      const service = new CleanOllamaService();
-      
+      // 这是遗留的实现，新架构应该使用 FrameworkManagerService
       if (options?.logger) {
-        options.logger.log('Created Ollama service instance');
+        options.logger.warn('Using legacy service creation - consider migrating to FrameworkManagerService');
       }
-      
-      return service;
+
+      // 返回一个简单的代理对象，指向新架构
+      return {
+        framework: 'ollama',
+        legacy: true,
+        message: 'Please use FrameworkManagerService for service creation'
+      };
     } catch (error) {
       const errorMessage = `Failed to create Ollama service: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      
+
       if (options?.logger) {
         options.logger.error(errorMessage);
       }
-      
+
       throw new Error(errorMessage);
     }
   }

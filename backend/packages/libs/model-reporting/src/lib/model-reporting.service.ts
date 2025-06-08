@@ -1,5 +1,6 @@
 import { Injectable, Inject, Logger, OnModuleInit } from '@nestjs/common';
 import { DeviceStatusService, RegistrationStorage } from '@saito/device-status';
+import { FrameworkManagerService } from '@saito/model-framework';
 import got from 'got-cjs';
 import { ModelReportingService } from './model-reporting.interface';
 import { ModelReportingModule } from './model-reporting.module';
@@ -14,7 +15,7 @@ export class DefaultModelReportingService implements ModelReportingService, OnMo
   private readonly registrationStorage = new RegistrationStorage();
 
   constructor(
-    @Inject('ModelServiceFactory') private readonly modelServiceFactory: any,
+    private readonly frameworkManager: FrameworkManagerService,
     @Inject(DeviceStatusService) private readonly deviceStatusService: DeviceStatusService
   ) {}
 
@@ -109,28 +110,29 @@ export class DefaultModelReportingService implements ModelReportingService, OnMo
    * Get model details from current model service
    * @param models List of model names
    */
-  private async getModelDetails(models: string[]): Promise<any[]> {
+  private async getModelDetails(models: string[]): Promise<Record<string, any>[]> {
     try {
-      const service = await this.modelServiceFactory.getCurrentService();
+      const service = await this.frameworkManager.createFrameworkService();
       const modelList = await service.listModels();
 
       // 确保模型列表格式正确，无论来自哪个框架
-      // 如果是 vLLM 框架，需要转换为 Ollama 格式以便网关接受
+      // 获取当前框架类型
+      const currentFramework = this.frameworkManager.getCurrentFramework();
       let processedModels = modelList.models;
 
-      if (modelList.framework === 'vllm') {
+      if (currentFramework === 'vllm') {
         // 将 vLLM 模型转换为 Ollama 格式
         processedModels = modelList.models.map((model: any) => ({
-          name: model.name,
-          size: this.estimateModelSize(model.name),
+          name: model.name || model.id,
+          size: this.formatModelSize(this.estimateModelSize(model.name || model.id)),
           modified_at: model.modified_at || new Date().toISOString(),
-          digest: this.generateDigest(model.name),
+          digest: this.generateDigest(model.name || model.id),
           details: {
             format: 'vllm',
-            family: this.extractModelFamily(model.name),
-            families: [this.extractModelFamily(model.name)],
-            parameter_size: this.extractParameters(model.name),
-            quantization_level: this.extractQuantization(model.name)
+            family: this.extractModelFamily(model.name || model.id),
+            families: [this.extractModelFamily(model.name || model.id)],
+            parameter_size: this.extractParameters(model.name || model.id),
+            quantization_level: this.extractQuantization(model.name || model.id)
           }
         }));
       }
@@ -211,6 +213,16 @@ export class DefaultModelReportingService implements ModelReportingService, OnMo
   }
 
   /**
+   * Format model size as string
+   */
+  private formatModelSize(sizeInBytes: number): string {
+    if (sizeInBytes === 0) return '0';
+
+    const gb = sizeInBytes / (1024 * 1024 * 1024);
+    return `${gb.toFixed(1)}GB`;
+  }
+
+  /**
    * Generate a simple digest for models without one
    */
   private generateDigest(modelName: string): string {
@@ -226,7 +238,7 @@ export class DefaultModelReportingService implements ModelReportingService, OnMo
    * @param gatewayAddress Gateway address
    * @param modelsData Models data
    */
-  private async sendToGateway(deviceId: string, gatewayAddress: string, modelsData: any[]): Promise<boolean> {
+  private async sendToGateway(deviceId: string, gatewayAddress: string, modelsData: Record<string, any>[]): Promise<boolean> {
     try {
       const gatewayUrl = `${gatewayAddress}/node/report-models`;
       this.logger.log(`Reporting models to gateway at ${gatewayUrl}`);

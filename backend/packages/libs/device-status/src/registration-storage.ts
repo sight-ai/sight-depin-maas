@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 /**
  * 注册信息存储接口
@@ -23,6 +23,7 @@ export interface RegistrationInfo {
  * 注册信息存储工具类
  * 负责将注册信息存储在系统用户目录下的.sightai文件夹中
  */
+@Injectable()
 export class RegistrationStorage {
   private readonly logger = new Logger(RegistrationStorage.name);
   private readonly configDir: string;

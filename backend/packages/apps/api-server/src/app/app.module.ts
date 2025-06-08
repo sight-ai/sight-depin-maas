@@ -10,10 +10,12 @@ import { DeviceStatusController } from "./controllers/device-status.controller";
 import { OpenAIController } from "./controllers/openai.controller";
 import { ModelsController } from "./controllers/models.controller";
 import { UnifiedModelController } from "./controllers/unified-model.controller";
+import { ModelConfigController } from "../controllers/model-config.controller";
 import { TunnelModule } from "@saito/tunnel";
 import { TaskSyncModule } from '@saito/task-sync';
 import { ModelReportingModule } from "@saito/model-reporting";
 import { ModelFrameworkModule } from "@saito/model-framework";
+import { EarningsTrackingModule } from './modules/earnings-tracking.module';
 @Module({
   imports: [
     forwardRef(() => MinerModule),
@@ -21,7 +23,8 @@ import { ModelFrameworkModule } from "@saito/model-framework";
     forwardRef(() => TunnelModule),
     TaskSyncModule,
     ModelReportingModule,
-    ModelFrameworkModule
+    ModelFrameworkModule,
+    EarningsTrackingModule
   ],
   controllers: [
     IndexController,
@@ -30,7 +33,8 @@ import { ModelFrameworkModule } from "@saito/model-framework";
     DeviceStatusController,
     OpenAIController,
     ModelsController,
-    UnifiedModelController
+    UnifiedModelController,
+    ModelConfigController
   ],
   providers: [
     {

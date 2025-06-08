@@ -32,19 +32,18 @@ OLLAMA_MODEL="deepscaler"
 ### Basic Usage
 
 ```typescript
-import { 
-  ModelServiceFactory, 
-  FrameworkDetectorService,
-  ModelFramework 
+import {
+  FrameworkManagerService,
+  ModelFramework
 } from '@saito/model-framework';
 
 // Get current service based on environment
-const factory = new ModelServiceFactory();
-const service = await factory.getCurrentService();
+const frameworkManager = new FrameworkManagerService();
+const service = await frameworkManager.createFrameworkService();
 
 // List models
 const models = await service.listModels();
-console.log(`Found ${models.total} models using ${models.framework}`);
+console.log(`Found ${models.models.length} models using ${frameworkManager.getCurrentFramework()}`);
 
 // Chat completion
 await service.chat({
@@ -54,20 +53,20 @@ await service.chat({
 }, response);
 
 // Switch framework
-await factory.switchFramework(ModelFramework.VLLM);
+await frameworkManager.switchFramework(ModelFramework.VLLM);
 ```
 
 ### Framework Detection
 
 ```typescript
-import { FrameworkDetectorService } from '@saito/model-framework';
+import { FrameworkManagerService } from '@saito/model-framework';
 
-const detector = new FrameworkDetectorService();
-const detection = await detector.detectFrameworks();
+const frameworkManager = new FrameworkManagerService();
+const detection = await frameworkManager.detectFrameworks();
 
-console.log(`Detected framework: ${detection.detected}`);
+console.log(`Current framework: ${frameworkManager.getCurrentFramework()}`);
 console.log(`Available frameworks: ${detection.available.join(', ')}`);
-console.log(`Primary status: ${detection.primary.isAvailable ? 'Available' : 'Unavailable'}`);
+console.log(`Recommended framework: ${detection.recommended}`);
 ```
 
 ## CLI Usage
@@ -128,11 +127,11 @@ curl -X POST http://localhost:8716/api/unified/chat \
 
 ### Components
 
-1. **FrameworkDetectorService**: Detects available frameworks and manages configuration
-2. **ModelServiceFactory**: Creates and manages service instances with caching
-3. **UnifiedModelService**: Abstract interface for model operations
-4. **OllamaUnifiedAdapter**: Adapter for Ollama service
-5. **VllmService**: Native vLLM service implementation
+1. **FrameworkManagerService**: Core service for framework detection, switching, and service creation
+2. **CleanOllamaService**: Modern Ollama service implementation
+3. **CleanVllmService**: Modern vLLM service implementation
+4. **DynamicModelConfigService**: Dynamic model configuration and replacement
+5. **IModelService**: Unified interface for all model operations
 
 ### Framework Support
 

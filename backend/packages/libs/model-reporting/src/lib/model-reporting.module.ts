@@ -1,24 +1,15 @@
 import { Module } from '@nestjs/common';
 import ModelReportingServiceProvider from './model-reporting.service';
-import {
-  ModelFrameworkModule,
-  ModelServiceFactoryImpl,
-  FrameworkDetectorService
-} from '@saito/model-framework';
+import { ModelFrameworkModule } from '@saito/model-framework';
 import { DeviceStatusModule } from '@saito/device-status';
 
 @Module({
   imports: [
-    DeviceStatusModule
+    DeviceStatusModule,
+    ModelFrameworkModule
   ],
   providers: [
-    ModelReportingServiceProvider,
-    FrameworkDetectorService,
-    ModelServiceFactoryImpl,
-    {
-      provide: 'ModelServiceFactory',
-      useClass: ModelServiceFactoryImpl
-    }
+    ModelReportingServiceProvider
   ],
   exports: [ModelReportingServiceProvider]
 })

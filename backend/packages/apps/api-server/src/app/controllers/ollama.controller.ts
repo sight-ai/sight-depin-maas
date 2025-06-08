@@ -1,6 +1,9 @@
-import { Controller, Post, Get, Body, Res, Logger } from '@nestjs/common';
+import { Controller, Post, Get, Body, Res, Logger, UseInterceptors } from '@nestjs/common';
 import { FrameworkManagerService } from '@saito/model-framework';
+import { EarningsTrackingInterceptor } from '../interceptors/earnings-tracking.interceptor';
 import { Response } from 'express';
+import { OllamaChatRequest, OllamaGenerateRequest } from '@saito/models';
+import z from 'zod';
 
 /**
  * Clean Ollama Controller
@@ -13,7 +16,8 @@ import { Response } from 'express';
  * 3. Clean error handling
  * 4. Support both Ollama and OpenAI formats natively
  */
-@Controller(['ollama', 'api'])
+@Controller(['ollama', 'ollama/api'])
+@UseInterceptors(EarningsTrackingInterceptor)
 export class ModelController {
   private readonly logger = new Logger(ModelController.name);
 
@@ -26,7 +30,7 @@ export class ModelController {
    * Direct passthrough to Ollama service
    */
   @Post('/api/chat')
-  async chat(@Body() args: any, @Res() res: Response) {
+  async chat(@Body() args: z.infer<typeof OllamaChatRequest>, @Res() res: Response) {
     try {
       // Get current framework service
       const service = await this.frameworkManager.createFrameworkService();
@@ -48,7 +52,7 @@ export class ModelController {
    * Direct passthrough to Ollama service
    */
   @Post('/api/generate')
-  async generate(@Body() args: any, @Res() res: Response) {
+  async generate(@Body() args: z.infer<typeof OllamaGenerateRequest>, @Res() res: Response) {
     try {
       // Get current framework service
       const service = await this.frameworkManager.createFrameworkService();

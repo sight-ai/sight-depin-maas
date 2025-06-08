@@ -38,7 +38,19 @@ export interface FrameworkStatus {
 }
 
 /**
- * Framework detection result
+ * Framework health status (detailed)
+ */
+export interface FrameworkHealthStatus {
+  isAvailable: boolean;
+  url: string;
+  version?: string;
+  error?: string;
+  lastChecked: Date;
+  responseTime?: number;
+}
+
+/**
+ * Framework detection result (legacy)
  */
 export interface FrameworkDetectionResult {
   detected: ModelFramework;
@@ -46,6 +58,16 @@ export interface FrameworkDetectionResult {
   primary: FrameworkStatus;
   secondary?: FrameworkStatus;
   config: FrameworkConfig;
+}
+
+/**
+ * Enhanced framework detection result (new architecture)
+ */
+export interface EnhancedFrameworkDetectionResult {
+  available: ModelFramework[];
+  unavailable: ModelFramework[];
+  details: Record<ModelFramework, FrameworkHealthStatus>;
+  recommended?: ModelFramework;
 }
 
 /**
