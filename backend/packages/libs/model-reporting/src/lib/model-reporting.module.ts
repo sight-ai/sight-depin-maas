@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import ModelReportingServiceProvider from './model-reporting.service';
-import { ModelFrameworkModule } from '@saito/model-framework';
+import { ModelInferenceClientModule } from '@saito/model-inference-client';
 import { DeviceStatusModule } from '@saito/device-status';
 
 @Module({
   imports: [
     DeviceStatusModule,
-    ModelFrameworkModule
+    ModelInferenceClientModule
   ],
   providers: [
     ModelReportingServiceProvider

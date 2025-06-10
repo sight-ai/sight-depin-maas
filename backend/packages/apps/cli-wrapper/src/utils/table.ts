@@ -257,3 +257,31 @@ export class TableUtils {
     console.log(table.toString());
   }
 }
+
+/**
+ * 创建表格的便捷函数
+ */
+export function createTable(headers: string[], rows: string[][], options?: {
+  title?: string;
+  colWidths?: number[];
+}): void {
+  if (options?.title) {
+    console.log(chalk.bold.cyan(`\n${options.title}`));
+    console.log(chalk.gray('─'.repeat(options.title.length + 4)));
+  }
+
+  const table = new Table({
+    head: headers.map(header => chalk.cyan(header)),
+    colWidths: options?.colWidths,
+    style: {
+      head: [],
+      border: ['gray']
+    }
+  });
+
+  rows.forEach(row => {
+    table.push(row.map(cell => chalk.white(cell)));
+  });
+
+  console.log(table.toString());
+}

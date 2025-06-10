@@ -3,8 +3,10 @@ import { createZodDto } from 'nestjs-zod';
 import { Response } from 'express';
 import { z } from 'zod';
 import { ModelReportingService } from "@saito/model-reporting";
-import { FrameworkManagerService, VllmProcessManagerService, OllamaProcessManagerService } from "@saito/model-framework";
-import type { VllmProcessConfig } from "@saito/model-framework";
+import { UnifiedModelService, ClientSwitchService } from "@saito/model-inference-client";
+import { FrameworkSwitchService } from "@saito/model-inference-framework-management";
+import { VllmProcessManagerService, OllamaProcessManagerService } from "@saito/model-inference-framework-management";
+import type { VllmProcessConfig } from "@saito/model-inference-framework-management";
 
 // Define DTOs for the new endpoints
 const ModelReportRequestSchema = z.object({
@@ -38,7 +40,8 @@ export class ModelsController {
   private readonly logger = new Logger(ModelsController.name);
 
   constructor(
-    private readonly frameworkManager: FrameworkManagerService,
+    private readonly unifiedModelService: UnifiedModelService,
+    private readonly frameworkSwitchService: FrameworkSwitchService,
     @Inject(ModelReportingService) private readonly modelReportingService: ModelReportingService,
     private readonly vllmProcessManager: VllmProcessManagerService,
     private readonly ollamaProcessManager: OllamaProcessManagerService
@@ -47,10 +50,9 @@ export class ModelsController {
   @Get('/list')
   async listModels(@Res() res: Response) {
     try {
-      // 使用新的框架管理器
-      const service = await this.frameworkManager.createFrameworkService();
-      const currentFramework = this.frameworkManager.getCurrentFramework();
-      const modelList = await service.listModels();
+      // 使用统一模型服务
+      const modelList = await this.unifiedModelService.listModels();
+      const currentFramework = this.unifiedModelService.getCurrentFramework();
 
       res.status(200).json({
         success: true,
@@ -92,7 +94,7 @@ export class ModelsController {
   @Get('/vllm/config')
   async getVllmConfig(@Res() res: Response) {
     try {
-      const currentFramework = this.frameworkManager.getCurrentFramework();
+      const currentFramework = this.unifiedModelService.getCurrentFramework();
 
       if (currentFramework !== 'vllm') {
         res.status(400).json({
@@ -126,7 +128,7 @@ export class ModelsController {
   @Put('/vllm/config')
   async updateVllmConfig(@Body() args: VllmConfigUpdateDto, @Res() res: Response) {
     try {
-      const currentFramework = this.frameworkManager.getCurrentFramework();
+      const currentFramework = this.unifiedModelService.getCurrentFramework();
 
       if (currentFramework !== 'vllm') {
         res.status(400).json({
@@ -171,7 +173,7 @@ export class ModelsController {
   @Post('/vllm/start')
   async startVllm(@Body() args: VllmStartDto, @Res() res: Response) {
     try {
-      const currentFramework = this.frameworkManager.getCurrentFramework();
+      const currentFramework = this.unifiedModelService.getCurrentFramework();
 
       if (currentFramework !== 'vllm') {
         res.status(400).json({
@@ -219,7 +221,7 @@ export class ModelsController {
   @Post('/vllm/stop')
   async stopVllm(@Res() res: Response) {
     try {
-      const currentFramework = this.frameworkManager.getCurrentFramework();
+      const currentFramework = this.unifiedModelService.getCurrentFramework();
 
       if (currentFramework !== 'vllm') {
         res.status(400).json({
@@ -248,7 +250,7 @@ export class ModelsController {
   @Post('/vllm/restart')
   async restartVllm(@Body() args: VllmStartDto, @Res() res: Response) {
     try {
-      const currentFramework = this.frameworkManager.getCurrentFramework();
+      const currentFramework = this.unifiedModelService.getCurrentFramework();
 
       if (currentFramework !== 'vllm') {
         res.status(400).json({
@@ -299,7 +301,7 @@ export class ModelsController {
   @Get('/vllm/status')
   async getVllmProcessStatus(@Res() res: Response) {
     try {
-      const currentFramework = this.frameworkManager.getCurrentFramework();
+      const currentFramework = this.unifiedModelService.getCurrentFramework();
 
       if (currentFramework !== 'vllm') {
         res.status(400).json({
@@ -337,7 +339,7 @@ export class ModelsController {
   @Post('/ollama/start')
   async startOllama(@Res() res: Response) {
     try {
-      const currentFramework = this.frameworkManager.getCurrentFramework();
+      const currentFramework = this.unifiedModelService.getCurrentFramework();
 
       if (currentFramework !== 'ollama') {
         res.status(400).json({
@@ -378,7 +380,7 @@ export class ModelsController {
   @Post('/ollama/stop')
   async stopOllama(@Res() res: Response) {
     try {
-      const currentFramework = this.frameworkManager.getCurrentFramework();
+      const currentFramework = this.unifiedModelService.getCurrentFramework();
 
       if (currentFramework !== 'ollama') {
         res.status(400).json({
@@ -407,7 +409,7 @@ export class ModelsController {
   @Post('/ollama/restart')
   async restartOllama(@Res() res: Response) {
     try {
-      const currentFramework = this.frameworkManager.getCurrentFramework();
+      const currentFramework = this.unifiedModelService.getCurrentFramework();
 
       if (currentFramework !== 'ollama') {
         res.status(400).json({
@@ -449,7 +451,7 @@ export class ModelsController {
   @Get('/ollama/status')
   async getOllamaProcessStatus(@Res() res: Response) {
     try {
-      const currentFramework = this.frameworkManager.getCurrentFramework();
+      const currentFramework = this.unifiedModelService.getCurrentFramework();
 
       if (currentFramework !== 'ollama') {
         res.status(400).json({

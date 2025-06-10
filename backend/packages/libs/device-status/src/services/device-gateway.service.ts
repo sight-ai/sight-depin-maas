@@ -23,6 +23,7 @@ export class DeviceGatewayService implements TDeviceGateway {
   constructor(
     @Inject(DEVICE_CONFIG_SERVICE)
     private readonly deviceConfigService: TDeviceConfig,
+    @Inject('TunnelService')
     private readonly tunnelService: TunnelService,
     private readonly dynamicConfigService: DynamicConfigService
   ) {}

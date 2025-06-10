@@ -1,8 +1,13 @@
 import { Controller, Post, Get, Body, Res, Logger, UseInterceptors } from '@nestjs/common';
-import { FrameworkManagerService } from '@saito/model-framework';
-import { EarningsTrackingInterceptor } from '../interceptors/earnings-tracking.interceptor';
+import { UnifiedModelService } from '@saito/model-inference-client';
+import { EarningsTrackingInterceptor } from '@saito/earnings-tracking';
 import { Response } from 'express';
-import { OpenAIChatCompletionRequest, OpenAICompletionRequest } from '@saito/models';
+import {
+  OpenAIChatCompletionRequestSchema,
+  OpenAICompletionRequestSchema,
+  OpenAIChatCompletionRequest,
+  OpenAICompletionRequest
+} from '@saito/models';
 import z from 'zod';
 
 /**
@@ -22,7 +27,7 @@ export class OpenAIController {
   private readonly logger = new Logger(OpenAIController.name);
 
   constructor(
-    private readonly frameworkManager: FrameworkManagerService
+    private readonly unifiedModelService: UnifiedModelService
   ) {}
 
   /**
@@ -31,16 +36,25 @@ export class OpenAIController {
    * Both Ollama and vLLM support OpenAI-compatible endpoints
    */
   @Post('/chat/completions')
-  async chatCompletions(@Body() args: z.infer<typeof OpenAIChatCompletionRequest>, @Res() res: Response) {
+  async chatCompletions(@Body() args: z.infer<typeof OpenAIChatCompletionRequestSchema>, @Res() res: Response) {
     try {
       this.logger.debug('openai Chat completions request received');
 
-      // Get current framework service
-      const service = await this.frameworkManager.createFrameworkService();
+      // Convert OpenAI format to unified format
+      const chatRequest = {
+        messages: args.messages.map(msg => ({
+          role: msg.role,
+          content: msg.content || ''
+        })),
+        model: args.model,
+        stream: args.stream,
+        temperature: args.temperature,
+        max_tokens: args.max_tokens
+      };
 
-      // Use OpenAI-compatible endpoint for both frameworks
+      // Use unified model service with OpenAI-compatible endpoint
       // Both Ollama and vLLM support /v1/chat/completions
-      await service.chat(args, res, '/v1/chat/completions');
+      await this.unifiedModelService.chat(chatRequest as any, res, '/v1/chat/completions');
 
     } catch (error) {
       this.logger.error(`Chat completions error: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -63,14 +77,20 @@ export class OpenAIController {
    * Both Ollama and vLLM support OpenAI-compatible endpoints
    */
   @Post('/completions')
-  async completions(@Body() args: z.infer<typeof OpenAICompletionRequest>, @Res() res: Response) {
+  async completions(@Body() args: z.infer<typeof OpenAICompletionRequestSchema>, @Res() res: Response) {
     try {
-      // Get current framework service
-      const service = await this.frameworkManager.createFrameworkService();
+      // Convert OpenAI format to unified format
+      const completionRequest = {
+        prompt: Array.isArray(args.prompt) ? args.prompt.join('\n') : args.prompt,
+        model: args.model,
+        stream: args.stream,
+        temperature: args.temperature,
+        max_tokens: args.max_tokens
+      };
 
-      // Use OpenAI-compatible endpoint for both frameworks
+      // Use unified model service with OpenAI-compatible endpoint
       // Both Ollama and vLLM support /v1/completions
-      await service.complete(args, res, '/v1/completions');
+      await this.unifiedModelService.complete(completionRequest as any, res, '/v1/completions');
 
     } catch (error) {
       this.logger.error(`Completions error: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -94,11 +114,9 @@ export class OpenAIController {
   @Get('/models')
   async listModels(@Res() res: Response) {
     try {
-      // Get current framework service
-      const service = await this.frameworkManager.createFrameworkService();
-      const currentFramework = this.frameworkManager.getCurrentFramework();
-
-      const modelList = await service.listModels();
+      // Use unified model service
+      const currentFramework = this.unifiedModelService.getCurrentFramework();
+      const modelList = await this.unifiedModelService.listModels();
 
       // Convert to OpenAI format for compatibility
       const openaiFormat = {
@@ -133,10 +151,8 @@ export class OpenAIController {
   @Post('/embeddings')
   async embeddings(@Body() args: any, @Res() res: Response) {
     try {
-      // Get current framework service
-      const service = await this.frameworkManager.createFrameworkService();
-
-      const result = await service.generateEmbeddings(args);
+      // Use unified model service
+      const result = await this.unifiedModelService.generateEmbeddings(args);
 
       res.json(result);
 
@@ -162,16 +178,15 @@ export class OpenAIController {
     try {
       this.logger.debug('Responses endpoint called');
 
-      // Get current framework service
-      const service = await this.frameworkManager.createFrameworkService();
+      // Use unified model service
 
       // Check if this is a chat completion request
       if (args.messages && Array.isArray(args.messages)) {
         // Handle as chat completion
-        await service.chat(args as any, res, '/v1/chat/completions');
+        await this.unifiedModelService.chat(args as any, res, '/v1/chat/completions');
       } else if (args.prompt) {
         // Handle as text completion
-        await service.complete(args as any, res, '/v1/completions');
+        await this.unifiedModelService.complete(args as any, res, '/v1/completions');
       } else {
         // Return error for invalid request
         if (!res.headersSent) {

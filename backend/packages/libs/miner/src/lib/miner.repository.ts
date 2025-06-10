@@ -4,12 +4,14 @@ import crypto from 'crypto';
 import {
   MinerEarning,
   MinerDeviceStatus,
-  MinerUptime,
-  MinerEarningsHistory,
-  MinerDailyRequests,
-  MinerTaskActivity,
   ModelOfMiner
 } from "@saito/models";
+
+// 临时类型定义，直到 models 包中添加这些类型
+type MinerUptime = any;
+type MinerEarningsHistory = any;
+type MinerDailyRequests = any;
+type MinerTaskActivity = any;
 
 /**
  * 安全地解析 JSON 字符串

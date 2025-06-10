@@ -1,8 +1,13 @@
 import { Controller, Post, Get, Body, Res, Logger, UseInterceptors } from '@nestjs/common';
-import { FrameworkManagerService } from '@saito/model-framework';
-import { EarningsTrackingInterceptor } from '../interceptors/earnings-tracking.interceptor';
+import { UnifiedModelService } from '@saito/model-inference-client';
+import { EarningsTrackingInterceptor } from '@saito/earnings-tracking';
 import { Response } from 'express';
-import { OllamaChatRequest, OllamaGenerateRequest } from '@saito/models';
+import {
+  OllamaChatRequestSchema,
+  OllamaGenerateRequestSchema,
+  OllamaChatRequest,
+  OllamaGenerateRequest
+} from '@saito/models';
 import z from 'zod';
 
 /**
@@ -22,7 +27,7 @@ export class ModelController {
   private readonly logger = new Logger(ModelController.name);
 
   constructor(
-    private readonly frameworkManager: FrameworkManagerService
+    private readonly unifiedModelService: UnifiedModelService
   ) {}
 
   /**
@@ -30,11 +35,10 @@ export class ModelController {
    * Direct passthrough to Ollama service
    */
   @Post('/api/chat')
-  async chat(@Body() args: z.infer<typeof OllamaChatRequest>, @Res() res: Response) {
+  async chat(@Body() args: z.infer<typeof OllamaChatRequestSchema>, @Res() res: Response) {
     try {
-      // Get current framework service
-      const service = await this.frameworkManager.createFrameworkService();
-      await service.chat(args, res, '/api/chat');
+      // Use unified model service
+      await this.unifiedModelService.chat(args, res, '/api/chat');
 
     } catch (error) {
       this.logger.error(`Chat error: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -52,11 +56,10 @@ export class ModelController {
    * Direct passthrough to Ollama service
    */
   @Post('/api/generate')
-  async generate(@Body() args: z.infer<typeof OllamaGenerateRequest>, @Res() res: Response) {
+  async generate(@Body() args: z.infer<typeof OllamaGenerateRequestSchema>, @Res() res: Response) {
     try {
-      // Get current framework service
-      const service = await this.frameworkManager.createFrameworkService();
-      await service.complete(args, res, '/api/generate');
+      // Use unified model service
+      await this.unifiedModelService.complete(args, res, '/api/generate');
 
     } catch (error) {
       this.logger.error(`Generate error: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -76,8 +79,7 @@ export class ModelController {
   @Get('/api/tags')
   async listModels(@Res() res: Response) {
     try {
-      const service = await this.frameworkManager.createFrameworkService();
-      const modelList = await service.listModels();
+      const modelList = await this.unifiedModelService.listModels();
 
       // Return in Ollama format
       res.json({ models: modelList.models });
@@ -98,8 +100,7 @@ export class ModelController {
   @Post('/api/embeddings')
   async embeddings(@Body() args: any, @Res() res: Response) {
     try {
-      const service = await this.frameworkManager.createFrameworkService();
-      const result = await service.generateEmbeddings(args);
+      const result = await this.unifiedModelService.generateEmbeddings(args);
 
       res.json(result);
 
@@ -118,8 +119,7 @@ export class ModelController {
   @Get('/api/version')
   async version(@Res() res: Response) {
     try {
-      const service = await this.frameworkManager.createFrameworkService();
-      const version = await service.getVersion();
+      const version = await this.unifiedModelService.getVersion();
 
       res.json(version);
 

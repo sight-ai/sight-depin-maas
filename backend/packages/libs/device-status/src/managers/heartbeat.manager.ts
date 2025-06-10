@@ -111,10 +111,10 @@ export class HeartbeatManager {
     deviceModel: string
   ): SystemHeartbeatData {
     // 获取主要 GPU 信息（如果有多个，使用第一个）
-    const primaryGpu = systemInfo.gpu.length > 0 ? systemInfo.gpu[0] : null;
+    const primaryGpu = systemInfo.gpus.length > 0 ? systemInfo.gpus[0] : null;
 
     // 确保 GPU 数据有效
-    const gpuUsagePercent = primaryGpu && primaryGpu.usage > 0 ? primaryGpu.usage : 0.1;
+    const gpuUsagePercent = primaryGpu && primaryGpu.utilization && primaryGpu.utilization > 0 ? primaryGpu.utilization : 0.1;
     const gpuTemperature = primaryGpu && primaryGpu.temperature && primaryGpu.temperature > 0
       ? primaryGpu.temperature
       : GPU_CONFIG.DEFAULT_TEMPERATURE;
@@ -160,10 +160,10 @@ export class HeartbeatManager {
         ram_used: systemInfo.memory.used,
         ram_available: formatNumber(ramAvailable),
         ram_available_percent: formatNumber(ramAvailablePercent),
-        gpu_model: primaryGpu ? primaryGpu.model : '',
+        gpu_model: primaryGpu ? primaryGpu.name : '',
         gpu_vendor: primaryGpu ? primaryGpu.vendor : '',
-        gpu_count: systemInfo.gpu.length,
-        gpu_memory: primaryGpu ? primaryGpu.memory : 0,
+        gpu_count: systemInfo.gpus.length,
+        gpu_memory: primaryGpu ? primaryGpu.memory.total : 0,
         gpu_temperature: gpuTemperature,
         disk_total: systemInfo.disk.total,
         disk_used: systemInfo.disk.used,
@@ -263,13 +263,13 @@ export class HeartbeatManager {
     deviceConfig: ModelOfMiner<'DeviceConfig'>,
     deviceModel: string
   ): any {
-    const primaryGpu = systemInfo.gpu.length > 0 ? systemInfo.gpu[0] : null;
+    const primaryGpu = systemInfo.gpus.length > 0 ? systemInfo.gpus[0] : null;
 
     return {
       code: deviceConfig.code,
       cpu_usage: systemInfo.cpu.usage,
       memory_usage: systemInfo.memory.usage,
-      gpu_usage: primaryGpu ? primaryGpu.usage : 0,
+      gpu_usage: primaryGpu ? (primaryGpu.utilization || 0) : 0,
       gpu_temperature: primaryGpu ? primaryGpu.temperature || GPU_CONFIG.DEFAULT_TEMPERATURE : GPU_CONFIG.DEFAULT_TEMPERATURE,
       model: deviceModel,
       timestamp: getCurrentTimestamp()

@@ -72,8 +72,8 @@ export class DefaultPersistentService
     // 在 LevelDB 中没有直接对应的操作，这里只是记录日志
   }
 
-  get(_sql: string, _params: unknown[] = []): unknown {
-    this.logger.debug(`LevelDB get called`);
+  queryOne(_sql: string, _params: unknown[] = []): unknown {
+    this.logger.debug(`LevelDB queryOne called`);
     // 直接返回 null，不进行 SQL 解析
     return null;
   }

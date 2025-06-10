@@ -15,6 +15,11 @@ export { default as AutoRegistrationServiceProvider } from './services/auto-regi
 export { default as StartupInitializationServiceProvider } from './services/startup-initialization.service';
 export * from './services/dynamic-config.service';
 
+// Enhanced device status services
+export * from './services/environment-detector.service';
+export * from './services/device-status-manager.service';
+export * from './services/enhanced-device-status.service';
+
 // Legacy components (for backward compatibility)
 export * from './collectors/system-info.collector';
 export * from './managers/heartbeat.manager';

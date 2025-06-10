@@ -287,16 +287,19 @@ export class ModelCommands {
       spinner.start();
 
       try {
-        const registrationStorage = AppServices.getRegistrationStorage();
-        const savedModels = registrationStorage.getReportedModels();
-        const reportedModels = savedModels; // 使用本地存储的模型信息
+        const registrationStorage = AppServices.getStorageManager();
+        const savedModels = await registrationStorage.getReportedModels();
+
+        // 提取模型名称列表
+        const reportedModelNames = savedModels.flatMap(report => report.models);
+        const savedModelNames = savedModels.flatMap(report => report.models);
 
         spinner.stop();
 
         console.log('');
-        TableUtils.showModelReportStatusTable(reportedModels, savedModels);
+        TableUtils.showModelReportStatusTable(reportedModelNames, savedModelNames);
 
-        if (reportedModels.length === 0 && savedModels.length === 0) {
+        if (reportedModelNames.length === 0 && savedModelNames.length === 0) {
           console.log('');
           UIUtils.showBox(
             'No Models Reported',

@@ -1,11 +1,11 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { ModelOfMiner } from '@saito/models';
-import { BaseTaskManager } from '../abstracts/base-task-manager';
+import { BaseTaskManager } from '../base-implementations/base-task-manager';
 import {
   IDataAccessLayer,
   MinerConfig,
   DATA_ACCESS_LAYER
-} from '../abstracts/miner-core.interface';
+} from '../core-contracts/miner-core.contracts';
 import {
   TDeviceConfig,
   DEVICE_CONFIG_SERVICE

@@ -12,7 +12,7 @@ import {
   DeviceConfig,
   RegistrationResult
 } from '../device-status.interface';
-import { FrameworkManagerService } from '@saito/model-framework';
+import { UnifiedModelService } from '@saito/model-inference-client';
 
 /**
  * 自动注册服务
@@ -40,7 +40,7 @@ export class AutoRegistrationService implements OnModuleInit {
     @Inject(DEVICE_GATEWAY_SERVICE)
     private readonly gatewayService: TDeviceGateway,
 
-    private readonly frameworkManager: FrameworkManagerService
+    private readonly unifiedModelService: UnifiedModelService
   ) {}
 
   /**
@@ -135,11 +135,11 @@ export class AutoRegistrationService implements OnModuleInit {
       this.logger.debug('Getting local models from model framework service...');
 
       // 尝试获取当前可用的服务
-      const service = await this.frameworkManager.createFrameworkService();
+      const modelList = await this.unifiedModelService.listModels();
+      const currentFramework = this.unifiedModelService.getCurrentFramework();
 
-      if (service) {
-        this.logger.debug(`Using ${service.framework} framework to get models`);
-        const modelList = await service.listModels();
+      if (modelList && modelList.models) {
+        this.logger.debug(`Using ${currentFramework} framework to get models`);
 
         // 转换为网关期望的格式
         const formattedModels = modelList.models.map((model: any) => ({
@@ -149,7 +149,7 @@ export class AutoRegistrationService implements OnModuleInit {
           modified_at: model.modified_at
         }));
 
-        this.logger.debug(`Found ${formattedModels.length} models from ${service.framework}`);
+        this.logger.debug(`Found ${formattedModels.length} models from ${currentFramework}`);
         return formattedModels;
       } else {
         this.logger.warn('No model framework service available, falling back to system service');

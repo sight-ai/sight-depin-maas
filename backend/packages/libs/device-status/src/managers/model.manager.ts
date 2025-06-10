@@ -1,8 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import got from 'got-cjs';
 import { z } from 'zod';
-import { ModelOfMiner, OllamaModelList } from '@saito/models';
-import { FrameworkManagerService, ModelFramework } from '@saito/model-framework';
+import { ModelOfMiner, OllamaModelListSchema } from '@saito/models';
+import { UnifiedModelService } from '@saito/model-inference-client';
+import { ModelFramework } from '@saito/models';
+// import { FrameworkSwitchService } from '@saito/model-inference-framework-management';
 import { ErrorHandler } from '../utils/error-handler';
 
 const STATUS_CHECK_TIMEOUT = 2000;
@@ -21,7 +23,8 @@ export class ModelManager {
   private readonly errorHandler = new ErrorHandler(ModelManager.name);
 
   constructor(
-    private readonly frameworkManager: FrameworkManagerService
+    private readonly unifiedModelService: UnifiedModelService,
+    // private readonly frameworkSwitchService: FrameworkSwitchService
   ) {}
 
   /**
@@ -30,10 +33,17 @@ export class ModelManager {
   async checkFrameworkStatus(): Promise<boolean> {
     return this.errorHandler.safeExecute(
       async () => {
-        const detection = await this.frameworkManager.detectFrameworks();
-
-        // 如果有任何可用的框架，返回 true
-        return detection.available.length > 0;
+        // 简化实现：直接检查 Ollama
+        try {
+          const ollamaUrl = process.env['OLLAMA_API_URL'] || 'http://127.0.0.1:11434';
+          const response = await got.get(`${ollamaUrl}/api/tags`, {
+            timeout: { request: STATUS_CHECK_TIMEOUT },
+            retry: { limit: 0 }
+          });
+          return response.statusCode === 200;
+        } catch {
+          return false;
+        }
       },
       'check-framework-status',
       false
@@ -43,38 +53,19 @@ export class ModelManager {
   /**
    * 获取本地模型列表
    */
-  async getLocalModels(): Promise<z.infer<typeof OllamaModelList>> {
+  async getLocalModels(): Promise<z.infer<typeof OllamaModelListSchema>> {
     return this.errorHandler.safeExecute(
       async () => {
-        const detection = await this.frameworkManager.detectFrameworks();
-        const currentFramework = this.frameworkManager.getCurrentFramework();
-
-        if (detection.available.length === 0) {
-          return { models: [] };
-        }
-
-        let url: URL;
-        if (currentFramework === ModelFramework.OLLAMA) {
-          const ollamaUrl = process.env['OLLAMA_API_URL'] || 'http://127.0.0.1:11434';
-          url = new URL(`api/tags`, ollamaUrl);
-        } else if (currentFramework === ModelFramework.VLLM) {
-          const vllmUrl = process.env['VLLM_API_URL'] || 'http://localhost:8000';
-          url = new URL(`v1/models`, vllmUrl);
-        } else {
-          return { models: [] };
-        }
+        // 简化实现：默认使用 Ollama
+        const ollamaUrl = process.env['OLLAMA_API_URL'] || 'http://127.0.0.1:11434';
+        const url = new URL(`api/tags`, ollamaUrl);
 
         const response = await got.get(url.toString(), {
           timeout: { request: STATUS_CHECK_TIMEOUT },
           retry: { limit: 0 }
         }).json();
 
-        // 转换 vLLM 格式
-        if (currentFramework === ModelFramework.VLLM) {
-          return this.convertVllmResponse(response);
-        }
-
-        return response as z.infer<typeof OllamaModelList>;
+        return response as z.infer<typeof OllamaModelListSchema>;
       },
       'get-local-models',
       { models: [] }
@@ -84,7 +75,7 @@ export class ModelManager {
   /**
    * 转换 vLLM 响应格式
    */
-  private convertVllmResponse(response: any): z.infer<typeof OllamaModelList> {
+  private convertVllmResponse(response: any): z.infer<typeof OllamaModelListSchema> {
     const vllmResponse = response as any;
     return {
       models: vllmResponse.data?.map((model: any) => ({
@@ -108,14 +99,14 @@ export class ModelManager {
   }> {
     return this.errorHandler.safeExecute(
       async () => {
-        const detection = await this.frameworkManager.detectFrameworks();
-        const currentFramework = this.frameworkManager.getCurrentFramework();
+        // 简化实现：检查 Ollama 是否可用
+        const isOllamaAvailable = await this.checkFrameworkStatus();
 
         return {
-          detected: currentFramework,
-          available: detection.available,
-          unavailable: detection.unavailable,
-          recommended: detection.recommended || null
+          detected: isOllamaAvailable ? ModelFramework.OLLAMA : null,
+          available: isOllamaAvailable ? [ModelFramework.OLLAMA] : [],
+          unavailable: isOllamaAvailable ? [ModelFramework.VLLM] : [ModelFramework.OLLAMA, ModelFramework.VLLM],
+          recommended: isOllamaAvailable ? ModelFramework.OLLAMA : null
         };
       },
       'get-framework-info',
@@ -134,15 +125,11 @@ export class ModelManager {
   async isFrameworkOnline(framework?: ModelFramework): Promise<boolean> {
     return this.errorHandler.safeExecute(
       async () => {
-        const detection = await this.frameworkManager.detectFrameworks();
-
-        if (framework) {
-          // 检查特定框架
-          return detection.available.includes(framework);
+        // 简化实现：只检查 Ollama
+        if (framework && framework !== ModelFramework.OLLAMA) {
+          return false;
         }
-
-        // 检查任何可用框架
-        return detection.available.length > 0;
+        return this.checkFrameworkStatus();
       },
       'check-framework-online',
       false
@@ -183,7 +170,7 @@ export class ModelManager {
   /**
    * 刷新模型列表（清除缓存并重新获取）
    */
-  async refreshModels(): Promise<z.infer<typeof OllamaModelList>> {
+  async refreshModels(): Promise<z.infer<typeof OllamaModelListSchema>> {
     // 这里可以添加清除缓存的逻辑
     return this.getLocalModels();
   }

@@ -1,7 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { ModelOfMiner } from '@saito/models';
-import { BaseDataAccessLayer } from '../abstracts/base-data-access';
-import { MinerConfig } from '../abstracts/miner-core.interface';
+import { BaseDataAccessLayer } from '../base-implementations/base-data-access';
+import { MinerConfig } from '../core-contracts/miner-core.contracts';
 import { MinerRepository } from '../miner.repository';
 
 /**
@@ -19,7 +19,12 @@ export class DataAccessService extends BaseDataAccessLayer {
       retryDelay: 1000,
       staleTaskThreshold: 5 * 60 * 1000,
       defaultPageSize: 20,
-      enableAutoCleanup: true
+      enableAutoCleanup: true,
+      maxConcurrentTasks: 10,
+      taskTimeout: 30 * 60 * 1000,
+      enableMetrics: true,
+      metricsInterval: 60 * 1000,
+      cleanupInterval: 24 * 60 * 60 * 1000
     });
   }
 
@@ -155,6 +160,18 @@ export class DataAccessService extends BaseDataAccessLayer {
 
   protected async executeTransaction<T>(handler: (db: any) => Promise<T>): Promise<T> {
     return this.repository.transaction(handler);
+  }
+
+  protected async executeLoadStatistics(): Promise<any> {
+    return this.repository.transaction(async (db) => {
+      // 默认实现，返回基础统计信息
+      return {
+        totalTasks: 0,
+        totalEarnings: 0,
+        activeDevices: 0,
+        lastUpdated: new Date()
+      };
+    });
   }
 
   // =============================================================================

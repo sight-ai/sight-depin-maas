@@ -15,34 +15,37 @@ import {
  * 默认系统信息值
  */
 export const DEFAULT_SYSTEM_INFO: SystemInfo = {
-  cpu: { 
-    model: 'Unknown CPU', 
-    cores: 1, 
-    threads: 1, 
-    usage: 0 
+  cpu: {
+    model: 'Unknown CPU',
+    cores: 1,
+    threads: 1,
+    usage: 0
   },
-  memory: { 
-    total: 8, 
-    used: 4, 
-    usage: 50 
+  memory: {
+    total: 8,
+    used: 4,
+    available: 4,
+    usage: 50
   },
-  gpu: [],
-  disk: { 
-    total: 100, 
-    used: 50, 
-    usage: 50 
+  gpus: [],
+  disk: {
+    total: 100,
+    used: 50,
+    available: 50,
+    usage: 50
   },
-  network: { 
-    inbound: 0, 
-    outbound: 0 
+  network: {
+    inbound: 0,
+    outbound: 0
   },
-  os: { 
-    name: 'Unknown OS', 
-    version: '0.0.0', 
-    arch: 'unknown', 
-    platform: 'unknown', 
-    uptime: 0 
-  }
+  os: {
+    name: 'Unknown OS',
+    version: '0.0.0',
+    arch: 'unknown',
+    platform: 'unknown',
+    uptime: 0
+  },
+  timestamp: new Date().toISOString()
 };
 
 /**
@@ -121,41 +124,14 @@ export const FORMAT_CONFIG = {
 // 验证函数
 // ========================================
 
-/**
- * 验证系统信息数据
- */
-export const validateSystemInfo = (data: unknown): SystemInfo => {
-  return SystemInfoSchema.parse(data);
-};
-
-/**
- * 验证心跳数据
- */
-export const validateSystemHeartbeatData = (data: unknown): SystemHeartbeatData => {
-  return SystemHeartbeatDataSchema.parse(data);
-};
-
-/**
- * 安全验证系统信息数据
- */
-export const safeValidateSystemInfo = (data: unknown): { success: true; data: SystemInfo } | { success: false; error: z.ZodError } => {
-  const result = SystemInfoSchema.safeParse(data);
-  if (result.success) {
-    return { success: true, data: result.data };
-  }
-  return { success: false, error: result.error };
-};
-
-/**
- * 安全验证心跳数据
- */
-export const safeValidateSystemHeartbeatData = (data: unknown): { success: true; data: SystemHeartbeatData } | { success: false; error: z.ZodError } => {
-  const result = SystemHeartbeatDataSchema.safeParse(data);
-  if (result.success) {
-    return { success: true, data: result.data };
-  }
-  return { success: false, error: result.error };
-};
+// 验证函数已迁移到 @saito/models/validators
+// 保留重新导出以维持向后兼容性
+export {
+  validateSystemInfo,
+  validateSystemHeartbeatData,
+  safeValidateSystemInfo,
+  safeValidateSystemHeartbeatData
+} from '@saito/models';
 
 /**
  * 验证并格式化数字

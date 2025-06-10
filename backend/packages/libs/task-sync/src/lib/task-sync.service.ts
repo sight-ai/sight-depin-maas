@@ -16,7 +16,6 @@ import {
 
 /**
  * 优化的任务同步服务
- * 使用抽象接口和依赖注入，实现清晰的职责分离
  */
 @Injectable()
 export class OptimizedTaskSyncService implements TTaskSyncService {

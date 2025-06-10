@@ -5,10 +5,6 @@ import got from "got-cjs";
 /**
  * Gateway Client Service
  * 专门负责与网关的HTTP通信
- * 职责：
- * 1. 发送HTTP请求到网关
- * 2. 处理网关响应格式
- * 3. 错误处理和重试
  */
 @Injectable()
 export class GatewayClientService implements TGatewayClient {

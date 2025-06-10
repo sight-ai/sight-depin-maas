@@ -13,7 +13,7 @@ import {
   GATEWAY_CONNECTOR,
   MinerConfig,
   MinerError
-} from '../abstracts/miner-core.interface';
+} from '../core-contracts/miner-core.contracts';
 import {
   TDeviceConfig,
   DEVICE_CONFIG_SERVICE

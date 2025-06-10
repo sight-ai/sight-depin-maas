@@ -191,8 +191,8 @@ export class DeviceCommands {
     try {
       UIUtils.showSection('Device Registration Status');
 
-      const registrationStorage = AppServices.getRegistrationStorage();
-      const savedInfo = registrationStorage.loadRegistrationInfo();
+      const registrationStorage = AppServices.getStorageManager();
+      const savedInfo = await registrationStorage.loadRegistrationInfo();
       if (savedInfo && savedInfo.isRegistered) {
         TableUtils.showDeviceStatusTable({
           deviceId: savedInfo.deviceId,

@@ -19,7 +19,7 @@ export class ConnectionManager {
   private readonly errorHandler = new ErrorHandler(ConnectionManager.name);
 
   constructor(
-    @Inject(forwardRef(() => TunnelService))
+    @Inject('TunnelService')
     private readonly tunnelService: TunnelService,
     private readonly configManager: DeviceConfigManager,
     private readonly registrationManager: DeviceRegistrationManager

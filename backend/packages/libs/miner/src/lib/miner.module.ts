@@ -11,7 +11,7 @@ import { EarningsManagerService } from './services/earnings-manager.service';
 import { DataAccessService } from './services/data-access.service';
 import { UnifiedMinerService } from './services/unified-miner.service';
 
-// 抽象接口和标识符
+// 核心契约接口和标识符
 import {
   TASK_MANAGER,
   EARNINGS_MANAGER,
@@ -20,14 +20,19 @@ import {
   DATA_ACCESS_LAYER,
   MINER_SERVICE,
   MinerConfig
-} from './abstracts/miner-core.interface';
+} from './core-contracts/miner-core.contracts';
 // 默认配置
 const defaultMinerConfig: MinerConfig = {
   maxRetries: 3,
   retryDelay: 1000,
   staleTaskThreshold: 5 * 60 * 1000, // 5分钟
   defaultPageSize: 20,
-  enableAutoCleanup: true
+  enableAutoCleanup: true,
+  maxConcurrentTasks: 10,
+  taskTimeout: 30 * 60 * 1000, // 30分钟
+  enableMetrics: true,
+  metricsInterval: 60 * 1000, // 1分钟
+  cleanupInterval: 24 * 60 * 60 * 1000 // 24小时
 };
 
 @Module({

@@ -119,13 +119,13 @@ export class DynamicConfigService {
       }
 
       // 默认基础路径
-      const defaultPath = '/api/model';
+      const defaultPath = '';
       this.logger.debug(`No base path in registration, using default: ${defaultPath}`);
       return defaultPath;
 
     } catch (error) {
       this.logger.error('Failed to get base path from registration:', error);
-      return '/api/model';
+      return '/';
     }
   }
 

@@ -7,7 +7,7 @@ export abstract class PersistentService {
   abstract get earningsDb(): any;
   abstract query(sql: string, params?: any[]): any[];
   abstract exec(sql: string, params?: any[]): void;
-  abstract get(sql: string, params?: any[]): any;
+  abstract queryOne(sql: string, params?: any[]): any;
   abstract run(sql: string, params?: any[]): any;
   abstract transaction<T>(callback: (db: any) => T): T;
 

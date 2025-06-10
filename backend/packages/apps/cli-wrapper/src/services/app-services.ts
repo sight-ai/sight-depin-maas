@@ -1,77 +1,76 @@
-import { RegistrationStorage } from '@saito/device-status';
+import { CliServiceOrchestrator } from './cli-service.orchestrator';
+import { ModelOfMiner } from '@saito/models';
 import axios from 'axios';
+import { StorageManagerService } from './storage-manager.service';
+
+type DeviceCredentials = ModelOfMiner<'DeviceCredentials'>;
 
 /**
- * 应用服务访问层
- * 提供轻量级的服务访问，不依赖完整的NestJS应用
+ * 应用服务访问层 - 重构版本
+ * 直接使用libs服务，不通过HTTP API
  */
 export class AppServices {
-  private static readonly BACKEND_BASE_URL = process.env['SIGHTAI_BACKEND_URL'] || 'http://localhost:8716';
-  private static readonly OLLAMA_BASE_URL =  process.env.OLLAMA_API_URL || 'http://localhost:11434';
+  private static cliService: CliServiceOrchestrator;
+
+  // 配置常量
+  private static readonly BACKEND_BASE_URL = process.env.BACKEND_BASE_URL || 'http://localhost:8716';
+  private static readonly OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 
   /**
-   * 模拟DeviceStatusService的注册功能
+   * 获取CLI服务实例
    */
-  static async register(credentials: any): Promise<any> {
-    try {
-      // // 构造请求体，包含basePath参数
-      // const requestBody = {
-      //   ...credentials,
-      //   // 从环境变量中获取basePath并传递给后端
-      //   basePath: process.env.API_SERVER_BASE_PATH
-      // };
+  private static getCliService(): CliServiceOrchestrator {
+    if (!this.cliService) {
+      this.cliService = new CliServiceOrchestrator();
+    }
+    return this.cliService;
+  }
 
-      // const response = await axios.post(`${this.BACKEND_BASE_URL}/api/v1/device-status/register`, requestBody, {
-      //   timeout: 10000
-      // });
-      const response = await axios.post(`${this.BACKEND_BASE_URL}/api/v1/device-status/register`, credentials, {
-        timeout: 10000
-      });
-      return { success: true, ...response.data };
+  /**
+   * 设备注册功能 - 直接使用服务
+   */
+  static async register(credentials: DeviceCredentials): Promise<any> {
+    try {
+      const cliService = this.getCliService();
+      const result = await cliService.register(credentials);
+
+      return {
+        success: result.success,
+        data: result.data,
+        error: result.error
+      };
     } catch (error: any) {
       return {
         success: false,
-        error: error.response?.data?.message || error.message || 'Registration failed'
+        error: error.message || 'Registration failed'
       };
     }
   }
 
   /**
-   * 模拟DeviceStatusService的清除注册功能
+   * 清除设备注册功能 - 直接使用服务
    */
   static async clearRegistration(): Promise<boolean> {
     try {
-      // 清除本地存储的注册信息
-      const storage = this.getRegistrationStorage();
-      storage.deleteRegistrationInfo();
-      return true;
+      const cliService = this.getCliService();
+      const result = await cliService.unregister();
+      return result.success;
     } catch (error) {
       return false;
     }
   }
 
   /**
-   * 检查Ollama服务状态（保持向后兼容）
+   * 检查框架服务状态 - 直接使用服务
    */
   static async checkOllamaStatus(): Promise<boolean> {
     try {
-      const response = await axios.get(`${this.OLLAMA_BASE_URL}/api/version`, {
-        timeout: 5000
-      });
-      return response.status === 200;
-    } catch (error) {
-      return false;
-    }
-  }
+      const cliService = this.getCliService();
+      const result = await cliService.getFrameworkStatus();
 
-  /**
-   * 检查当前框架状态
-   */
-  static async checkCurrentFrameworkStatus(): Promise<boolean> {
-    try {
-      const frameworkStatus = await this.getFrameworkStatus();
-      if (frameworkStatus.success) {
-        return frameworkStatus.data.primary.isAvailable;
+      if (result.success && result.data) {
+        const available = result.data.available || [];
+        return available.includes('ollama');
       }
       return false;
     } catch (error) {
@@ -80,18 +79,23 @@ export class AppServices {
   }
 
   /**
-   * 获取Ollama模型列表
+   * 检查当前框架状态 - 直接使用服务
    */
-  static async getOllamaModels(): Promise<any> {
+  static async checkCurrentFrameworkStatus(): Promise<boolean> {
     try {
-      const response = await axios.get(`${this.OLLAMA_BASE_URL}/api/tags`, {
-        timeout: 10000
-      });
-      return response.data;
+      const cliService = this.getCliService();
+      const result = await cliService.getFrameworkStatus();
+
+      if (result.success && result.data) {
+        return result.data.current !== null;
+      }
+      return false;
     } catch (error) {
-      return { models: [] };
+      return false;
     }
   }
+
+
 
   /**
    * 上报模型到后端
@@ -113,10 +117,10 @@ export class AppServices {
   }
 
   /**
-   * 获取RegistrationStorage实例
+   * 获取StorageManager实例
    */
-  static getRegistrationStorage(): RegistrationStorage {
-    return new RegistrationStorage();
+  static getStorageManager(): StorageManagerService {
+    return new StorageManagerService();
   }
 
   /**
@@ -180,38 +184,43 @@ export class AppServices {
   }
 
   /**
-   * 获取框架状态
+   * 获取框架状态 - 直接使用服务
    */
   static async getFrameworkStatus(): Promise<any> {
     try {
-      const response = await axios.get(`${this.BACKEND_BASE_URL}/api/unified/framework/status`, {
-        timeout: 10000
-      });
-      return response.data;
+      const cliService = this.getCliService();
+      const result = await cliService.getFrameworkStatus();
+
+      return {
+        success: result.success,
+        data: result.data,
+        error: result.error
+      };
     } catch (error: any) {
       return {
         success: false,
-        error: error.response?.data?.error || error.message || 'Failed to get framework status'
+        error: error.message || 'Failed to get framework status'
       };
     }
   }
 
   /**
-   * 切换框架
+   * 切换框架 - 直接使用服务
    */
   static async switchFramework(framework: string, force = false): Promise<any> {
     try {
-      const response = await axios.post(`${this.BACKEND_BASE_URL}/api/unified/framework/switch`, {
-        framework,
-        force
-      }, {
-        timeout: 10000
-      });
-      return response.data;
+      const cliService = this.getCliService();
+      const result = await cliService.switchFramework(framework, force);
+
+      return {
+        success: result.success,
+        data: result.data,
+        error: result.error
+      };
     } catch (error: any) {
       return {
         success: false,
-        error: error.response?.data?.error || error.message || 'Failed to switch framework'
+        error: error.message || 'Failed to switch framework'
       };
     }
   }
@@ -403,83 +412,320 @@ export class AppServices {
   }
 
   /**
-   * 获取统一模型列表 (使用新的清洁架构)
+   * 获取统一模型列表 - 直接使用服务
    */
   static async getUnifiedModels(framework?: string): Promise<any> {
     try {
-      // Try the new clean API first
-      const params = framework ? { framework } : {};
-      const response = await axios.get(`${this.BACKEND_BASE_URL}/api/unified/models`, {
-        params,
-        timeout: 10000
-      });
+      // 在 CLI 模式下，直接调用原生框架命令
+      return await this.getNativeModels(framework);
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to get models'
+      };
+    }
+  }
 
-      // Ensure the response is in the expected format for CLI
-      if (response.data.success && response.data.data) {
-        const modelList = response.data.data;
+  /**
+   * 获取原生框架模型列表 - 直接调用框架命令
+   */
+  static async getNativeModels(framework?: string): Promise<any> {
+    try {
+      // 直接从环境变量获取当前框架，避免访问私有属性
+      const currentFramework = framework || process.env.INFERENCE_FRAMEWORK || 'ollama';
 
-        // Convert to Ollama format for CLI compatibility
-        const ollamaFormat = {
-          models: modelList.models.map((model: any) => ({
-            name: model.name,
-            size: model.size || 0,
-            modified_at: model.modified_at || new Date().toISOString(),
-            details: {
-              family: model.family || 'unknown',
-              parameter_size: model.parameters || 'unknown',
-              format: model.format || 'unknown'
-            }
-          })),
-          framework: modelList.framework
-        };
-
+      if (currentFramework === 'ollama') {
+        return await this.getOllamaModels();
+      } else if (currentFramework === 'vllm') {
+        return await this.getVllmModels();
+      } else {
         return {
-          success: true,
-          data: ollamaFormat
+          success: false,
+          error: `Unsupported framework: ${currentFramework}`
+        };
+      }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to get native models'
+      };
+    }
+  }
+
+  /**
+   * 获取 Ollama 模型列表
+   */
+  static async getOllamaModels(): Promise<any> {
+    try {
+      const { spawn } = require('child_process');
+
+      return new Promise((resolve) => {
+        const process = spawn('ollama', ['list'], { stdio: 'pipe' });
+        let output = '';
+        let errorOutput = '';
+
+        process.stdout.on('data', (data: Buffer) => {
+          output += data.toString();
+        });
+
+        process.stderr.on('data', (data: Buffer) => {
+          errorOutput += data.toString();
+        });
+
+        process.on('close', (code: number) => {
+          if (code !== 0) {
+            resolve({
+              success: false,
+              error: `Ollama command failed: ${errorOutput || 'Unknown error'}`
+            });
+            return;
+          }
+
+          try {
+            // 解析 ollama list 输出
+            const lines = output.trim().split('\n');
+            const models: any[] = [];
+
+            // 跳过标题行
+            for (let i = 1; i < lines.length; i++) {
+              const line = lines[i].trim();
+              if (line) {
+                const parts = line.split(/\s+/);
+                if (parts.length >= 3) {
+                  models.push({
+                    name: parts[0],
+                    id: parts[1],
+                    size: parts[2],
+                    modified_at: parts.slice(3).join(' '),
+                    details: {
+                      family: 'ollama',
+                      parameter_size: 'unknown',
+                      format: 'ollama'
+                    }
+                  });
+                }
+              }
+            }
+
+            resolve({
+              success: true,
+              data: {
+                models,
+                framework: 'ollama'
+              }
+            });
+          } catch (parseError: any) {
+            resolve({
+              success: false,
+              error: `Failed to parse ollama output: ${parseError.message}`
+            });
+          }
+        });
+
+        process.on('error', (error: any) => {
+          resolve({
+            success: false,
+            error: `Failed to execute ollama command: ${error.message}`
+          });
+        });
+      });
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to get Ollama models'
+      };
+    }
+  }
+
+  /**
+   * 获取 vLLM 模型列表
+   */
+  static async getVllmModels(): Promise<any> {
+    try {
+      // vLLM 通过 API 获取模型列表
+      const vllmUrl = process.env.VLLM_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${vllmUrl}/v1/models`);
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: `vLLM API error: ${response.status} ${response.statusText}`
         };
       }
 
-      return response.data;
+      const data: any = await response.json();
+      const models = data.data?.map((model: any) => ({
+        name: model.id,
+        id: model.id,
+        size: 'unknown',
+        modified_at: new Date().toISOString(),
+        details: {
+          family: 'vllm',
+          parameter_size: 'unknown',
+          format: 'vllm'
+        }
+      })) || [];
+
+      return {
+        success: true,
+        data: {
+          models,
+          framework: 'vllm'
+        }
+      };
     } catch (error: any) {
       return {
         success: false,
-        error: error.response?.data?.error || error.message || 'Failed to get models'
+        error: error.message || 'Failed to get vLLM models'
       };
     }
   }
 
   /**
-   * 获取统一服务健康状态
+   * 获取统一服务健康状态 - 直接使用服务
    */
   static async getUnifiedHealth(): Promise<any> {
     try {
-      const response = await axios.get(`${this.BACKEND_BASE_URL}/api/unified/health`, {
-        timeout: 10000
-      });
-      return response.data;
+      const cliService = this.getCliService();
+      const result = await cliService.getUnifiedHealth();
+
+      return {
+        success: result.success,
+        data: result.data,
+        error: result.error
+      };
     } catch (error: any) {
       return {
         success: false,
-        error: error.response?.data?.error || error.message || 'Failed to get health status'
+        error: error.message || 'Failed to get health status'
       };
     }
   }
 
   /**
-   * 获取统一服务版本
+   * 获取统一服务版本 - 直接使用服务
    */
   static async getUnifiedVersion(framework?: string): Promise<any> {
     try {
-      const params = framework ? { framework } : {};
-      const response = await axios.get(`${this.BACKEND_BASE_URL}/api/unified/version`, {
-        params,
-        timeout: 10000
-      });
-      return response.data;
+      const cliService = this.getCliService();
+      const result = await cliService.getUnifiedVersion(framework);
+
+      return {
+        success: result.success,
+        data: result.data,
+        error: result.error
+      };
     } catch (error: any) {
       return {
         success: false,
-        error: error.response?.data?.error || error.message || 'Failed to get version'
+        error: error.message || 'Failed to get version'
+      };
+    }
+  }
+
+  // ===== 模型配置方法 =====
+
+  /**
+   * 获取默认模型 - 直接使用服务
+   */
+  static async getDefaultModel(framework?: string): Promise<any> {
+    try {
+      const cliService = this.getCliService();
+      const result = await cliService.getDefaultModel(framework);
+
+      return {
+        success: result.success,
+        data: result.data,
+        error: result.error
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to get default model'
+      };
+    }
+  }
+
+  /**
+   * 获取可用模型列表 - 直接使用服务
+   */
+  static async getAvailableModels(framework?: string): Promise<any> {
+    try {
+      const cliService = this.getCliService();
+      const result = await cliService.getAvailableModels(framework);
+
+      return {
+        success: result.success,
+        data: result.data,
+        error: result.error
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to get available models'
+      };
+    }
+  }
+
+  /**
+   * 获取模型统计信息 - 直接使用服务
+   */
+  static async getModelStats(): Promise<any> {
+    try {
+      const cliService = this.getCliService();
+      const result = await cliService.getModelStats();
+
+      return {
+        success: result.success,
+        data: result.data,
+        error: result.error
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to get model stats'
+      };
+    }
+  }
+
+  /**
+   * 刷新模型缓存 - 直接使用服务
+   */
+  static async refreshModels(framework?: string): Promise<any> {
+    try {
+      const cliService = this.getCliService();
+      const result = await cliService.refreshModels(framework);
+
+      return {
+        success: result.success,
+        data: result.data,
+        error: result.error
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to refresh models'
+      };
+    }
+  }
+
+  /**
+   * 清除模型缓存 - 直接使用服务
+   */
+  static async clearModelCache(): Promise<any> {
+    try {
+      const cliService = this.getCliService();
+      const result = await cliService.clearModelCache();
+
+      return {
+        success: result.success,
+        data: result.data,
+        error: result.error
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to clear model cache'
       };
     }
   }

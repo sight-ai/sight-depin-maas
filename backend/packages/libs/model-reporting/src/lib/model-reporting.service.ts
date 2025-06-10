@@ -1,6 +1,6 @@
 import { Injectable, Inject, Logger, OnModuleInit } from '@nestjs/common';
 import { DeviceStatusService, RegistrationStorage } from '@saito/device-status';
-import { FrameworkManagerService } from '@saito/model-framework';
+import { UnifiedModelService } from '@saito/model-inference-client';
 import got from 'got-cjs';
 import { ModelReportingService } from './model-reporting.interface';
 import { ModelReportingModule } from './model-reporting.module';
@@ -15,7 +15,7 @@ export class DefaultModelReportingService implements ModelReportingService, OnMo
   private readonly registrationStorage = new RegistrationStorage();
 
   constructor(
-    private readonly frameworkManager: FrameworkManagerService,
+    private readonly unifiedModelService: UnifiedModelService,
     @Inject(DeviceStatusService) private readonly deviceStatusService: DeviceStatusService
   ) {}
 
@@ -112,12 +112,11 @@ export class DefaultModelReportingService implements ModelReportingService, OnMo
    */
   private async getModelDetails(models: string[]): Promise<Record<string, any>[]> {
     try {
-      const service = await this.frameworkManager.createFrameworkService();
-      const modelList = await service.listModels();
+      const modelList = await this.unifiedModelService.listModels();
 
       // 确保模型列表格式正确，无论来自哪个框架
       // 获取当前框架类型
-      const currentFramework = this.frameworkManager.getCurrentFramework();
+      const currentFramework = this.unifiedModelService.getCurrentFramework();
       let processedModels = modelList.models;
 
       if (currentFramework === 'vllm') {

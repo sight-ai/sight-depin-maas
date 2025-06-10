@@ -24,11 +24,10 @@ import {
 
 /**
  * 优化的设备状态服务
- * 使用抽象接口和依赖注入，实现清晰的职责分离
  */
 @Injectable()
-export class OptimizedDeviceStatusService implements TDeviceStatusService {
-  private readonly logger = new Logger(OptimizedDeviceStatusService.name);
+export class DefaultDeviceStatusService implements TDeviceStatusService {
+  private readonly logger = new Logger(DefaultDeviceStatusService.name);
 
   constructor(
     @Inject(DEVICE_REGISTRY_SERVICE)
@@ -258,9 +257,6 @@ export class OptimizedDeviceStatusService implements TDeviceStatusService {
     }
   }
 }
-
-// 为了保持向后兼容，将优化版本作为默认实现
-export class DefaultDeviceStatusService extends OptimizedDeviceStatusService {}
 
 const DeviceStatusServiceProvider = {
   provide: DeviceStatusService,

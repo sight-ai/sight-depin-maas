@@ -1,15 +1,7 @@
 import {
-  TTask,
-  TSummary,
-  TCreateTaskRequest,
-  TConnectTaskListRequest,
-  TConnectTaskListResponse,
-  TEarning,
-  Earning,
-  TMinerEarning,
-  MinerEarning,
   ModelOfMiner
 } from "@saito/models";
+
 import { MinerService } from "./miner.interface";
 import { MinerRepository } from "./miner.repository";
 import { Inject, Logger } from "@nestjs/common";
@@ -17,7 +9,6 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { DeviceStatusService } from "@saito/device-status";
 import * as R from 'ramda';
 import got from "got-cjs";
-import crypto from 'crypto';
 
 // Constants
 const MAX_DB_RETRIES = 3;

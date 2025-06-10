@@ -55,10 +55,11 @@ export class SystemInfoCollector {
       const systemInfo: SystemInfo = {
         cpu: cpuInfo,
         memory: memoryInfo,
-        gpu: gpuInfo,
+        gpus: gpuInfo,
         disk: diskInfo,
         network: networkInfo,
-        os: osInfo
+        os: osInfo,
+        timestamp: new Date().toISOString()
       };
 
       // 更新缓存
@@ -117,6 +118,7 @@ export class SystemInfoCollector {
       return {
         total: totalGB,
         used: usedGB,
+        available: totalGB - usedGB,
         usage: formatNumber(usage)
       };
     } catch (error) {
@@ -124,6 +126,7 @@ export class SystemInfoCollector {
       return {
         total: 8,
         used: 4,
+        available: 4,
         usage: 50
       };
     }
@@ -137,11 +140,16 @@ export class SystemInfoCollector {
       const gpuData = await si.graphics();
       const gpus = gpuData.controllers || [];
 
-      return gpus.map(gpu => ({
-        model: gpu.model || 'Unknown GPU',
+      return gpus.map((gpu, index) => ({
+        id: index,
+        name: gpu.model || 'Unknown GPU',
         vendor: gpu.vendor || 'Unknown',
-        memory: bytesToGB(gpu.vram || 0),
-        usage: 0, // systeminformation 不直接提供 GPU 使用率
+        memory: {
+          total: bytesToGB(gpu.vram || 0),
+          used: 0,
+          usage: 0
+        },
+        utilization: 0, // systeminformation 不直接提供 GPU 使用率
         temperature: undefined,
         isAppleSilicon: isAppleSiliconGpu(gpu.vendor || '')
       }));
@@ -169,6 +177,7 @@ export class SystemInfoCollector {
       return {
         total: totalGB,
         used: usedGB,
+        available: totalGB - usedGB,
         usage: formatNumber(usage)
       };
     } catch (error) {
@@ -176,6 +185,7 @@ export class SystemInfoCollector {
       return {
         total: 100,
         used: 50,
+        available: 50,
         usage: 50
       };
     }

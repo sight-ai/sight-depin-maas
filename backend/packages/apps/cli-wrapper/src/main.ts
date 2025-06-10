@@ -7,7 +7,7 @@ import { ModelCommands } from './commands/models';
 import { VllmCommands } from './commands/vllm';
 import { OllamaCommands } from './commands/ollama';
 import { AppServices } from './services/app-services';
-import { ProcessManager } from './services/process-manager';
+import { ProcessManagerService } from './services/process-manager';
 import { UIUtils } from './utils/ui';
 import inquirer from 'inquirer';
 import * as dotenv from 'dotenv';
@@ -244,7 +244,7 @@ async function startInteractiveCli(): Promise<void> {
           break;
         case 'start-server':
           UIUtils.info('Starting backend server in background...');
-          const startResult = ProcessManager.startDaemonProcess();
+          const startResult = ProcessManagerService.startDaemonProcess();
           if (startResult.success) {
             UIUtils.success('Backend server started in background');
             UIUtils.info(`Process ID: ${startResult.pid}`);
@@ -254,7 +254,7 @@ async function startInteractiveCli(): Promise<void> {
           break;
         case 'stop-server':
           UIUtils.info('Stopping backend server...');
-          const stopResult = ProcessManager.stopDaemonProcess();
+          const stopResult = ProcessManagerService.stopDaemonProcess();
           if (stopResult.success) {
             UIUtils.success('Backend server stopped successfully');
           } else {
@@ -262,7 +262,7 @@ async function startInteractiveCli(): Promise<void> {
           }
           break;
         case 'server-status':
-          const status = ProcessManager.getServerStatus();
+          const status = ProcessManagerService.getServerStatus();
           if (status.running) {
             UIUtils.success('Backend server is running');
             console.log(`  Process ID: ${status.pid}`);
@@ -272,7 +272,7 @@ async function startInteractiveCli(): Promise<void> {
           }
           break;
         case 'view-logs':
-          const logInfo = ProcessManager.getLogFileInfo();
+          const logInfo = ProcessManagerService.getLogFileInfo();
           if (!logInfo.exists) {
             UIUtils.warning('No log file found');
             UIUtils.info('Backend server may not have been started in daemon mode yet');
@@ -282,7 +282,7 @@ async function startInteractiveCli(): Promise<void> {
             console.log(`🕒 Last modified: ${logInfo.lastModified!.toLocaleString()}`);
             console.log('');
 
-            const logResult = ProcessManager.readLogs(30); // 显示最后30行
+            const logResult = ProcessManagerService.readLogs(30); // 显示最后30行
             if (logResult.success && logResult.logs) {
               if (logResult.logs.length === 0) {
                 UIUtils.info('Log file is empty');
@@ -361,7 +361,7 @@ program
         // 后台模式：使用 ProcessManager 创建独立进程
         UIUtils.info('Starting server in background mode...');
 
-        const result = ProcessManager.startDaemonProcess();
+        const result = ProcessManagerService.startDaemonProcess();
 
         if (result.success) {
           UIUtils.success('Backend server started in background');
@@ -398,7 +398,7 @@ program
       const spinner = UIUtils.createSpinner('Stopping server...');
       spinner.start();
 
-      const result = ProcessManager.stopDaemonProcess();
+      const result = ProcessManagerService.stopDaemonProcess();
       spinner.stop();
 
       if (result.success) {
@@ -423,7 +423,7 @@ program
     try {
       UIUtils.showSection('Backend Server Status');
 
-      const status = ProcessManager.getServerStatus();
+      const status = ProcessManagerService.getServerStatus();
 
       if (status.running) {
         UIUtils.success('Backend server is running');
@@ -455,7 +455,7 @@ program
       if (options.clear) {
         UIUtils.showSection('Clearing Backend Server Logs');
 
-        const result = ProcessManager.clearLogs();
+        const result = ProcessManagerService.clearLogs();
         if (result.success) {
           UIUtils.success('Log file cleared successfully');
         } else {
@@ -468,7 +468,7 @@ program
       UIUtils.showSection('Backend Server Logs');
 
       // 检查服务器状态
-      const status = ProcessManager.getServerStatus();
+      const status = ProcessManagerService.getServerStatus();
       if (!status.running) {
         UIUtils.warning('Backend server is not running');
         UIUtils.info('Use "sight start --daemon" to start the server in background');
@@ -476,7 +476,7 @@ program
       }
 
       // 获取日志文件信息
-      const logInfo = ProcessManager.getLogFileInfo();
+      const logInfo = ProcessManagerService.getLogFileInfo();
       if (!logInfo.exists) {
         UIUtils.warning('No log file found');
         UIUtils.info('Backend server may not have been started in daemon mode yet');
@@ -491,7 +491,7 @@ program
 
       // 读取日志
       const lines = parseInt(options.lines, 10) || 50;
-      const result = ProcessManager.readLogs(lines);
+      const result = ProcessManagerService.readLogs(lines);
 
       if (result.success && result.logs) {
         if (result.logs.length === 0) {
@@ -595,7 +595,7 @@ program
       const spinner = UIUtils.createSpinner('Stopping server...');
       spinner.start();
 
-      const result = ProcessManager.stopDaemonProcess();
+      const result = ProcessManagerService.stopDaemonProcess();
       spinner.stop();
 
       if (result.success) {
@@ -1086,14 +1086,18 @@ frameworkCommand
 
         console.log('');
         console.log('🔧 Primary Framework Status:');
-        console.log(`  Framework: ${data.primary.framework}`);
-        console.log(`  Available: ${data.primary.isAvailable ? '✅' : '❌'}`);
-        console.log(`  URL: ${data.primary.url}`);
-        if (data.primary.version) {
-          console.log(`  Version: ${data.primary.version}`);
-        }
-        if (data.primary.error) {
-          console.log(`  Error: ${data.primary.error}`);
+        if (data.primary) {
+          console.log(`  Framework: ${data.primary.framework}`);
+          console.log(`  Available: ${data.primary.isAvailable ? '✅' : '❌'}`);
+          console.log(`  URL: ${data.primary.url}`);
+          if (data.primary.version) {
+            console.log(`  Version: ${data.primary.version}`);
+          }
+          if (data.primary.error) {
+            console.log(`  Error: ${data.primary.error}`);
+          }
+        } else {
+          console.log('  ❌ Primary framework information not available');
         }
 
         if (data.secondary) {

@@ -2,16 +2,27 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { spawn } from 'child_process';
-import { UIUtils } from '../utils/ui';
+import {
+  IProcessManager,
+  ProcessResult,
+  ProcessStatus,
+  CliError
+} from '../abstractions/cli.interfaces';
+import { ErrorHandlerService } from '@saito/common';
 
 /**
- * 进程管理服务
- * 负责管理后台进程的启动、停止和状态检查
+ * 进程管理服务 
+ * 只负责后台进程的生命周期管理
  */
-export class ProcessManager {
+export class ProcessManagerService implements IProcessManager {
+  private readonly errorHandler: ErrorHandlerService;
   private static readonly PID_FILE_NAME = 'sightai.pid';
   private static readonly LOCK_FILE_NAME = 'sightai.lock';
   private static readonly LOG_FILE_NAME = 'sightai.log';
+
+  constructor(errorHandler?: ErrorHandlerService) {
+    this.errorHandler = errorHandler || new ErrorHandlerService();
+  }
 
   /**
    * 获取用户目录下的.sightai路径或Docker数据目录
@@ -74,7 +85,7 @@ export class ProcessManager {
         executable: process.argv[1]
       }));
     } catch (error) {
-      UIUtils.error(`Failed to save PID: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error(`Failed to save PID: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -382,5 +393,72 @@ export class ProcessManager {
     } catch (error) {
       return { exists: false };
     }
+  }
+
+  // ===== IProcessManager 接口实现 =====
+
+  async startDaemon(): Promise<ProcessResult> {
+    const result = ProcessManagerService.startDaemonProcess();
+    return {
+      success: result.success,
+      message: result.success ? 'Daemon started successfully' : (result.error || 'Failed to start daemon'),
+      pid: result.pid,
+      error: result.error
+    };
+  }
+
+  async stopDaemon(): Promise<ProcessResult> {
+    const result = ProcessManagerService.stopDaemonProcess();
+    return {
+      success: result.success,
+      message: result.success ? 'Daemon stopped successfully' : (result.error || 'Failed to stop daemon'),
+      error: result.error
+    };
+  }
+
+  async getStatus(): Promise<ProcessStatus> {
+    const status = ProcessManagerService.getServerStatus();
+    return {
+      isRunning: status.running,
+      pid: status.pid,
+      uptime: 0, // 可以扩展计算运行时间
+      memoryUsage: 0, // 可以扩展获取内存使用
+      cpuUsage: 0     // 可以扩展获取CPU使用
+    };
+  }
+
+  async isRunning(): Promise<boolean> {
+    const status = ProcessManagerService.getServerStatus();
+    return status.running;
+  }
+
+  async restart(): Promise<ProcessResult> {
+    // 先停止再启动
+    const stopResult = await this.stopDaemon();
+    if (stopResult.success) {
+      // 等待一段时间确保进程完全停止
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const startResult = await this.startDaemon();
+      return {
+        success: startResult.success,
+        message: startResult.success ? 'Daemon restarted successfully' : 'Failed to restart daemon',
+        pid: startResult.pid,
+        error: startResult.error
+      };
+    }
+    return {
+      success: false,
+      message: 'Failed to stop daemon for restart',
+      error: stopResult.error
+    };
+  }
+
+  async kill(signal?: string): Promise<ProcessResult> {
+    const result = await this.stopDaemon();
+    return {
+      success: result.success,
+      message: result.success ? 'Process killed successfully' : 'Failed to kill process',
+      error: result.error
+    };
   }
 }
