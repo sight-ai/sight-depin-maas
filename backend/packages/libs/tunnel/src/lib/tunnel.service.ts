@@ -6,12 +6,12 @@ import { MessageHandlerRegistry } from './message-handler/message-handler.regist
 import { UnknownMessageTypeError } from './errors/unknown-message-type.error';
 import { MessageGateway } from './message-gateway/message-gateway.interface';
 import { ConnectionError, DeviceRegistrationError, MessageSendError } from './errors/connection.error';
+import { GLOBAL_PEER_ID_PROVIDER } from './tunnel.module';
 
 /**
  * 隧道服务实现
  * 负责建立和管理与网关的WebSocket连接，处理消息传递
  *
- * 重构后的实现，遵循tunnel-gateway的设计格式和风格
  */
 @Injectable()
 export class TunnelServiceImpl implements TunnelService {
@@ -36,7 +36,7 @@ export class TunnelServiceImpl implements TunnelService {
   constructor(
     private readonly handlerRegistry: MessageHandlerRegistry,
     @Inject('MessageGateway') private readonly messageGateway: MessageGateway,
-    @Inject('PEER_ID') private readonly peerId: string,
+    @Inject('PEER_ID') private peerId: string,
   ) {
     // 初始化socket为空对象，实际连接在createSocket中建立
     this.socket = {} as Socket;
@@ -47,19 +47,25 @@ export class TunnelServiceImpl implements TunnelService {
    * 处理消息
    */
   async handleMessage(message: TunnelMessage, listener?: TunnelMessageListener): Promise<void> {
-    this.logger.log("TunnelServiceImpl.handleMessage", message);
+    // this.logger.log("TunnelServiceImpl.handleMessage", message);
+    this.logger.log(`🔍 当前设备ID (peerId): ${this.peerId}`);
+    this.logger.log(`📨 消息目标: ${message.to}, 消息来源: ${message.from}`);
+    this.logger.log(`🔄 消息类型: ${message.type}`);
 
     if (message.from === message.to) {
+      this.logger.debug("忽略自发自收消息");
       return;
     }
 
     // 使用注入的peerId
     if (message.to === this.peerId) {
+      this.logger.log(`✅ 消息目标匹配，处理入站消息`);
       await this.handleIncomeMessage(message, listener);
     } else if (message.from === this.peerId) {
+      this.logger.log(`📤 消息来源匹配，处理出站消息`);
       await this.handleOutcomeMessage(message, listener);
     } else {
-      this.logger.warn(`Ignore message not related to ${this.peerId}: ${message.from} -> ${message.to}`);
+      this.logger.warn(`❌ 忽略与设备ID不匹配的消息 - 当前设备: ${this.peerId}, 消息路径: ${message.from} -> ${message.to}`);
     }
   }
 
@@ -95,6 +101,11 @@ export class TunnelServiceImpl implements TunnelService {
   async connectSocket(node_id: string): Promise<void> {
     try {
       this.node_id = node_id;
+      this.peerId = node_id;
+
+      // 更新全局PEER_ID提供者
+      GLOBAL_PEER_ID_PROVIDER.setPeerId(node_id);
+
       await this.messageGateway.registerDevice(node_id);
       this.logger.log(`发送设备注册请求，ID: ${node_id}`);
     } catch (error) {
@@ -121,54 +132,6 @@ export class TunnelServiceImpl implements TunnelService {
       this.logger.error(`断开连接失败: ${error instanceof Error ? error.message : '未知错误'}`);
       throw error;
     }
-  }
-
-  /**
-   * 向设备发送消息
-   */
-  async handleSendToDevice(params: { deviceId: string; message: string }): Promise<void> {
-    // TODO: 实现向设备发送消息的逻辑
-    this.logger.debug(`向设备 ${params.deviceId} 发送消息: ${params.message}`);
-  }
-
-  /**
-   * 为任务注册流式处理器
-   */
-  async handleRegisterStreamHandler(params: {
-    taskId: string;
-    targetDeviceId: string;
-    onMessage: (message: any) => Promise<void>;
-  }): Promise<void> {
-    const { taskId, targetDeviceId, onMessage } = params;
-
-    this.streamHandlers.set(taskId, onMessage);
-
-    if (!this.deviceTaskMap.has(targetDeviceId)) {
-      this.deviceTaskMap.set(targetDeviceId, new Set<string>());
-    }
-    this.deviceTaskMap.get(targetDeviceId)?.add(taskId);
-
-    this.logger.debug(`为任务 ${taskId} 注册流式处理器，目标设备: ${targetDeviceId}`);
-  }
-
-  /**
-   * 为任务注册非流式处理器
-   */
-  async handleRegisterNoStreamHandler(params: {
-    taskId: string;
-    targetDeviceId: string;
-    onMessage: (message: any) => Promise<any>;
-  }): Promise<void> {
-    const { taskId, targetDeviceId, onMessage } = params;
-
-    this.noStreamHandlers.set(taskId, onMessage);
-
-    if (!this.deviceTaskMap.has(targetDeviceId)) {
-      this.deviceTaskMap.set(targetDeviceId, new Set<string>());
-    }
-    this.deviceTaskMap.get(targetDeviceId)?.add(taskId);
-
-    this.logger.debug(`为任务 ${taskId} 注册非流式处理器，目标设备: ${targetDeviceId}`);
   }
 
   /**

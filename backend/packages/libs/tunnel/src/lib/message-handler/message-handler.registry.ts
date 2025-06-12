@@ -9,6 +9,7 @@ import {
   OutcomeBaseMessageHandler,
 } from './base-message-handler';
 import { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
+import { TunnelMessage } from '@saito/models';
 
 @Injectable()
 export class MessageHandlerRegistry implements OnModuleInit {
@@ -62,6 +63,40 @@ export class MessageHandlerRegistry implements OnModuleInit {
 
   getOutcomeHandler(type: string): OutcomeBaseMessageHandler | undefined {
     return this.outcomeHandlers.get(type);
+  }
+
+  /**
+   * 处理入站消息
+   */
+  async handleIncomeMessage(message: TunnelMessage): Promise<void> {
+    const handler = this.incomeHandlers.get(message.type);
+    if (!handler) {
+      this.logger.warn(`No income handler found for message type: ${message.type}`);
+      return;
+    }
+
+    try {
+      await (handler as any).handleIncomeMessage(message);
+    } catch (error) {
+      this.logger.error(`Income handler error for ${message.type}:`, error);
+    }
+  }
+
+  /**
+   * 处理出站消息
+   */
+  async handleOutcomeMessage(message: TunnelMessage): Promise<void> {
+    const handler = this.outcomeHandlers.get(message.type);
+    if (!handler) {
+      this.logger.warn(`No outcome handler found for message type: ${message.type}`);
+      return;
+    }
+
+    try {
+      await (handler as any).handleOutcomeMessage(message);
+    } catch (error) {
+      this.logger.error(`Outcome handler error for ${message.type}:`, error);
+    }
   }
 
   getHandlerDescriptors(): {

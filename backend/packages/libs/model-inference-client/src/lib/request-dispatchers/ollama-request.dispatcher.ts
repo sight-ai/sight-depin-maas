@@ -70,7 +70,8 @@ export class OllamaRequestDispatcher implements IRequestDispatcher {
       context.args,
       context.res,
       context.baseUrl,
-      context.effectiveModel
+      context.effectiveModel,
+      context.pathname
     );
   }
 

@@ -10,9 +10,8 @@ export class OutcomePingHandler extends OutcomeBaseMessageHandler {
 
   constructor(
     @Inject('TunnelService') private readonly tunnel: TunnelService,
-    @Inject('PEER_ID') protected override readonly peerId: string
   ) {
-    super(peerId);
+    super();
   }
 
   async handleOutcomeMessage(message: TunnelMessage): Promise<void> {

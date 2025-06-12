@@ -153,6 +153,9 @@ export {
   TaskResponseMessageSchema,
   TaskStreamMessageSchema,
   DeviceRegistrationMessageSchema,
+  DeviceRegisterAckMessageSchema,
+  ChatRequestStreamMessageSchema,
+  ChatResponseStreamSchema,
   // 导出类型
   TunnelMessage,
   PingMessage,
@@ -162,7 +165,10 @@ export {
   TaskRequestMessage,
   TaskResponseMessage,
   TaskStreamMessage,
-  DeviceRegistrationMessage
+  DeviceRegistrationMessage,
+  DeviceRegisterAckMessage,
+  ChatRequestStreamMessage,
+  ChatResponseStreamMessage
 } from './tunnel/tunnel-message.schema';
 
 export {

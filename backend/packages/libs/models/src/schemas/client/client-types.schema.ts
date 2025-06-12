@@ -109,7 +109,8 @@ export interface IChatHandler {
     args: any, // ChatRequest 类型在 request-response.schema.ts 中定义
     res: any, // Express Response 对象
     baseUrl: string,
-    effectiveModel: string
+    effectiveModel: string,
+    pathname?: string
   ): Promise<void>;
 }
 

@@ -9,10 +9,9 @@ import { TunnelService } from '../../tunnel.interface';
 export class IncomePingHandler extends IncomeBaseMessageHandler {
 
   constructor(
-    @Inject('TunnelService') private readonly tunnel: TunnelService,
-    @Inject('PEER_ID') protected override readonly peerId: string
+    @Inject('TunnelService') private readonly tunnel: TunnelService
   ) {
-    super(peerId);
+    super();
   }
 
   async handleIncomeMessage(message: TunnelMessage): Promise<void> {

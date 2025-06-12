@@ -1,21 +1,24 @@
 import 'reflect-metadata';
 import { TunnelMessage } from '@saito/models';
 import { MESSAGE_HANDLER_META, MessageHandlerMeta } from './message-handler.decorator';
+import { GLOBAL_PEER_ID_PROVIDER } from '../tunnel.module';
 
 /**
  * 入站消息处理器基类
  */
 export abstract class IncomeBaseMessageHandler {
-  protected readonly peerId?: string;
   protected readonly expectedType: string;
 
-  constructor(peerId?: string) {
+  constructor() {
     const meta = Reflect.getMetadata(MESSAGE_HANDLER_META, this.constructor) as MessageHandlerMeta;
     if (!meta || meta.direction !== 'income') {
       throw new Error(`${this.constructor.name} is missing @MessageHandler({ type, direction: 'income' })`);
     }
     this.expectedType = meta.type;
-    this.peerId = peerId;
+  }
+
+  protected get peerId(): string {
+    return GLOBAL_PEER_ID_PROVIDER.getPeerId();
   }
 
   async handleMessage(message: TunnelMessage): Promise<void> {
@@ -24,8 +27,9 @@ export abstract class IncomeBaseMessageHandler {
       return;
     }
 
-    if (this.peerId && message.to !== this.peerId) {
-      console.warn(`[${this.constructor.name}] Message not to this peer (${this.peerId}), ignoring`);
+    const currentPeerId = this.peerId;
+    if (currentPeerId && message.to !== currentPeerId) {
+      console.warn(`[${this.constructor.name}] Message not to this peer (${currentPeerId}), ignoring`);
       return;
     }
 
@@ -39,16 +43,18 @@ export abstract class IncomeBaseMessageHandler {
  * 出站消息处理器基类
  */
 export abstract class OutcomeBaseMessageHandler {
-  protected readonly peerId?: string;
   protected readonly expectedType: string;
 
-  constructor(peerId?: string) {
+  constructor() {
     const meta = Reflect.getMetadata(MESSAGE_HANDLER_META, this.constructor) as MessageHandlerMeta;
     if (!meta || meta.direction !== 'outcome') {
       throw new Error(`${this.constructor.name} is missing @MessageHandler({ type, direction: 'outcome' })`);
     }
     this.expectedType = meta.type;
-    this.peerId = peerId;
+  }
+
+  protected get peerId(): string {
+    return GLOBAL_PEER_ID_PROVIDER.getPeerId();
   }
 
   async handleMessage(message: TunnelMessage): Promise<void> {
@@ -59,8 +65,9 @@ export abstract class OutcomeBaseMessageHandler {
       return;
     }
 
-    if (this.peerId && message.from !== this.peerId) {
-      console.warn(`[${this.constructor.name}] Message not from this peer (${this.peerId}), ignoring`);
+    const currentPeerId = this.peerId;
+    if (currentPeerId && message.from !== currentPeerId) {
+      console.warn(`[${this.constructor.name}] Message not from this peer (${currentPeerId}), ignoring`);
       return;
     }
 

@@ -48,32 +48,6 @@ export interface TunnelService {
   createSocket(gatewayAddress: string, key: string, code?: string, basePath?: string): Promise<void>;
 
   /**
-   * 向设备发送消息
-   * @param params 发送消息的参数
-   */
-  handleSendToDevice(params: { deviceId: string; message: string }): Promise<void>;
-
-  /**
-   * 为任务注册流式处理器
-   * @param params 注册流式处理器的参数
-   */
-  handleRegisterStreamHandler(params: {
-    taskId: string;
-    targetDeviceId: string;
-    onMessage: (message: any) => Promise<void>;
-  }): Promise<void>;
-
-  /**
-   * 为任务注册非流式处理器
-   * @param params 注册非流式处理器的参数
-   */
-  handleRegisterNoStreamHandler(params: {
-    taskId: string;
-    targetDeviceId: string;
-    onMessage: (message: any) => Promise<any>;
-  }): Promise<void>;
-
-  /**
    * 获取所有已连接设备
    * @returns 已连接设备ID列表
    */

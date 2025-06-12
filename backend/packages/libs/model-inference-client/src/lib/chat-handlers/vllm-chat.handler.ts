@@ -15,10 +15,11 @@ export class VllmChatHandler implements IChatHandler {
    * vLLM 只支持 OpenAI 格式，所以直接使用 OpenAI 兼容端点
    */
   async handleChatRequest(
-    args: ChatRequest, 
-    res: Response, 
-    baseUrl: string, 
-    effectiveModel: string
+    args: ChatRequest,
+    res: Response,
+    baseUrl: string,
+    effectiveModel: string,
+    pathname?: string
   ): Promise<void> {
     this.logger.debug(`Processing vLLM chat request for model: ${effectiveModel}`);
     
@@ -129,7 +130,8 @@ export class VllmChatHandler implements IChatHandler {
       context.args,
       context.res,
       context.baseUrl,
-      context.effectiveModel || 'default'
+      context.effectiveModel || 'default',
+      context.pathname
     );
   }
 
