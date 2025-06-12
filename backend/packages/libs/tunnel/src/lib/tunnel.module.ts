@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
-import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TunnelServiceImpl } from './tunnel.service';
 import { MessageGatewayService, MessageGatewayProvider } from './message-gateway/message-gateway.service';
 import { MessageHandlerRegistry } from './message-handler/message-handler.registry';
@@ -14,6 +13,7 @@ import { IncomeContextPongHandler } from './message-handler/income/income-contex
 import { IncomeDeviceRegistrationHandler } from './message-handler/income/income-device-registration.handler';
 import { IncomeDeviceRegisterAckHandler } from './message-handler/income/income-device-register-ack.handler';
 import { IncomeChatRequestStreamHandler } from './message-handler/income/income-chat-request-stream.handler';
+// import { IncomeChatRequestNoStreamHandler } from './message-handler/income/income-chat-request-no-stream.handler'; // 暂时移除
 
 // Message Handlers - Outcome
 import { OutcomePingHandler } from './message-handler/outcome/outcome-ping.handler';
@@ -22,6 +22,8 @@ import { OutcomeContextPingHandler } from './message-handler/outcome/outcome-con
 import { OutcomeContextPongHandler } from './message-handler/outcome/outcome-context-pong.handler';
 import { OutcomeDeviceRegistrationHandler } from './message-handler/outcome/outcome-device-registration.handler';
 import { OutcomeDeviceRegisterAckHandler } from './message-handler/outcome/outcome-device-register-ack.handler';
+import { OutcomeChatRequestStreamHandler } from './message-handler/outcome/outcome-chat-request-stream.handler';
+import { OutcomeChatRequestNoStreamHandler } from './message-handler/outcome/outcome-chat-request-no-stream.handler';
 import { OutcomeChatResponseStreamHandler } from './message-handler/outcome/outcome-chat-response-stream.handler';
 
 /**
@@ -48,7 +50,6 @@ export const GLOBAL_PEER_ID_PROVIDER = new DynamicPeerIdProvider();
 @Module({
   imports: [
     DiscoveryModule,
-    EventEmitterModule.forRoot(),
     ModelInferenceClientModule
   ],
   providers: [
@@ -68,6 +69,7 @@ export const GLOBAL_PEER_ID_PROVIDER = new DynamicPeerIdProvider();
     IncomeDeviceRegistrationHandler,
     IncomeDeviceRegisterAckHandler,
     IncomeChatRequestStreamHandler,
+    // IncomeChatRequestNoStreamHandler, // 暂时移除
 
     // Outcome Message Handlers
     OutcomePingHandler,
@@ -76,6 +78,8 @@ export const GLOBAL_PEER_ID_PROVIDER = new DynamicPeerIdProvider();
     OutcomeContextPongHandler,
     OutcomeDeviceRegistrationHandler,
     OutcomeDeviceRegisterAckHandler,
+    OutcomeChatRequestStreamHandler,
+    OutcomeChatRequestNoStreamHandler,
     OutcomeChatResponseStreamHandler,
 
     // 动态PEER_ID提供者

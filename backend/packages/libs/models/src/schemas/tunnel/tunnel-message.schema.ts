@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { OpenAIChatCompletionChunk, OpenAIChatCompletionRequest } from '../../openai/openai';
 
 /**
  * Tunnel 消息相关的 Zod Schema 定义
@@ -111,49 +112,22 @@ export const TunnelChatMessageSchema = z.object({
   role: z.enum(['system', 'user', 'assistant']).describe('角色'),
   content: z.string().describe('消息内容'),
 });
-
+export const ChatResponseStreamPayloadSchema = z.object({
+  taskId: z.string().describe('任务ID'),
+  path: z.string().describe('请求路径，用于区分Ollama或OpenAI'),
+  data: OpenAIChatCompletionChunk,
+  error: z.string().optional().describe('错误信息'),
+});
 /**
  * 流式聊天请求消息载荷 Schema
  */
 export const ChatRequestStreamPayloadSchema = z.object({
   taskId: z.string().describe('任务ID'),
   path: z.string().describe('请求路径，用于区分Ollama或OpenAI'),
-  data: z.object({
-  messages: z.array(TunnelChatMessageSchema).describe('聊天消息列表'),
-  model: z.string().optional().describe('模型名称'),
-  temperature: z.number().optional().describe('温度参数'),
-  max_tokens: z.number().optional().describe('最大令牌数'),
-  top_p: z.number().optional().describe('Top-p参数'),
-  frequency_penalty: z.number().optional().describe('频率惩罚'),
-  presence_penalty: z.number().optional().describe('存在惩罚'),
-  // 响应字段
-  chunk: z.any().optional().describe('流式响应数据块'),
-  done: z.boolean().optional().describe('是否完成'),
-  }),
+  data: OpenAIChatCompletionRequest,
   error: z.string().optional().describe('错误信息'),
-
 });
-/**
- * 流式聊天请求消息载荷 Schema
- */
-export const ChatResponseStreamPayloadSchema = z.object({
-  taskId: z.string().describe('任务ID'),
-  path: z.string().describe('请求路径，用于区分Ollama或OpenAI'),
-  data: z.object({
-  message: TunnelChatMessageSchema.describe('聊天消息列表'),
-  model: z.string().optional().describe('模型名称'),
-  temperature: z.number().optional().describe('温度参数'),
-  max_tokens: z.number().optional().describe('最大令牌数'),
-  top_p: z.number().optional().describe('Top-p参数'),
-  frequency_penalty: z.number().optional().describe('频率惩罚'),
-  presence_penalty: z.number().optional().describe('存在惩罚'),
-  // 响应字段
-  chunk: z.any().optional().describe('流式响应数据块'),
-  done: z.boolean().optional().describe('是否完成'),
-  }),
-  error: z.string().optional().describe('错误信息'),
 
-});
 /**
  * 非流式聊天请求消息载荷 Schema
  */

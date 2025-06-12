@@ -14,8 +14,13 @@ export class IncomeDeviceRegisterAckHandler extends IncomeBaseMessageHandler {
   private readonly logger = new Logger(IncomeDeviceRegisterAckHandler.name);
 
   constructor(
+    @Inject('PEER_ID') private readonly injectedPeerId: string
   ) {
     super();
+  }
+
+  protected override get peerId(): string {
+    return this.injectedPeerId;
   }
 
   /**

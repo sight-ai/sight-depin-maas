@@ -4,11 +4,35 @@ import { IChatHandler, ChatRequest, RequestContext, CompletionRequest, Embedding
 
 /**
  * Ollama 聊天处理器
- * 
+ *
+ * 职责：
+ * 1. 处理Ollama聊天请求，支持流式和非流式响应
+ * 2. 根据请求路径自动选择API格式（OpenAI兼容 vs Ollama原生）
+ * 3. 处理不同类型的数据块（string、Buffer、Uint8Array）
+ * 4. 提供统一的错误处理和日志记录
+ *
+ * 支持的格式：
+ * - OpenAI兼容格式：/v1/chat/completions
+ * - Ollama原生格式：/api/chat
+ *
+ * 架构特点：
+ * - 实现IChatHandler接口，提供统一的聊天处理能力
+ * - 自动检测请求格式，无需手动配置
+ * - 支持流式和非流式响应
+ * - 完整的错误处理和日志记录
  */
 @Injectable()
 export class OllamaChatHandler implements IChatHandler {
   private readonly logger = new Logger(OllamaChatHandler.name);
+
+  // API端点常量
+  private static readonly OPENAI_ENDPOINT = '/v1/chat/completions';
+  private static readonly OLLAMA_ENDPOINT = '/api/chat';
+  private static readonly GENERATE_ENDPOINT = '/api/generate';
+  private static readonly TAGS_ENDPOINT = '/api/tags';
+  private static readonly SHOW_ENDPOINT = '/api/show';
+  private static readonly EMBEDDINGS_ENDPOINT = '/api/embeddings';
+  private static readonly VERSION_ENDPOINT = '/api/version';
 
   /**
    * 处理聊天请求 - 只负责调用 Ollama 的聊天功能
@@ -40,32 +64,47 @@ export class OllamaChatHandler implements IChatHandler {
 
   /**
    * 检测请求风格（基于路径和请求参数判断）
+   *
+   * @param args 聊天请求参数
+   * @param pathname 请求路径
+   * @returns true表示使用OpenAI风格，false表示使用Ollama原生风格
    */
   private detectRequestStyle(args: ChatRequest, pathname?: string): boolean {
-    // 如果路径包含 /v1/ 或 /chat/completions，使用 OpenAI 风格
-    if (pathname && (pathname.includes('/v1/') || pathname.includes('/chat/completions'))) {
+    if (!pathname) {
+      // 没有路径信息时，根据参数结构判断
+      return !!(args.messages && Array.isArray(args.messages));
+    }
+
+    // 优先级1：明确的OpenAI风格路径
+    if (pathname.includes('/v1/') || pathname.includes('/chat/completions')) {
+      this.logger.debug(`Detected OpenAI style from path: ${pathname}`);
       return true;
     }
 
-    // 如果路径包含 /api/chat，使用 Ollama 原生风格
-    if (pathname && pathname.includes('/api/chat')) {
+    // 优先级2：明确的Ollama原生风格路径
+    if (pathname.includes('/api/chat')) {
+      this.logger.debug(`Detected Ollama native style from path: ${pathname}`);
       return false;
     }
 
-    // 默认情况下，检查是否包含 OpenAI 风格的参数
-    return !!(args.messages && Array.isArray(args.messages));
+    // 优先级3：根据参数结构判断（默认OpenAI风格）
+    const isOpenAI = !!(args.messages && Array.isArray(args.messages));
+    this.logger.debug(`Detected ${isOpenAI ? 'OpenAI' : 'Ollama'} style from parameters`);
+    return isOpenAI;
   }
 
   /**
    * 调用 Ollama 的 OpenAI 兼容端点
+   *
+   * 使用Ollama的OpenAI兼容API，返回OpenAI格式的响应
    */
   private async callOllamaOpenAIEndpoint(
-    args: ChatRequest, 
-    res: Response, 
-    baseUrl: string, 
+    args: ChatRequest,
+    res: Response,
+    baseUrl: string,
     effectiveModel: string
   ): Promise<void> {
-    const endpoint = `${baseUrl}/v1/chat/completions`;
+    const endpoint = `${baseUrl}${OllamaChatHandler.OPENAI_ENDPOINT}`;
     
     const requestBody = {
       model: effectiveModel,
@@ -105,14 +144,16 @@ export class OllamaChatHandler implements IChatHandler {
 
   /**
    * 调用 Ollama 的原生端点
+   *
+   * 使用Ollama的原生API，返回Ollama原生格式的响应
    */
   private async callOllamaNativeEndpoint(
-    args: ChatRequest, 
-    res: Response, 
-    baseUrl: string, 
+    args: ChatRequest,
+    res: Response,
+    baseUrl: string,
     effectiveModel: string
   ): Promise<void> {
-    const endpoint = `${baseUrl}/api/chat`;
+    const endpoint = `${baseUrl}${OllamaChatHandler.OLLAMA_ENDPOINT}`;
     
     const requestBody = {
       model: effectiveModel,

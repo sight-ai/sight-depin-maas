@@ -14,8 +14,13 @@ export class OutcomeDeviceRegisterAckHandler extends OutcomeBaseMessageHandler {
   private readonly logger = new Logger(OutcomeDeviceRegisterAckHandler.name);
 
   constructor(
+    @Inject('PEER_ID') private readonly injectedPeerId: string
   ) {
     super();
+  }
+
+  protected override get peerId(): string {
+    return this.injectedPeerId;
   }
 
   /**

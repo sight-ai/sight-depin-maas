@@ -32,7 +32,7 @@ export class UnifiedModelService {
    * 处理聊天请求
    * 自动使用当前配置的客户端
    */
-  async chat(args: ChatRequest, res: Response, pathname?: string): Promise<void> {
+  async chat(args: any, res: Response, pathname?: string): Promise<void> {
     this.logger.debug(`Processing chat request with ${this.activeClient.framework} client`);
     return this.activeClient.chat(args, res, pathname);
   }
