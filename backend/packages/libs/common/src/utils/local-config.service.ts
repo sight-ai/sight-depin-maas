@@ -47,7 +47,7 @@ export class LocalConfigService {
       const configPath = this.getConfigFilePath(configFile, gatewayPath);
       
       if (!fs.existsSync(configPath)) {
-        this.logger.debug(`Config file not found: ${configPath}`);
+        // this.logger.debug(`Config file not found: ${configPath}`);
         return null;
       }
 

@@ -1,9 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { IncomeBaseMessageHandler } from '../base-message-handler';
-import { TunnelMessage, ChatRequestStreamMessage, ChatRequestStreamMessageSchema, ChatResponseStreamMessage } from '@saito/models';
+import { TunnelMessage, ChatRequestStreamMessage, ChatRequestStreamMessageSchema, ChatResponseStreamMessage, OllamaChatStreamChunk } from '@saito/models';
 import { MessageHandler } from '../message-handler.decorator';
 import { TunnelService } from '../../tunnel.interface';
 import { UnifiedModelService } from '@saito/model-inference-client';
+import { Response } from 'express';
 
 /**
  * 流式聊天请求处理器
@@ -50,7 +51,10 @@ export class IncomeChatRequestStreamHandler extends IncomeBaseMessageHandler {
           taskId: 'unknown',
           path: '',
           data: {
-            messages: [],
+            message: {
+              role: 'user',
+              content: '发生错误: ' + (error instanceof Error ? error.message : '未知错误')
+            },
             done: true
           },
           error: error instanceof Error ? error.message : '未知错误',
@@ -80,7 +84,7 @@ export class IncomeChatRequestStreamHandler extends IncomeBaseMessageHandler {
       const mockResponse = this.createStreamResponseHandler(taskId, message.from, path);
 
       // 直接调用UnifiedModelService
-      await this.unifiedModelService.chat(data, mockResponse as any, path);
+      await this.unifiedModelService.chat(data, mockResponse as unknown as Response, path);
 
     } catch (error) {
       this.logger.error(`推理执行失败: ${error instanceof Error ? error.message : '未知错误'}`);
@@ -135,7 +139,6 @@ export class IncomeChatRequestStreamHandler extends IncomeBaseMessageHandler {
 
       // 流式结束方法
       end: async () => {
-        await self.sendStreamComplete(taskId, targetDeviceId);
       }
     };
   }
@@ -152,40 +155,12 @@ export class IncomeChatRequestStreamHandler extends IncomeBaseMessageHandler {
       payload: {
         taskId,
         path: '', // 响应时path可以为空
-        data: JSON.parse(chunkText) as any
+        data: JSON.parse(chunkText) as OllamaChatStreamChunk
       }
     };
 
     // 使用 handleMessage 让系统自动判断发送目标
     await this.tunnel.handleMessage(streamMessage);
-  }
-
-  /**
-   * 发送流式完成信号（通过 handleMessage）
-   */
-  private async sendStreamComplete(taskId: string, targetDeviceId: string): Promise<void> {
-    // 清理流式缓冲区
-    const bufferKey = `${taskId}-${targetDeviceId}`;
-    this.streamBuffers.delete(bufferKey);
-
-    this.logger.log(`✅ 流式推理完成 - TaskID: ${taskId}, Target: ${targetDeviceId}`);
-
-    const completeMessage: ChatResponseStreamMessage = {
-      type: 'chat_response_stream',
-      from: this.peerId,
-      to: targetDeviceId,
-      payload: {
-        taskId,
-        path: '', // 响应时path可以为空
-        data: {
-          messages: [], // 响应时messages可以为空
-          done: true
-        } as any
-      }
-    };
-
-    // 使用 handleMessage 让系统自动判断发送目标
-    await this.tunnel.handleMessage(completeMessage);
   }
 
   /**
@@ -200,7 +175,10 @@ export class IncomeChatRequestStreamHandler extends IncomeBaseMessageHandler {
         taskId: originalMessage.payload.taskId,
         path: '', // 响应时path可以为空
         data: {
-          messages: [], // 响应时messages可以为空
+          message: {
+            role: 'user',
+            content: '发生错误: ' + error
+          }, // 响应时messages可以为空
           done: true
         },
         error,

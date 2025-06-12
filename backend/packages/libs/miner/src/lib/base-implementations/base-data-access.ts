@@ -51,7 +51,7 @@ export abstract class BaseDataAccessLayer implements IDataAccessLayer {
 
   async getTasksByDeviceId(deviceId: string, isRegistered: boolean): Promise<ModelOfMiner<'Task'>[]> {
     try {
-      this.logger.debug(`Getting tasks for device: ${deviceId}, registered: ${isRegistered}`);
+      // this.logger.debug(`Getting tasks for device: ${deviceId}, registered: ${isRegistered}`);
       return await this.executeGetTasksByDeviceId(deviceId, isRegistered);
     } catch (error) {
       this.logger.error(`Failed to get tasks for device ${deviceId}: ${error}`);
@@ -189,7 +189,7 @@ export abstract class BaseDataAccessLayer implements IDataAccessLayer {
 
   async transaction<T>(handler: (db: any) => Promise<T>): Promise<T> {
     try {
-      this.logger.debug('Starting database transaction');
+      // this.logger.debug('Starting database transaction');
       return await this.executeTransaction(handler);
     } catch (error) {
       this.logger.error(`Transaction failed: ${error}`);

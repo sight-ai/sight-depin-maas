@@ -80,7 +80,7 @@ export class DeviceSystemService implements TDeviceSystem {
    */
   private async getEnhancedGPUInfo(): Promise<GPUInfo[]> {
     const platform = os.platform();
-    this.logger.debug(`Detecting GPUs on platform: ${platform}`);
+    // this.logger.debug(`Detecting GPUs on platform: ${platform}`);
 
     try {
       let gpus: GPUInfo[] = [];
@@ -103,7 +103,7 @@ export class DeviceSystemService implements TDeviceSystem {
       // 按优先级排序：独立显卡优先
       gpus.sort((a, b) => b.priority - a.priority);
 
-      this.logger.debug(`Detected ${gpus.length} GPU(s):`, gpus.map(gpu => `${gpu.model} (${gpu.type})`));
+      // this.logger.debug(`Detected ${gpus.length} GPU(s):`, gpus.map(gpu => `${gpu.model} (${gpu.type})`));
 
       return gpus;
     } catch (error) {

@@ -64,7 +64,7 @@ export class EnvironmentDetectorService {
       const clientType = this.localConfigService.getClientType();
       
       if (!clientType) {
-        this.logger.debug('No client type configured, performing auto-detection');
+        // this.logger.debug('No client type configured, performing auto-detection');
         return await this.autoDetectFramework();
       }
 
@@ -99,7 +99,7 @@ export class EnvironmentDetectorService {
    * 检测所有框架的可用性
    */
   async detectAllFrameworks(): Promise<FrameworkAvailabilityResult> {
-    this.logger.debug('Detecting all available frameworks');
+    // this.logger.debug('Detecting all available frameworks');
 
     const [ollamaResult, vllmResult] = await Promise.all([
       this.detectOllama(),
@@ -139,7 +139,7 @@ export class EnvironmentDetectorService {
    * 自动检测可用的框架
    */
   async autoDetectFramework(): Promise<EnvironmentDetectionResult> {
-    this.logger.debug('Auto-detecting available framework');
+    // this.logger.debug('Auto-detecting available framework');
 
     const allFrameworks = await this.detectAllFrameworks();
 
@@ -172,7 +172,7 @@ export class EnvironmentDetectorService {
     const baseUrl = this.getOllamaBaseUrl();
     
     try {
-      this.logger.debug(`Checking Ollama at: ${baseUrl}`);
+      // this.logger.debug(`Checking Ollama at: ${baseUrl}`);
 
       // 检查版本信息
       const versionResponse = await firstValueFrom(
@@ -226,7 +226,7 @@ export class EnvironmentDetectorService {
     const baseUrl = this.getVllmBaseUrl();
     
     try {
-      this.logger.debug(`Checking vLLM at: ${baseUrl}`);
+      // this.logger.debug(`Checking vLLM at: ${baseUrl}`);
 
       // 检查模型列表（vLLM 使用 OpenAI 兼容 API）
       const modelsResponse = await firstValueFrom(

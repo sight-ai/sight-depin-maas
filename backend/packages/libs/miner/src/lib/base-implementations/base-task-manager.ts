@@ -112,7 +112,7 @@ export abstract class BaseTaskManager implements ITaskManager {
    */
   async getDeviceTasks(deviceId: string, limit?: number): Promise<ModelOfMiner<'Task'>[]> {
     try {
-      this.logger.debug(`Getting tasks for device: ${deviceId}`);
+      // this.logger.debug(`Getting tasks for device: ${deviceId}`);
 
       const isRegistered = await this.isDeviceRegistered();
       const tasks = await this.withRetry(
@@ -136,7 +136,7 @@ export abstract class BaseTaskManager implements ITaskManager {
    */
   async handleStaleInProgressTasks(): Promise<void> {
     try {
-      this.logger.debug('Checking for stale in-progress tasks');
+      // this.logger.debug('Checking for stale in-progress tasks');
 
       const deviceId = await this.getCurrentDeviceId();
       const tasks = await this.getDeviceTasks(deviceId);

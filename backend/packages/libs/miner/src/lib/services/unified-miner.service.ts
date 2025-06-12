@@ -182,7 +182,7 @@ export class UnifiedMinerService implements IMinerService {
     }
 
     try {
-      this.logger.debug('Running stale task cleanup');
+      // this.logger.debug('Running stale task cleanup');
       await this.taskManager.handleStaleInProgressTasks();
     } catch (error) {
       this.logger.error(`Stale task cleanup failed: ${error}`);

@@ -86,7 +86,7 @@ export class HeartbeatManager {
         );
 
         if (result.new) {
-          this.logger.debug('Scheduled heartbeat sent successfully');
+          // this.logger.debug('Scheduled heartbeat sent successfully');
         } else {
           this.logger.warn('Scheduled heartbeat failed');
         }

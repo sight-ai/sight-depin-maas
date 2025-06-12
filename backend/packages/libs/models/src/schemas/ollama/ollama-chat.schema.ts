@@ -81,7 +81,7 @@ export const OllamaChatStreamChunkSchema = z.object({
   model: z.string().describe('模型名称'),
   created_at: z.string().describe('创建时间'),
   message: z.object({
-    role: z.string().describe('角色'),
+    role: z.enum(['system', 'user', 'assistant']).describe('角色'),
     content: z.string().describe('内容片段')
   }).describe('消息片段'),
   done: z.boolean().describe('是否完成')
