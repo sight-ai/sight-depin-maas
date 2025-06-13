@@ -1,0 +1,29 @@
+{
+  "name": "earnings-tracking",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/libs/earnings-tracking/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/libs/earnings-tracking",
+        "main": "packages/libs/earnings-tracking/src/index.ts",
+        "tsConfig": "packages/libs/earnings-tracking/tsconfig.lib.json",
+        "assets": ["packages/libs/earnings-tracking/*.md"]
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "packages/libs/earnings-tracking/**/*.ts",
+          "packages/libs/earnings-tracking/package.json"
+        ]
+      }
+    }
+  },
+  "tags": []
+}

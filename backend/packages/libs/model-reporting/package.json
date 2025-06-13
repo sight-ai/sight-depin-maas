@@ -6,7 +6,7 @@
     "@saito/models": "*",
     "@saito/persistent": "*",
     "@saito/device-status": "*",
-    "@saito/ollama": "*",
+    "@saito/model-inference-client": "*",
     "@nestjs/common": "^10.0.0",
     "@nestjs/schedule": "^5.0.1",
     "memoizee": "^0.4.15",

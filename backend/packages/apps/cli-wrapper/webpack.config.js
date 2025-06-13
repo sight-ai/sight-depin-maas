@@ -5,9 +5,6 @@ const { execSync } = require('child_process');
 
 // Nx plugins for webpack.
 module.exports = composePlugins(withNx(), (config, context) => {
-  console.log('🔧 CLI Wrapper Webpack Config:');
-  console.log('  - Original externals:', typeof config.externals, config.externals);
-
   config.externals = {
     'fs': 'commonjs fs',
     'path': 'commonjs path',
@@ -178,10 +175,6 @@ module.exports = composePlugins(withNx(), (config, context) => {
     const rel = path.relative(process.cwd(), info.absoluteResourcePath);
     return `webpack:///./${rel}`;
   };
-
-  console.log('  - Final externals keys:', Object.keys(config.externals));
-  console.log('  - Target:', config.target);
-  console.log('  - SplitChunks:', config.optimization.splitChunks);
 
   return config;
 });

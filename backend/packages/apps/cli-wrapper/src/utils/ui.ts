@@ -137,3 +137,22 @@ export class UIUtils {
     console.log('');
   }
 }
+
+/**
+ * 格式化输出函数
+ */
+export function formatOutput(message: string): string {
+  return chalk.white(message);
+}
+
+export function formatError(message: string): string {
+  return chalk.red(`❌ ${message}`);
+}
+
+export function formatSuccess(message: string): string {
+  return chalk.green(`✅ ${message}`);
+}
+
+export function formatWarning(message: string): string {
+  return chalk.yellow(`⚠️  ${message}`);
+}

@@ -1,8 +1,7 @@
 import { Body, Controller, Get, Inject, Logger, Post, Query } from "@nestjs/common";
 import { MinerService } from "@saito/miner";
 import { DeviceStatusService } from "@saito/device-status";
-import { TaskSyncService, TASK_SYNC_SERVICE } from "@saito/task-sync";
-import { OllamaService } from "@saito/ollama";
+import { TTaskSyncService, TASK_SYNC_SERVICE } from "@saito/task-sync";
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 
@@ -54,8 +53,7 @@ export class MinerController {
   constructor(
     @Inject(MinerService) private readonly minerService: MinerService,
     @Inject(DeviceStatusService) private readonly deviceStatusService: DeviceStatusService,
-    @Inject(TASK_SYNC_SERVICE) private readonly taskSyncService: TaskSyncService,
-    @Inject(OllamaService) private readonly ollamaService: OllamaService,
+    @Inject(TASK_SYNC_SERVICE) private readonly taskSyncService: TTaskSyncService,
   ) {}
 
   @Get('/summary')
@@ -68,25 +66,6 @@ export class MinerController {
       throw error;
     }
   }
-
-  // @Post('/chat')
-  // async generateChatResponse(@Body() args: any, @Res() res: Response) {
-  //   try {
-  //     await this.ollamaService.chat(args, res);
-  //   } catch (error) {
-  //     this.logger.error('Error during chat response in miner controller:', error);
-  //     if (!res.headersSent) {
-  //       // Using 400 status code for errors
-  //       res.status(400).json({ 
-  //         error: 'Error during chat response',
-  //         details: error instanceof Error ? error.message : 'Unknown error',
-  //         model: args.model || 'unknown',
-  //         created_at: new Date().toISOString(),
-  //         done: true
-  //       });
-  //     }
-  //   }
-  // }
 
   @Get('/history')
   async getHistory(@Query() query: HistoryQueryDto) {

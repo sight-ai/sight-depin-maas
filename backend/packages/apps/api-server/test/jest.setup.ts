@@ -3,14 +3,10 @@ const originalNodeEnv = process.env.NODE_ENV;
 
 // Set test environment variables
 process.env.NODE_ENV = 'development';
-process.env.GATEWAY_API_URL = 'http://localhost:3000';
-process.env.GATEWAY_API_KEY = 'test-key';
-process.env.NODE_CODE = 'test-code';
-process.env.REWARD_ADDRESS = 'test-address';
-process.env.DEVICE_TYPE = 'test-device';
-process.env.GPU_MODEL = 'test-gpu';
+// 注意：DEVICE_TYPE 和 GPU_MODEL 已改为动态获取，不再需要环境变量
+// 注意：GATEWAY_API_URL, NODE_CODE, REWARD_ADDRESS 等应从注册信息动态获取
 
 // Restore original NODE_ENV after tests
 afterAll(() => {
   process.env.NODE_ENV = originalNodeEnv;
-}); 
+});

@@ -1,14 +1,16 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import ModelReportingServiceProvider from './model-reporting.service';
-import { OllamaModule } from '@saito/ollama';
+import { ModelInferenceClientModule } from '@saito/model-inference-client';
 import { DeviceStatusModule } from '@saito/device-status';
 
 @Module({
   imports: [
-    forwardRef(() => OllamaModule),
-    DeviceStatusModule
+    DeviceStatusModule,
+    ModelInferenceClientModule
   ],
-  providers: [ModelReportingServiceProvider],
+  providers: [
+    ModelReportingServiceProvider
+  ],
   exports: [ModelReportingServiceProvider]
 })
 export class ModelReportingModule {}

@@ -209,4 +209,79 @@ export class TableUtils {
 
     console.log(table.toString());
   }
+
+  /**
+   * 显示键值对表格（带标题）
+   */
+  static displayKeyValueTable(data: string[][], title?: string): void {
+    if (title) {
+      console.log(chalk.bold.cyan(`\n${title}`));
+      console.log(chalk.gray('─'.repeat(title.length + 4)));
+    }
+
+    const table = new Table({
+      style: {
+        head: [],
+        border: ['gray']
+      }
+    });
+
+    data.forEach(([key, value]) => {
+      table.push([chalk.cyan(key), chalk.white(value)]);
+    });
+
+    console.log(table.toString());
+  }
+
+  /**
+   * 显示通用表格
+   */
+  static displayTable(headers: string[], rows: string[][], title?: string): void {
+    if (title) {
+      console.log(chalk.bold.cyan(`\n${title}`));
+      console.log(chalk.gray('─'.repeat(title.length + 4)));
+    }
+
+    const table = new Table({
+      head: headers.map(header => chalk.cyan(header)),
+      style: {
+        head: [],
+        border: ['gray']
+      }
+    });
+
+    rows.forEach(row => {
+      table.push(row.map(cell => chalk.white(cell)));
+    });
+
+    console.log(table.toString());
+  }
+}
+
+/**
+ * 创建表格的便捷函数
+ */
+export function createTable(headers: string[], rows: string[][], options?: {
+  title?: string;
+  colWidths?: number[];
+}): void {
+  if (options?.title) {
+    console.log(chalk.bold.cyan(`\n${options.title}`));
+    console.log(chalk.gray('─'.repeat(options.title.length + 4)));
+  }
+
+  const table = new Table({
+    head: headers.map(header => chalk.cyan(header)),
+    colWidths: options?.colWidths,
+    style: {
+      head: [],
+      border: ['gray']
+    }
+  });
+
+  rows.forEach(row => {
+    table.push(row.map(cell => chalk.white(cell)));
+  });
+
+  console.log(table.toString());
 }
