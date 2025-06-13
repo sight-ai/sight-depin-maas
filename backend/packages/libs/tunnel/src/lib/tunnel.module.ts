@@ -13,7 +13,9 @@ import { IncomeContextPongHandler } from './message-handler/income/income-contex
 import { IncomeDeviceRegistrationHandler } from './message-handler/income/income-device-registration.handler';
 import { IncomeDeviceRegisterAckHandler } from './message-handler/income/income-device-register-ack.handler';
 import { IncomeChatRequestStreamHandler } from './message-handler/income/income-chat-request-stream.handler';
-// import { IncomeChatRequestNoStreamHandler } from './message-handler/income/income-chat-request-no-stream.handler'; // 暂时移除
+import { IncomeChatRequestNoStreamHandler } from './message-handler/income/income-chat-request-no-stream.handler';
+import { IncomeCompletionRequestStreamHandler } from './message-handler/income/income-completion-request-stream.handler';
+import { IncomeCompletionRequestNoStreamHandler } from './message-handler/income/income-completion-request-no-stream.handler';
 
 // Message Handlers - Outcome
 import { OutcomePingHandler } from './message-handler/outcome/outcome-ping.handler';
@@ -22,9 +24,10 @@ import { OutcomeContextPingHandler } from './message-handler/outcome/outcome-con
 import { OutcomeContextPongHandler } from './message-handler/outcome/outcome-context-pong.handler';
 import { OutcomeDeviceRegistrationHandler } from './message-handler/outcome/outcome-device-registration.handler';
 import { OutcomeDeviceRegisterAckHandler } from './message-handler/outcome/outcome-device-register-ack.handler';
-import { OutcomeChatRequestStreamHandler } from './message-handler/outcome/outcome-chat-request-stream.handler';
-import { OutcomeChatRequestNoStreamHandler } from './message-handler/outcome/outcome-chat-request-no-stream.handler';
 import { OutcomeChatResponseStreamHandler } from './message-handler/outcome/outcome-chat-response-stream.handler';
+import { OutcomeChatResponseHandler } from './message-handler/outcome/outcome-chat-response.handler';
+import { OutcomeCompletionResponseStreamHandler } from './message-handler/outcome/outcome-completion-response-stream.handler';
+import { OutcomeCompletionResponseHandler } from './message-handler/outcome/outcome-completion-response.handler';
 
 /**
  * 动态PEER_ID提供者
@@ -69,7 +72,9 @@ export const GLOBAL_PEER_ID_PROVIDER = new DynamicPeerIdProvider();
     IncomeDeviceRegistrationHandler,
     IncomeDeviceRegisterAckHandler,
     IncomeChatRequestStreamHandler,
-    // IncomeChatRequestNoStreamHandler, // 暂时移除
+    IncomeChatRequestNoStreamHandler,
+    IncomeCompletionRequestStreamHandler,
+    IncomeCompletionRequestNoStreamHandler,
 
     // Outcome Message Handlers
     OutcomePingHandler,
@@ -78,9 +83,10 @@ export const GLOBAL_PEER_ID_PROVIDER = new DynamicPeerIdProvider();
     OutcomeContextPongHandler,
     OutcomeDeviceRegistrationHandler,
     OutcomeDeviceRegisterAckHandler,
-    OutcomeChatRequestStreamHandler,
-    OutcomeChatRequestNoStreamHandler,
     OutcomeChatResponseStreamHandler,
+    OutcomeChatResponseHandler,
+    OutcomeCompletionResponseStreamHandler,
+    OutcomeCompletionResponseHandler,
 
     // 动态PEER_ID提供者
     {

@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { OpenAIChatCompletionChunk, OpenAIChatCompletionRequest } from '../../openai/openai';
+import {
+  OpenAIChatCompletionRequestSchema,
+  OpenAICompletionRequestSchema,
+  OpenAIChatCompletionChunkSchema
+} from '../openai/openai-chat.schema';
 
 /**
  * Tunnel 消息相关的 Zod Schema 定义
@@ -115,7 +119,7 @@ export const TunnelChatMessageSchema = z.object({
 export const ChatResponseStreamPayloadSchema = z.object({
   taskId: z.string().describe('任务ID'),
   path: z.string().describe('请求路径，用于区分Ollama或OpenAI'),
-  data: OpenAIChatCompletionChunk,
+  data: OpenAIChatCompletionChunkSchema.optional(),
   error: z.string().optional().describe('错误信息'),
 });
 /**
@@ -124,7 +128,7 @@ export const ChatResponseStreamPayloadSchema = z.object({
 export const ChatRequestStreamPayloadSchema = z.object({
   taskId: z.string().describe('任务ID'),
   path: z.string().describe('请求路径，用于区分Ollama或OpenAI'),
-  data: OpenAIChatCompletionRequest,
+  data: OpenAIChatCompletionRequestSchema,
   error: z.string().optional().describe('错误信息'),
 });
 
@@ -134,14 +138,102 @@ export const ChatRequestStreamPayloadSchema = z.object({
 export const ChatRequestNoStreamPayloadSchema = z.object({
   taskId: z.string().describe('任务ID'),
   path: z.string().describe('请求路径，用于区分Ollama或OpenAI'),
-  messages: z.array(TunnelChatMessageSchema).describe('聊天消息列表'),
+  // 响应字段
+  data: z.object({
+     messages: z.array(TunnelChatMessageSchema).describe('聊天消息列表'),
   model: z.string().optional().describe('模型名称'),
   temperature: z.number().optional().describe('温度参数'),
   max_tokens: z.number().optional().describe('最大令牌数'),
   top_p: z.number().optional().describe('Top-p参数'),
   frequency_penalty: z.number().optional().describe('频率惩罚'),
   presence_penalty: z.number().optional().describe('存在惩罚'),
-  // 响应字段
+  }).describe('完整响应数据'),
+  error: z.string().optional().describe('错误信息'),
+});
+
+/**
+ * Chat 兼容性载荷数据 Schema
+ * 使用 OpenAI 标准类型
+ */
+export const ChatCompatibilityDataSchema = OpenAIChatCompletionRequestSchema;
+
+/**
+ * Chat 兼容性载荷 Schema
+ */
+export const ChatCompatibilityPayloadSchema = z.object({
+  taskId: z.string().describe('任务ID'),
+  path: z.string().describe('请求路径'),
+  data: ChatCompatibilityDataSchema.describe('兼容性格式的请求数据'),
+});
+
+/**
+ * 非流式聊天响应消息载荷 Schema
+ */
+export const ChatResponsePayloadSchema = z.object({
+  taskId: z.string().describe('任务ID'),
+  data: z.any().optional().describe('完整响应数据'),
+  error: z.string().optional().describe('错误信息'),
+});
+
+/**
+ * Completion 兼容性载荷数据 Schema
+ * 使用 OpenAI 标准类型
+ */
+export const CompletionCompatibilityDataSchema = OpenAICompletionRequestSchema;
+
+/**
+ * Completion 兼容性载荷 Schema
+ */
+export const CompletionCompatibilityPayloadSchema = z.object({
+  taskId: z.string().describe('任务ID'),
+  path: z.string().describe('请求路径'),
+  data: CompletionCompatibilityDataSchema.describe('兼容性格式的请求数据'),
+});
+
+/**
+ * 流式 Completion 请求消息载荷 Schema
+ */
+export const CompletionRequestStreamPayloadSchema = z.object({
+  taskId: z.string().describe('任务ID'),
+  path: z.string().describe('请求路径'),
+  data: z.any().describe('OpenAI Completion 请求数据'),
+});
+
+/**
+ * 非流式 Completion 请求消息载荷 Schema
+ */
+export const CompletionRequestNoStreamPayloadSchema = z.object({
+  taskId: z.string().describe('任务ID'),
+  path: z.string().describe('请求路径'),
+  model: z.string().describe('模型名称'),
+  prompt: z.union([z.string(), z.array(z.string())]).describe('提示文本'),
+  temperature: z.number().optional().describe('温度参数'),
+  max_tokens: z.number().optional().describe('最大令牌数'),
+  top_p: z.number().optional().describe('Top-p参数'),
+  frequency_penalty: z.number().optional().describe('频率惩罚'),
+  presence_penalty: z.number().optional().describe('存在惩罚'),
+  stop: z.union([z.string(), z.array(z.string())]).optional().describe('停止词'),
+  n: z.number().optional().describe('生成数量'),
+  echo: z.boolean().optional().describe('是否回显提示'),
+  logprobs: z.number().optional().describe('日志概率数量'),
+});
+
+/**
+ * 流式 Completion 响应消息载荷 Schema
+ */
+export const CompletionResponseStreamPayloadSchema = z.object({
+  taskId: z.string().describe('任务ID'),
+  path: z.string().optional().describe('响应路径'),
+  data: z.any().optional().describe('流式响应数据'),
+  error: z.string().optional().describe('错误信息'),
+  done: z.boolean().optional().describe('是否完成'),
+});
+
+/**
+ * 非流式 Completion 响应消息载荷 Schema
+ */
+export const CompletionResponsePayloadSchema = z.object({
+  taskId: z.string().describe('任务ID'),
   data: z.any().optional().describe('完整响应数据'),
   error: z.string().optional().describe('错误信息'),
 });
@@ -298,6 +390,46 @@ export const ChatRequestNoStreamMessageSchema = BaseTunnelMessageSchema.extend({
 });
 
 /**
+ * 非流式聊天响应消息 Schema
+ */
+export const ChatResponseMessageSchema = BaseTunnelMessageSchema.extend({
+  type: z.literal('chat_response'),
+  payload: ChatResponsePayloadSchema,
+});
+
+/**
+ * 流式 Completion 请求消息 Schema
+ */
+export const CompletionRequestStreamMessageSchema = BaseTunnelMessageSchema.extend({
+  type: z.literal('completion_request_stream'),
+  payload: CompletionRequestStreamPayloadSchema,
+});
+
+/**
+ * 非流式 Completion 请求消息 Schema
+ */
+export const CompletionRequestNoStreamMessageSchema = BaseTunnelMessageSchema.extend({
+  type: z.literal('completion_request_no_stream'),
+  payload: CompletionRequestNoStreamPayloadSchema,
+});
+
+/**
+ * 流式 Completion 响应消息 Schema
+ */
+export const CompletionResponseStreamMessageSchema = BaseTunnelMessageSchema.extend({
+  type: z.literal('completion_response_stream'),
+  payload: CompletionResponseStreamPayloadSchema,
+});
+
+/**
+ * 非流式 Completion 响应消息 Schema
+ */
+export const CompletionResponseMessageSchema = BaseTunnelMessageSchema.extend({
+  type: z.literal('completion_response'),
+  payload: CompletionResponsePayloadSchema,
+});
+
+/**
  * 流式生成请求消息 Schema
  */
 export const GenerateRequestStreamMessageSchema = BaseTunnelMessageSchema.extend({
@@ -340,6 +472,11 @@ export const TunnelMessageSchema = z.discriminatedUnion('type', [
   ChatRequestStreamMessageSchema,
   ChatResponseStreamSchema,
   ChatRequestNoStreamMessageSchema,
+  ChatResponseMessageSchema,
+  CompletionRequestStreamMessageSchema,
+  CompletionRequestNoStreamMessageSchema,
+  CompletionResponseStreamMessageSchema,
+  CompletionResponseMessageSchema,
   GenerateRequestStreamMessageSchema,
   GenerateRequestNoStreamMessageSchema,
   ProxyRequestMessageSchema,
@@ -373,7 +510,19 @@ export type TaskStreamMessage = z.infer<typeof TaskStreamMessageSchema>;
 export type DeviceRegistrationMessage = z.infer<typeof DeviceRegistrationMessageSchema>;
 export type DeviceRegisterAckMessage = z.infer<typeof DeviceRegisterAckMessageSchema>;
 export type ChatRequestStreamMessage = z.infer<typeof ChatRequestStreamMessageSchema>;
+// 基础类型导出
+export type ChatCompatibilityData = z.infer<typeof ChatCompatibilityDataSchema>;
+export type ChatCompatibilityPayload = z.infer<typeof ChatCompatibilityPayloadSchema>;
+export type CompletionCompatibilityData = z.infer<typeof CompletionCompatibilityDataSchema>;
+export type CompletionCompatibilityPayload = z.infer<typeof CompletionCompatibilityPayloadSchema>;
+
+// 消息类型导出
 export type ChatRequestNoStreamMessage = z.infer<typeof ChatRequestNoStreamMessageSchema>;
+export type ChatResponseMessage = z.infer<typeof ChatResponseMessageSchema>;
+export type CompletionRequestStreamMessage = z.infer<typeof CompletionRequestStreamMessageSchema>;
+export type CompletionRequestNoStreamMessage = z.infer<typeof CompletionRequestNoStreamMessageSchema>;
+export type CompletionResponseStreamMessage = z.infer<typeof CompletionResponseStreamMessageSchema>;
+export type CompletionResponseMessage = z.infer<typeof CompletionResponseMessageSchema>;
 export type GenerateRequestStreamMessage = z.infer<typeof GenerateRequestStreamMessageSchema>;
 export type GenerateRequestNoStreamMessage = z.infer<typeof GenerateRequestNoStreamMessageSchema>;
 export type ProxyRequestMessage = z.infer<typeof ProxyRequestMessageSchema>;

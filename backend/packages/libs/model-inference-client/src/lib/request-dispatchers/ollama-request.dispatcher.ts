@@ -77,13 +77,10 @@ export class OllamaRequestDispatcher implements IRequestDispatcher {
 
   /**
    * 分发补全请求
-   * TODO: 实现 OllamaCompletionHandler
    */
   private async dispatchCompletionRequest(context: RequestContext): Promise<void> {
-    // 暂时使用聊天处理器处理补全请求
-    // 后续可以创建专门的 OllamaCompletionHandler
-    this.logger.debug('Using chat handler for completion request');
-    return this.dispatchChatRequest(context);
+    this.logger.debug('Dispatching completion request to chat handler');
+    return this.chatHandler.handleCompletion(context);
   }
 
   /**

@@ -35,6 +35,11 @@ export * from './config/app-config.schema';
 export * from './system/system-info.schema';
 
 // =============================================================================
+// OpenAI API Schemas
+// =============================================================================
+export * from './openai/openai-chat.schema';
+
+// =============================================================================
 // Tunnel Schemas
 // =============================================================================
 export * from './tunnel/tunnel-message.schema';
@@ -131,7 +136,7 @@ export {
   // 导出类型
   RequestContext,
   DetailedHealthCheckResult,
-  ChatMessage,
+  ClientChatMessage,
   ClientOperationResult,
   ClientConfig,
   ClientStatus,

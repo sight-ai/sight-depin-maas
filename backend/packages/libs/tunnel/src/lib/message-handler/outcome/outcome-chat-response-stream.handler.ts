@@ -59,7 +59,7 @@ export class OutcomeChatResponseStreamHandler extends OutcomeBaseMessageHandler 
     try {
       // 记录发送详情
       this.logger.debug(`向网关发送消息: ${message.type} -> ${message.to}`);
-      this.logger.debug(`消息内容: TaskID=${message.payload.taskId}, Done=${message.payload.data.choices}, Error=${message.payload.error}`);
+      this.logger.debug(`消息内容: TaskID=${message.payload.taskId}, Done=${message.payload.data?.choices || 'N/A'}, Error=${message.payload.error}`);
 
       // 通过TunnelService发送消息到网关
       // TunnelService会处理连接状态检查和实际的网关通信

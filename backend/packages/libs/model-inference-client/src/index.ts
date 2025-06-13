@@ -10,7 +10,7 @@ export type {
   RequestType,
   RequestContext,
   DetailedHealthCheckResult,
-  ChatMessage,
+  OpenAIChatMessage,
   ClientOperationResult,
   ClientConfig,
   ClientStatus,

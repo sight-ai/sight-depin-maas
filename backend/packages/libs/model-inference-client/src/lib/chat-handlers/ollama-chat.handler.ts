@@ -210,9 +210,27 @@ export class OllamaChatHandler implements IChatHandler {
    * 处理完成请求
    */
   async handleCompletion(context: RequestContext): Promise<void> {
-    const endpoint = `${context.baseUrl}/api/generate`;
+    // 根据路径自动选择正确的端点
+    const endpoint = this.getOllamaEndpoint(context.baseUrl, context.pathname || '');
+    const useOpenAIFormat = this.shouldUseOpenAIFormat(context.pathname || '');
 
-    const requestBody = {
+    // 根据端点格式构建请求体
+    const requestBody = useOpenAIFormat ? {
+      // OpenAI 格式请求体，Ollama 会自动返回 OpenAI 格式
+      model: context.effectiveModel || 'default',
+      prompt: context.args.prompt,
+      stream: context.args.stream || false,
+      temperature: context.args.temperature,
+      max_tokens: context.args.max_tokens,
+      top_p: context.args.top_p,
+      frequency_penalty: context.args.frequency_penalty,
+      presence_penalty: context.args.presence_penalty,
+      stop: context.args.stop,
+      n: context.args.n || 1,
+      echo: context.args.echo,
+      logprobs: context.args.logprobs
+    } : {
+      // Ollama 原生格式请求体
       model: context.effectiveModel || 'default',
       prompt: context.args.prompt,
       stream: context.args.stream || false,
@@ -239,9 +257,10 @@ export class OllamaChatHandler implements IChatHandler {
       }
 
       if (context.args.stream) {
-        await this.handleStreamingResponse(response, context.res);
+        await this.handleStreamingResponse(response, context.res, context.pathname || '');
       } else {
         const data = await response.json();
+        // Ollama 会根据端点自动返回正确格式，无需手动转换
         context.res.json(data);
       }
     } catch (error) {
@@ -382,9 +401,40 @@ export class OllamaChatHandler implements IChatHandler {
   }
 
   /**
-   * 处理流式响应
+   * 检查是否应该使用 OpenAI 格式
+   * 根据路径自动判断，推理软件会自动返回对应格式
    */
-  private async handleStreamingResponse(response: globalThis.Response, res: Response): Promise<void> {
+  private shouldUseOpenAIFormat(pathname: string): boolean {
+    return pathname.includes('/v1/') || pathname.includes('/openai/');
+  }
+
+  /**
+   * 获取正确的 Ollama 端点
+   * 根据请求路径决定调用哪个 Ollama 端点
+   */
+  private getOllamaEndpoint(baseUrl: string, pathname: string): string {
+    if (this.shouldUseOpenAIFormat(pathname)) {
+      // 使用 OpenAI 兼容端点，Ollama 会自动返回 OpenAI 格式
+      if (pathname.includes('/chat/completions')) {
+        return `${baseUrl}/v1/chat/completions`;
+      } else if (pathname.includes('/completions')) {
+        return `${baseUrl}/v1/completions`;
+      }
+    }
+
+    // 使用 Ollama 原生端点
+    if (pathname.includes('/completions') || pathname.includes('/generate')) {
+      return `${baseUrl}/api/generate`;
+    } else {
+      return `${baseUrl}/api/chat`;
+    }
+  }
+
+  /**
+   * 处理流式响应
+   * Ollama 会根据端点自动返回正确格式，无需手动转换
+   */
+  private async handleStreamingResponse(response: globalThis.Response, res: Response, pathname: string = ''): Promise<void> {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
@@ -399,6 +449,7 @@ export class OllamaChatHandler implements IChatHandler {
         const { done, value } = await reader.read();
         if (done) break;
 
+        // 直接转发数据，Ollama 已经返回了正确格式
         res.write(value);
       }
     } finally {
@@ -406,4 +457,6 @@ export class OllamaChatHandler implements IChatHandler {
       res.end();
     }
   }
+
+
 }

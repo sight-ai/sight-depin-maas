@@ -47,9 +47,9 @@ export const DetailedHealthCheckResultSchema = z.object({
 });
 
 /**
- * 聊天消息 Schema
+ * 客户端聊天消息 Schema
  */
-export const ChatMessageSchema = z.object({
+export const ClientChatMessageSchema = z.object({
   role: z.string().describe('角色'),
   content: z.string().describe('消息内容')
 });
@@ -138,7 +138,7 @@ export interface IModelInfoService {
 // export type RequestType = z.infer<typeof RequestTypeSchema>;
 export type RequestContext = z.infer<typeof RequestContextSchema>;
 export type DetailedHealthCheckResult = z.infer<typeof DetailedHealthCheckResultSchema>;
-export type ChatMessage = z.infer<typeof ChatMessageSchema>;
+export type ClientChatMessage = z.infer<typeof ClientChatMessageSchema>;
 export type ClientOperationResult = z.infer<typeof ClientOperationResultSchema>;
 export type ClientConfig = z.infer<typeof ClientConfigSchema>;
 export type ClientStatus = z.infer<typeof ClientStatusSchema>;
@@ -150,7 +150,7 @@ export const ClientSchemas = {
   RequestTypeSchema,
   RequestContextSchema,
   DetailedHealthCheckResultSchema,
-  ChatMessageSchema,
+  ClientChatMessageSchema,
   ClientOperationResultSchema,
   ClientConfigSchema,
   ClientStatusSchema
