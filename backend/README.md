@@ -22,7 +22,4 @@ cat .tool-versions | awk '{print $1}' | xargs -n 1 asdf plugin add
 nx run-many --target=build --all
 
 
-pnpm i --production 
-pnpm nx build cli-wrapper --configuration=production --skip-nx-cache
-pnpm nx build api-server --configuration=production --skip-nx-cache
-npx @yao-pkg/pkg .
+npm run build:production

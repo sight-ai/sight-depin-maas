@@ -4,10 +4,42 @@ import { Command } from 'commander';
 import { bootstrap } from '@saito/api-server/bootstrap';
 import { DeviceCommands } from './commands/device';
 import { ModelCommands } from './commands/models';
+import { VllmCommands } from './commands/vllm';
+import { OllamaCommands } from './commands/ollama';
 import { AppServices } from './services/app-services';
-import { ProcessManager } from './services/process-manager';
+import { ProcessManagerService } from './services/process-manager';
 import { UIUtils } from './utils/ui';
 import inquirer from 'inquirer';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+import * as fs from 'fs';
+
+// Load environment variables from .env file
+function loadEnvironmentVariables() {
+  // Try to find .env file in current directory or parent directories
+  let currentDir = process.cwd();
+  let envPath: string | null = null;
+
+  // Look for .env file up to 5 levels up
+  for (let i = 0; i < 5; i++) {
+    const potentialEnvPath = path.join(currentDir, '.env');
+    if (fs.existsSync(potentialEnvPath)) {
+      envPath = potentialEnvPath;
+      break;
+    }
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) break; // Reached root
+    currentDir = parentDir;
+  }
+
+  if (envPath) {
+    dotenv.config({ path: envPath });
+    console.log(`Loaded environment variables from: ${envPath}`);
+  }
+}
+
+// Load environment variables at startup
+loadEnvironmentVariables();
 
 const program = new Command();
 
@@ -31,9 +63,9 @@ async function startInteractiveCli(): Promise<void> {
     return;
   }
 
-  if (!health.ollama) {
-    UIUtils.warning('Ollama service is not available');
-    UIUtils.info('Some model features may not work. Please start Ollama: ollama serve');
+  if (!health.framework) {
+    UIUtils.warning(`${health.frameworkType || 'Model inference'} service is not available`);
+    UIUtils.info('Some model features may not work. Check framework status: sight framework status');
   }
 
   while (true) {
@@ -51,6 +83,25 @@ async function startInteractiveCli(): Promise<void> {
             { name: '📦 List local models', value: 'models-list' },
             { name: '📤 Report models', value: 'models-report' },
             { name: '📊 Model report status', value: 'models-status' },
+            new inquirer.Separator(),
+            { name: '🔄 Framework status', value: 'framework-status' },
+            { name: '🔀 Switch framework', value: 'framework-switch' },
+            { name: '🏥 Framework health', value: 'framework-health' },
+            new inquirer.Separator(),
+            { name: '⚙️  vLLM configuration', value: 'vllm-config' },
+            { name: '🎛️  Set GPU memory', value: 'vllm-gpu-memory' },
+            { name: '🔧 Configure vLLM', value: 'vllm-configure' },
+            { name: '🚀 Start vLLM service', value: 'vllm-start' },
+            { name: '🛑 Stop vLLM service', value: 'vllm-stop' },
+            { name: '🔄 Restart vLLM service', value: 'vllm-restart' },
+            { name: '📊 vLLM process status', value: 'vllm-status' },
+            new inquirer.Separator(),
+            { name: '🦙 Start Ollama service', value: 'ollama-start' },
+            { name: '🛑 Stop Ollama service', value: 'ollama-stop' },
+            { name: '🔄 Restart Ollama service', value: 'ollama-restart' },
+            { name: '📊 Ollama process status', value: 'ollama-status' },
+            { name: '🔧 Configure Ollama', value: 'ollama-configure' },
+            { name: '📋 List Ollama models', value: 'ollama-models' },
             new inquirer.Separator(),
             { name: '🚀 Start backend server', value: 'start-server' },
             { name: '� Stop backend server', value: 'stop-server' },
@@ -83,9 +134,117 @@ async function startInteractiveCli(): Promise<void> {
         case 'models-status':
           await ModelCommands.status();
           break;
+        case 'framework-status':
+          UIUtils.showSection('Framework Status');
+          const frameworkStatus = await AppServices.getFrameworkStatus();
+          if (frameworkStatus.success) {
+            const data = frameworkStatus.data;
+            UIUtils.success(`Current Framework: ${data.current}`);
+            console.log('');
+            console.log('📊 Available Frameworks:');
+            data.available.forEach((fw: string) => {
+              console.log(`  ✅ ${fw}`);
+            });
+            if (data.available.length === 0) {
+              UIUtils.warning('No frameworks are currently available');
+            }
+          } else {
+            UIUtils.error(`Failed to get framework status: ${frameworkStatus.error}`);
+          }
+          break;
+        case 'framework-switch':
+          UIUtils.showSection('Switch Framework');
+          const { framework } = await inquirer.prompt([
+            {
+              type: 'list',
+              name: 'framework',
+              message: 'Select framework to switch to:',
+              choices: [
+                { name: 'Ollama', value: 'ollama' },
+                { name: 'vLLM', value: 'vllm' }
+              ]
+            }
+          ]);
+
+          const { force } = await inquirer.prompt([
+            {
+              type: 'confirm',
+              name: 'force',
+              message: 'Force switch even if framework is not available?',
+              default: false
+            }
+          ]);
+
+          UIUtils.info(`Switching to framework: ${framework}...`);
+          const switchResult = await AppServices.switchFramework(framework, force);
+          if (switchResult.success) {
+            UIUtils.success(switchResult.message);
+          } else {
+            UIUtils.error(`Failed to switch framework: ${switchResult.error}`);
+          }
+          break;
+        case 'framework-health':
+          UIUtils.showSection('Framework Health');
+          const healthStatus = await AppServices.getUnifiedHealth();
+          if (healthStatus.success) {
+            const data = healthStatus.data;
+            console.log(`Current Framework: ${data.currentFramework || 'None'}`);
+            console.log('');
+            console.log('Available Frameworks:');
+            data.availableFrameworks.forEach((fw: string) => {
+              console.log(`  ✅ ${fw}`);
+            });
+            console.log('');
+            console.log('Service Status:');
+            Object.entries(data.serviceStatus).forEach(([framework, status]) => {
+              console.log(`  ${framework}: ${status ? '✅' : '❌'}`);
+            });
+          } else {
+            UIUtils.error(`Failed to get health status: ${healthStatus.error}`);
+          }
+          break;
+        case 'vllm-config':
+          await VllmCommands.getConfig();
+          break;
+        case 'vllm-gpu-memory':
+          await VllmCommands.setGpuMemory();
+          break;
+        case 'vllm-configure':
+          await VllmCommands.configureInteractive();
+          break;
+        case 'vllm-start':
+          await VllmCommands.startService();
+          break;
+        case 'vllm-stop':
+          await VllmCommands.stopService();
+          break;
+        case 'vllm-restart':
+          await VllmCommands.restartService();
+          break;
+        case 'vllm-status':
+          await VllmCommands.getProcessStatus();
+          break;
+        case 'ollama-start':
+          await OllamaCommands.startService();
+          break;
+        case 'ollama-stop':
+          await OllamaCommands.stopService();
+          break;
+        case 'ollama-restart':
+          await OllamaCommands.restartService();
+          break;
+        case 'ollama-status':
+          await OllamaCommands.getProcessStatus();
+          break;
+        case 'ollama-configure':
+          await OllamaCommands.showConfiguration();
+          break;
+        case 'ollama-models':
+          await OllamaCommands.listModels();
+          break;
         case 'start-server':
           UIUtils.info('Starting backend server in background...');
-          const startResult = ProcessManager.startDaemonProcess();
+          const startResult = ProcessManagerService.startDaemonProcess();
           if (startResult.success) {
             UIUtils.success('Backend server started in background');
             UIUtils.info(`Process ID: ${startResult.pid}`);
@@ -95,7 +254,7 @@ async function startInteractiveCli(): Promise<void> {
           break;
         case 'stop-server':
           UIUtils.info('Stopping backend server...');
-          const stopResult = ProcessManager.stopDaemonProcess();
+          const stopResult = ProcessManagerService.stopDaemonProcess();
           if (stopResult.success) {
             UIUtils.success('Backend server stopped successfully');
           } else {
@@ -103,7 +262,7 @@ async function startInteractiveCli(): Promise<void> {
           }
           break;
         case 'server-status':
-          const status = ProcessManager.getServerStatus();
+          const status = ProcessManagerService.getServerStatus();
           if (status.running) {
             UIUtils.success('Backend server is running');
             console.log(`  Process ID: ${status.pid}`);
@@ -113,7 +272,7 @@ async function startInteractiveCli(): Promise<void> {
           }
           break;
         case 'view-logs':
-          const logInfo = ProcessManager.getLogFileInfo();
+          const logInfo = ProcessManagerService.getLogFileInfo();
           if (!logInfo.exists) {
             UIUtils.warning('No log file found');
             UIUtils.info('Backend server may not have been started in daemon mode yet');
@@ -123,7 +282,7 @@ async function startInteractiveCli(): Promise<void> {
             console.log(`🕒 Last modified: ${logInfo.lastModified!.toLocaleString()}`);
             console.log('');
 
-            const logResult = ProcessManager.readLogs(30); // 显示最后30行
+            const logResult = ProcessManagerService.readLogs(30); // 显示最后30行
             if (logResult.success && logResult.logs) {
               if (logResult.logs.length === 0) {
                 UIUtils.info('Log file is empty');
@@ -150,10 +309,10 @@ async function startInteractiveCli(): Promise<void> {
           } else {
             UIUtils.error('Backend services are not available');
           }
-          if (newHealth.ollama) {
-            UIUtils.success('Ollama service is available');
+          if (newHealth.framework) {
+            UIUtils.success(`${newHealth.frameworkType || 'Model inference'} service is available`);
           } else {
-            UIUtils.warning('Ollama service is not available');
+            UIUtils.warning(`${newHealth.frameworkType || 'Model inference'} service is not available`);
           }
           break;
         case 'exit':
@@ -202,7 +361,7 @@ program
         // 后台模式：使用 ProcessManager 创建独立进程
         UIUtils.info('Starting server in background mode...');
 
-        const result = ProcessManager.startDaemonProcess();
+        const result = ProcessManagerService.startDaemonProcess();
 
         if (result.success) {
           UIUtils.success('Backend server started in background');
@@ -239,7 +398,7 @@ program
       const spinner = UIUtils.createSpinner('Stopping server...');
       spinner.start();
 
-      const result = ProcessManager.stopDaemonProcess();
+      const result = ProcessManagerService.stopDaemonProcess();
       spinner.stop();
 
       if (result.success) {
@@ -264,7 +423,7 @@ program
     try {
       UIUtils.showSection('Backend Server Status');
 
-      const status = ProcessManager.getServerStatus();
+      const status = ProcessManagerService.getServerStatus();
 
       if (status.running) {
         UIUtils.success('Backend server is running');
@@ -296,7 +455,7 @@ program
       if (options.clear) {
         UIUtils.showSection('Clearing Backend Server Logs');
 
-        const result = ProcessManager.clearLogs();
+        const result = ProcessManagerService.clearLogs();
         if (result.success) {
           UIUtils.success('Log file cleared successfully');
         } else {
@@ -309,7 +468,7 @@ program
       UIUtils.showSection('Backend Server Logs');
 
       // 检查服务器状态
-      const status = ProcessManager.getServerStatus();
+      const status = ProcessManagerService.getServerStatus();
       if (!status.running) {
         UIUtils.warning('Backend server is not running');
         UIUtils.info('Use "sight start --daemon" to start the server in background');
@@ -317,7 +476,7 @@ program
       }
 
       // 获取日志文件信息
-      const logInfo = ProcessManager.getLogFileInfo();
+      const logInfo = ProcessManagerService.getLogFileInfo();
       if (!logInfo.exists) {
         UIUtils.warning('No log file found');
         UIUtils.info('Backend server may not have been started in daemon mode yet');
@@ -332,7 +491,7 @@ program
 
       // 读取日志
       const lines = parseInt(options.lines, 10) || 50;
-      const result = ProcessManager.readLogs(lines);
+      const result = ProcessManagerService.readLogs(lines);
 
       if (result.success && result.logs) {
         if (result.logs.length === 0) {
@@ -436,7 +595,7 @@ program
       const spinner = UIUtils.createSpinner('Stopping server...');
       spinner.start();
 
-      const result = ProcessManager.stopDaemonProcess();
+      const result = ProcessManagerService.stopDaemonProcess();
       spinner.stop();
 
       if (result.success) {
@@ -510,6 +669,532 @@ modelsCommand
       await ModelCommands.status();
     } catch (error) {
       UIUtils.error(`Models status error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    } finally {
+      await AppServices.closeApp();
+    }
+  });
+
+/**
+ * Ollama管理命令组
+ */
+const ollamaCommand = program
+  .command('ollama')
+  .description('Ollama configuration and management commands');
+
+ollamaCommand
+  .command('start')
+  .description('Start Ollama service')
+  .option('-h, --host <host>', 'Host to bind to')
+  .option('-p, --port <port>', 'Port to run on')
+  .option('-o, --origins <origins>', 'Allowed origins (comma-separated)')
+  .option('-m, --models <models>', 'Models to preload (comma-separated)')
+  .option('-k, --keep-alive <duration>', 'Keep alive duration')
+  .option('-d, --debug', 'Enable debug mode')
+  .option('-v, --verbose', 'Enable verbose mode')
+  .option('-l, --log-level <level>', 'Log level')
+  .action(async (options) => {
+    try {
+      const config: any = {};
+
+      if (options.host) config.host = options.host;
+      if (options.port) {
+        const port = parseInt(options.port);
+        if (isNaN(port) || port < 1 || port > 65535) {
+          UIUtils.error('Port must be between 1 and 65535');
+          process.exit(1);
+        }
+        config.port = port;
+      }
+      if (options.origins) config.origins = options.origins.split(',').map((s: string) => s.trim());
+      if (options.models) config.models = options.models.split(',').map((s: string) => s.trim());
+      if (options.keepAlive) config.keepAlive = options.keepAlive;
+      if (options.debug) config.debug = true;
+      if (options.verbose) config.verbose = true;
+      if (options.logLevel) config.logLevel = options.logLevel;
+
+      await OllamaCommands.startService();
+    } catch (error) {
+      UIUtils.error(`Ollama start error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    } finally {
+      await AppServices.closeApp();
+    }
+  });
+
+ollamaCommand
+  .command('stop')
+  .description('Stop Ollama service')
+  .action(async () => {
+    try {
+      await OllamaCommands.stopService();
+    } catch (error) {
+      UIUtils.error(`Ollama stop error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    } finally {
+      await AppServices.closeApp();
+    }
+  });
+
+ollamaCommand
+  .command('restart')
+  .description('Restart Ollama service with new configuration')
+  .option('-h, --host <host>', 'Host to bind to')
+  .option('-p, --port <port>', 'Port to run on')
+  .option('-o, --origins <origins>', 'Allowed origins (comma-separated)')
+  .option('-m, --models <models>', 'Models to preload (comma-separated)')
+  .option('-k, --keep-alive <duration>', 'Keep alive duration')
+  .option('-d, --debug', 'Enable debug mode')
+  .option('-v, --verbose', 'Enable verbose mode')
+  .option('-l, --log-level <level>', 'Log level')
+  .action(async (options) => {
+    try {
+      const config: any = {};
+
+      if (options.host) config.host = options.host;
+      if (options.port) {
+        const port = parseInt(options.port);
+        if (isNaN(port) || port < 1 || port > 65535) {
+          UIUtils.error('Port must be between 1 and 65535');
+          process.exit(1);
+        }
+        config.port = port;
+      }
+      if (options.origins) config.origins = options.origins.split(',').map((s: string) => s.trim());
+      if (options.models) config.models = options.models.split(',').map((s: string) => s.trim());
+      if (options.keepAlive) config.keepAlive = options.keepAlive;
+      if (options.debug) config.debug = true;
+      if (options.verbose) config.verbose = true;
+      if (options.logLevel) config.logLevel = options.logLevel;
+
+      await OllamaCommands.restartService();
+    } catch (error) {
+      UIUtils.error(`Ollama restart error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    } finally {
+      await AppServices.closeApp();
+    }
+  });
+
+ollamaCommand
+  .command('status')
+  .description('Show Ollama process status')
+  .action(async () => {
+    try {
+      await OllamaCommands.getProcessStatus();
+    } catch (error) {
+      UIUtils.error(`Ollama status error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    } finally {
+      await AppServices.closeApp();
+    }
+  });
+
+ollamaCommand
+  .command('configure')
+  .description('Interactive Ollama configuration')
+  .action(async () => {
+    try {
+      await OllamaCommands.showConfiguration();
+    } catch (error) {
+      UIUtils.error(`Ollama configure error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    } finally {
+      await AppServices.closeApp();
+    }
+  });
+
+ollamaCommand
+  .command('models')
+  .description('List available Ollama models')
+  .action(async () => {
+    try {
+      await OllamaCommands.listModels();
+    } catch (error) {
+      UIUtils.error(`Ollama models error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    } finally {
+      await AppServices.closeApp();
+    }
+  });
+
+ollamaCommand
+  .command('pull')
+  .description('Pull an Ollama model')
+  .argument('[model]', 'Model name to pull')
+  .action(async (model) => {
+    try {
+      await OllamaCommands.pullModel(model);
+    } catch (error) {
+      UIUtils.error(`Ollama pull error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    } finally {
+      await AppServices.closeApp();
+    }
+  });
+
+/**
+ * vLLM管理命令组
+ */
+const vllmCommand = program
+  .command('vllm')
+  .description('vLLM configuration and management commands');
+
+vllmCommand
+  .command('config')
+  .description('Show current vLLM configuration')
+  .action(async () => {
+    try {
+      await VllmCommands.getConfig();
+    } catch (error) {
+      UIUtils.error(`vLLM config error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    } finally {
+      await AppServices.closeApp();
+    }
+  });
+
+vllmCommand
+  .command('gpu-memory')
+  .description('Set GPU memory utilization')
+  .option('-m, --memory <utilization>', 'GPU memory utilization (0.1-1.0)')
+  .action(async (options) => {
+    try {
+      const memoryUtilization = options.memory ? parseFloat(options.memory) : undefined;
+      if (memoryUtilization !== undefined && (isNaN(memoryUtilization) || memoryUtilization < 0.1 || memoryUtilization > 1.0)) {
+        UIUtils.error('GPU memory utilization must be between 0.1 and 1.0');
+        process.exit(1);
+      }
+      await VllmCommands.setGpuMemory(memoryUtilization);
+    } catch (error) {
+      UIUtils.error(`vLLM GPU memory error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    } finally {
+      await AppServices.closeApp();
+    }
+  });
+
+vllmCommand
+  .command('configure')
+  .description('Interactive vLLM configuration')
+  .action(async () => {
+    try {
+      await VllmCommands.configureInteractive();
+    } catch (error) {
+      UIUtils.error(`vLLM configure error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    } finally {
+      await AppServices.closeApp();
+    }
+  });
+
+vllmCommand
+  .command('reset')
+  .description('Reset vLLM configuration to defaults')
+  .action(async () => {
+    try {
+      await VllmCommands.resetConfig();
+    } catch (error) {
+      UIUtils.error(`vLLM reset error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    } finally {
+      await AppServices.closeApp();
+    }
+  });
+
+vllmCommand
+  .command('start')
+  .description('Start vLLM service with current configuration')
+  .option('-m, --model <model>', 'Model to load')
+  .option('-g, --gpu-memory <utilization>', 'GPU memory utilization (0.1-1.0)')
+  .option('-t, --tensor-parallel <size>', 'Tensor parallel size')
+  .option('-s, --max-seqs <number>', 'Maximum number of sequences')
+  .option('-p, --port <port>', 'Port to run on')
+  .action(async (options) => {
+    try {
+      const config: any = {};
+
+      if (options.model) config.model = options.model;
+      if (options.gpuMemory) {
+        const mem = parseFloat(options.gpuMemory);
+        if (isNaN(mem) || mem < 0.1 || mem > 1.0) {
+          UIUtils.error('GPU memory utilization must be between 0.1 and 1.0');
+          process.exit(1);
+        }
+        config.gpuMemoryUtilization = mem;
+      }
+      if (options.tensorParallel) {
+        const tp = parseInt(options.tensorParallel);
+        if (isNaN(tp) || tp < 1) {
+          UIUtils.error('Tensor parallel size must be a positive integer');
+          process.exit(1);
+        }
+        config.tensorParallelSize = tp;
+      }
+      if (options.maxSeqs) {
+        const ms = parseInt(options.maxSeqs);
+        if (isNaN(ms) || ms < 1) {
+          UIUtils.error('Max sequences must be a positive integer');
+          process.exit(1);
+        }
+        config.maxNumSeqs = ms;
+      }
+      if (options.port) {
+        const port = parseInt(options.port);
+        if (isNaN(port) || port < 1 || port > 65535) {
+          UIUtils.error('Port must be between 1 and 65535');
+          process.exit(1);
+        }
+        config.port = port;
+      }
+
+      await VllmCommands.startService(Object.keys(config).length > 0 ? config : undefined);
+    } catch (error) {
+      UIUtils.error(`vLLM start error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    } finally {
+      await AppServices.closeApp();
+    }
+  });
+
+vllmCommand
+  .command('stop')
+  .description('Stop vLLM service')
+  .action(async () => {
+    try {
+      await VllmCommands.stopService();
+    } catch (error) {
+      UIUtils.error(`vLLM stop error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    } finally {
+      await AppServices.closeApp();
+    }
+  });
+
+vllmCommand
+  .command('restart')
+  .description('Restart vLLM service with new configuration')
+  .option('-m, --model <model>', 'Model to load')
+  .option('-g, --gpu-memory <utilization>', 'GPU memory utilization (0.1-1.0)')
+  .option('-t, --tensor-parallel <size>', 'Tensor parallel size')
+  .option('-s, --max-seqs <number>', 'Maximum number of sequences')
+  .option('-p, --port <port>', 'Port to run on')
+  .action(async (options) => {
+    try {
+      const config: any = {};
+
+      if (options.model) config.model = options.model;
+      if (options.gpuMemory) {
+        const mem = parseFloat(options.gpuMemory);
+        if (isNaN(mem) || mem < 0.1 || mem > 1.0) {
+          UIUtils.error('GPU memory utilization must be between 0.1 and 1.0');
+          process.exit(1);
+        }
+        config.gpuMemoryUtilization = mem;
+      }
+      if (options.tensorParallel) {
+        const tp = parseInt(options.tensorParallel);
+        if (isNaN(tp) || tp < 1) {
+          UIUtils.error('Tensor parallel size must be a positive integer');
+          process.exit(1);
+        }
+        config.tensorParallelSize = tp;
+      }
+      if (options.maxSeqs) {
+        const ms = parseInt(options.maxSeqs);
+        if (isNaN(ms) || ms < 1) {
+          UIUtils.error('Max sequences must be a positive integer');
+          process.exit(1);
+        }
+        config.maxNumSeqs = ms;
+      }
+      if (options.port) {
+        const port = parseInt(options.port);
+        if (isNaN(port) || port < 1 || port > 65535) {
+          UIUtils.error('Port must be between 1 and 65535');
+          process.exit(1);
+        }
+        config.port = port;
+      }
+
+      await VllmCommands.restartService(Object.keys(config).length > 0 ? config : undefined);
+    } catch (error) {
+      UIUtils.error(`vLLM restart error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    } finally {
+      await AppServices.closeApp();
+    }
+  });
+
+vllmCommand
+  .command('status')
+  .description('Show vLLM process status')
+  .action(async () => {
+    try {
+      await VllmCommands.getProcessStatus();
+    } catch (error) {
+      UIUtils.error(`vLLM status error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    } finally {
+      await AppServices.closeApp();
+    }
+  });
+
+/**
+ * 框架管理命令组
+ */
+const frameworkCommand = program
+  .command('framework')
+  .description('Model inference framework management commands');
+
+frameworkCommand
+  .command('status')
+  .description('Show current framework status and availability')
+  .action(async () => {
+    try {
+      UIUtils.showSection('Framework Status');
+
+      const spinner = UIUtils.createSpinner('Checking framework status...');
+      spinner.start();
+
+      const response = await AppServices.getFrameworkStatus();
+      spinner.stop();
+
+      if (response.success) {
+        const data = response.data;
+
+        UIUtils.success(`Current Framework: ${data.current}`);
+        console.log('');
+
+        console.log('📊 Available Frameworks:');
+        data.available.forEach((fw: string) => {
+          console.log(`  ✅ ${fw}`);
+        });
+
+        if (data.available.length === 0) {
+          UIUtils.warning('No frameworks are currently available');
+          console.log('');
+          UIUtils.showBox(
+            'Framework Setup Required',
+            '🚀 Please start one of the following inference frameworks:\n\n' +
+            '• Ollama: Run "ollama serve" in terminal\n' +
+            '• vLLM: Start your vLLM server\n\n' +
+            'Then use: sight framework switch <framework>',
+            'info'
+          );
+        }
+
+        console.log('');
+        console.log('🔧 Primary Framework Status:');
+        if (data.primary) {
+          console.log(`  Framework: ${data.primary.framework}`);
+          console.log(`  Available: ${data.primary.isAvailable ? '✅' : '❌'}`);
+          console.log(`  URL: ${data.primary.url}`);
+          if (data.primary.version) {
+            console.log(`  Version: ${data.primary.version}`);
+          }
+          if (data.primary.error) {
+            console.log(`  Error: ${data.primary.error}`);
+          }
+        } else {
+          console.log('  ❌ Primary framework information not available');
+        }
+
+        if (data.secondary) {
+          console.log('');
+          console.log('🔧 Secondary Framework Status:');
+          console.log(`  Framework: ${data.secondary.framework}`);
+          console.log(`  Available: ${data.secondary.isAvailable ? '✅' : '❌'}`);
+          console.log(`  URL: ${data.secondary.url}`);
+          if (data.secondary.version) {
+            console.log(`  Version: ${data.secondary.version}`);
+          }
+          if (data.secondary.error) {
+            console.log(`  Error: ${data.secondary.error}`);
+          }
+        }
+      } else {
+        // 检查是否是框架不可用的错误
+        if (response.error && response.error.includes('NO_FRAMEWORKS_AVAILABLE')) {
+          UIUtils.error('No inference frameworks are currently available!');
+          console.log('');
+          UIUtils.showBox(
+            'Framework Setup Required',
+            '🚀 Please start one of the following inference frameworks:\n\n' +
+            '• Ollama: Run "ollama serve" in terminal\n' +
+            '• vLLM: Start your vLLM server\n\n' +
+            'After starting a framework, use:\n' +
+            '• sight framework switch ollama\n' +
+            '• sight framework switch vllm',
+            'info'
+          );
+
+          // 提供交互式选择
+          const { shouldChoose } = await inquirer.prompt([
+            {
+              type: 'confirm',
+              name: 'shouldChoose',
+              message: 'Would you like to choose a framework to use (even if not currently available)?',
+              default: true
+            }
+          ]);
+
+          if (shouldChoose) {
+            const { framework } = await inquirer.prompt([
+              {
+                type: 'list',
+                name: 'framework',
+                message: 'Select framework to configure:',
+                choices: [
+                  { name: 'Ollama (Recommended)', value: 'ollama' },
+                  { name: 'vLLM', value: 'vllm' }
+                ]
+              }
+            ]);
+
+            UIUtils.info(`Setting framework to: ${framework}`);
+            const switchResult = await AppServices.switchFramework(framework, true);
+            if (switchResult.success) {
+              UIUtils.success(switchResult.message);
+              UIUtils.info('Framework configured! Start your inference service and try again.');
+            } else {
+              UIUtils.error(`Failed to configure framework: ${switchResult.error}`);
+            }
+          }
+        } else {
+          UIUtils.error(`Failed to get framework status: ${response.error}`);
+        }
+      }
+    } catch (error) {
+      UIUtils.error(`Framework status error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    } finally {
+      await AppServices.closeApp();
+    }
+  });
+
+frameworkCommand
+  .command('switch <framework>')
+  .description('Switch to a different framework (ollama, vllm)')
+  .option('-f, --force', 'Force switch even if framework is not available')
+  .action(async (framework, options) => {
+    try {
+      UIUtils.showSection(`Switching to Framework: ${framework}`);
+
+      const spinner = UIUtils.createSpinner('Switching framework...');
+      spinner.start();
+
+      const response = await AppServices.switchFramework(framework, options.force);
+      spinner.stop();
+
+      if (response.success) {
+        UIUtils.success(response.message);
+      } else {
+        UIUtils.error(`Failed to switch framework: ${response.error}`);
+        process.exit(1);
+      }
+    } catch (error) {
+      UIUtils.error(`Framework switch error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       process.exit(1);
     } finally {
       await AppServices.closeApp();

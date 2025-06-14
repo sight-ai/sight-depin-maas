@@ -5,7 +5,6 @@ import express, { Response, Request, NextFunction, json, urlencoded } from 'expr
 import { patchNestJsSwagger } from 'nestjs-zod';
 import { AppModule } from './app/app.module';
 import { AllExceptionsFilter } from './app/interceptors/all-exceptions.filter';
-import { env } from './env';
 import { Logger } from '@nestjs/common';
 import { PlainTextToJsonMiddleware } from "./app/plaintext-to-json-middleware";
 import { FileLoggerService } from './app/logger/file-logger.service';
@@ -85,7 +84,7 @@ export async function bootstrap() {
       process.exit(1);
     });
 
-  const port = env.API_PORT;
+  const port = process.env.API_PORT!;
   await app.listen(port, () => {
     logger.log(`Saito API server started at port ${port}`);
   });

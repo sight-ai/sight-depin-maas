@@ -53,7 +53,7 @@ export const OpenAIChatCompletionChunk = z.object({
     prompt_tokens: z.number(),
     completion_tokens: z.number(),
     total_tokens: z.number(),
-  }),
+  }).optional(),
 });
 
 // OpenAI Completion Request (text completion)

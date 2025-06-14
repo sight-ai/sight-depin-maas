@@ -5,7 +5,6 @@ import {
 } from '@saito/common';
 import { ArgumentsHost, Catch, ExceptionFilter, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { env } from '../../env';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -19,7 +18,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const { debugInfos, apiError } = statusDetails;
     let data = apiError;
 
-    if (env.ENABLE_DEBUG_INFO) {
+    if (process.env.ENABLE_DEBUG_INFO) {
       data = {
         error: {
           ...apiError.error,

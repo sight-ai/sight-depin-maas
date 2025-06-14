@@ -1,186 +1,224 @@
-import { Body, Controller, Get, Inject, Logger, Param, Post, Res } from "@nestjs/common";
-import { createZodDto } from 'nestjs-zod';
-import { OllamaService } from "@saito/ollama";
+import { Controller, Post, Get, Body, Res, Logger, UseInterceptors } from '@nestjs/common';
+import { UnifiedModelService } from '@saito/model-inference-client';
+import { EarningsTrackingInterceptor } from '@saito/earnings-tracking';
 import { Response } from 'express';
-import * as R from 'ramda';
 import {
+  OpenAIChatCompletionRequestSchema,
+  OpenAICompletionRequestSchema,
   OpenAIChatCompletionRequest,
-  OpenAICompletionRequest,
-  OpenAIEmbeddingsRequest,
-} from "@saito/models";
+  OpenAICompletionRequest
+} from '@saito/models';
+import z from 'zod';
 
-export class OpenAIChatCompletionRequestDto extends createZodDto(OpenAIChatCompletionRequest) { }
-export class OpenAICompletionRequestDto extends createZodDto(OpenAICompletionRequest) { }
-export class OpenAIEmbeddingsRequestDto extends createZodDto(OpenAIEmbeddingsRequest) { }
-
-const handleApiError = (res: Response, error: unknown, model?: string) => {
-  if (!res.headersSent) {
-    res.status(400).json({
-      error: 'Error during API request',
-      details: error instanceof Error ? error.message : 'Unknown error',
-      model: model || 'unknown',
-      created_at: new Date().toISOString(),
-      done: true
-    });
-  }
-};
-
-@Controller(['/openai', '/openai/v1'])
+/**
+ * Clean OpenAI Controller
+ * 
+ * Purpose: Provide OpenAI-compatible API endpoints with minimal interference
+ * 
+ * Key Principles:
+ * 1. Direct passthrough to underlying services
+ * 2. No response transformation - let services handle their own formats
+ * 3. Clean error handling
+ * 4. Framework-agnostic operation
+ */
+@Controller(['openai', 'openai/v1'])
+@UseInterceptors(EarningsTrackingInterceptor)
 export class OpenAIController {
   private readonly logger = new Logger(OpenAIController.name);
+
   constructor(
-    @Inject(OllamaService) private readonly ollamaService: OllamaService
-  ) { }
+    private readonly unifiedModelService: UnifiedModelService
+  ) {}
 
+  /**
+   * OpenAI-compatible chat completions endpoint
+   * Uses new framework manager architecture
+   * Both Ollama and vLLM support OpenAI-compatible endpoints
+   */
   @Post('/chat/completions')
-  async chatCompletions(@Body() args: OpenAIChatCompletionRequestDto, @Res() res: Response) {
+  async chatCompletions(@Body() args: z.infer<typeof OpenAIChatCompletionRequestSchema>, @Res() res: Response) {
     try {
-      
+      this.logger.debug('openai Chat completions request received');
 
-      if (args.stream) {
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.flushHeaders();
-      }
-
-      // Pass the full endpoint path to identify this as an OpenAI request
-      await this.ollamaService.chat(args, res, 'v1/chat/completions');
-    } catch (error) {
-      this.logger.error('Error during OpenAI chat completions:', error);
-      handleApiError(res, error, args.model);
-    }
-  }
-
-  @Post('/completions')
-  async completions(@Body() args: OpenAICompletionRequestDto, @Res() res: Response) {
-    try {
-      
-
-      if (args.stream) {
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.flushHeaders();
-      }
-
-      // Pass the full endpoint path to identify this as an OpenAI request
-      await this.ollamaService.complete(args, res, 'v1/completions');
-    } catch (error) {
-      this.logger.error('Error during OpenAI completions:', error);
-      handleApiError(res, error, args.model);
-    }
-  }
-
-  @Post('/embeddings')
-  async embeddings(@Body() args: OpenAIEmbeddingsRequestDto, @Res() res: Response) {
-    try {
-      
-
-      // Convert OpenAI format to Ollama format
-      const ollamaRequest = {
-        model: args.model,
-        input: args.input,
-      };
-
-      const embeddings = await this.ollamaService.generateEmbeddings(ollamaRequest);
-
-      // Convert Ollama response to OpenAI format
-      // Estimate token count based on input length
-      let inputText = '';
-      if (typeof args.input === 'string') {
-        inputText = args.input;
-      } else if (Array.isArray(args.input)) {
-        inputText = args.input.join(' ');
-      }
-
-      // Rough estimate: 1 token ≈ 4 characters for English text
-      const estimatedTokens = Math.ceil(inputText.length / 4);
-
-      const openAIResponse = {
-        object: 'list',
-        data: embeddings.embeddings.map((embedding, index) => ({
-          object: 'embedding',
-          embedding,
-          index,
+      // Convert OpenAI format to unified format
+      const chatRequest = {
+        messages: args.messages.map(msg => ({
+          role: msg.role,
+          content: msg.content || ''
         })),
         model: args.model,
-        usage: {
-          prompt_tokens: estimatedTokens,
-          total_tokens: estimatedTokens,
-        },
+        stream: args.stream,
+        temperature: args.temperature,
+        max_tokens: args.max_tokens
       };
 
-      res.status(200).json(openAIResponse);
+      // Use unified model service with OpenAI-compatible endpoint
+      // Both Ollama and vLLM support /v1/chat/completions
+      await this.unifiedModelService.chat(chatRequest as any, res, '/v1/chat/completions');
+
     } catch (error) {
-      this.logger.error('Error during OpenAI embeddings:', error);
-      handleApiError(res, error, args.model);
+      this.logger.error(`Chat completions error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: {
+            message: error instanceof Error ? error.message : 'Internal server error',
+            type: 'api_error',
+            code: 'internal_error'
+          }
+        });
+      }
     }
   }
 
+  /**
+   * OpenAI-compatible completions endpoint
+   * Uses new framework manager architecture
+   * Both Ollama and vLLM support OpenAI-compatible endpoints
+   */
+  @Post('/completions')
+  async completions(@Body() args: z.infer<typeof OpenAICompletionRequestSchema>, @Res() res: Response) {
+    try {
+      // Convert OpenAI format to unified format
+      const completionRequest = {
+        prompt: Array.isArray(args.prompt) ? args.prompt.join('\n') : args.prompt,
+        model: args.model,
+        stream: args.stream,
+        temperature: args.temperature,
+        max_tokens: args.max_tokens
+      };
+
+      // Use unified model service with OpenAI-compatible endpoint
+      // Both Ollama and vLLM support /v1/completions
+      await this.unifiedModelService.complete(completionRequest as any, res, '/v1/completions');
+
+    } catch (error) {
+      this.logger.error(`Completions error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: {
+            message: error instanceof Error ? error.message : 'Internal server error',
+            type: 'api_error',
+            code: 'internal_error'
+          }
+        });
+      }
+    }
+  }
+
+  /**
+   * OpenAI-compatible models endpoint
+   * Returns models in OpenAI format regardless of underlying framework
+   */
   @Get('/models')
   async listModels(@Res() res: Response) {
     try {
-      
+      // Use unified model service
+      const currentFramework = this.unifiedModelService.getCurrentFramework();
+      const modelList = await this.unifiedModelService.listModels();
 
-      const ollamaModels = await this.ollamaService.listModelTags();
-
-      // Convert Ollama response to OpenAI format
-      const openAIResponse = {
+      // Convert to OpenAI format for compatibility
+      const openaiFormat = {
         object: 'list',
-        data: ollamaModels.models.map(model => ({
+        data: modelList.models.map((model: any) => ({
           id: model.name,
           object: 'model',
-          created: new Date(model.modified_at).getTime() / 1000,
-          owned_by: 'organization',
-        })),
+          created: model.modified_at ? Math.floor(new Date(model.modified_at).getTime() / 1000) : Math.floor(Date.now() / 1000),
+          owned_by: currentFramework.toLowerCase()
+        }))
       };
 
-      res.status(200).json(openAIResponse);
+      res.json(openaiFormat);
+
     } catch (error) {
-      this.logger.error('Error during OpenAI list models:', error);
-      handleApiError(res, error);
-    }
-  }
+      this.logger.error(`List models error: ${error instanceof Error ? error.message : 'Unknown error'}`);
 
-  @Get('/models/:model')
-  async getModel(@Param('model') modelName: string, @Res() res: Response) {
-    try {
-      
-
-      const modelInfo = await this.ollamaService.showModelInformation({ name: modelName });
-
-      // Convert Ollama response to OpenAI format
-      const openAIResponse = {
-        id: modelName,
-        object: 'model',
-        created: Math.floor(Date.now() / 1000), // Current time as we don't have the actual creation time
-        owned_by: 'organization',
-        // Add additional details from Ollama
-        details: modelInfo.details,
-      };
-
-      res.status(200).json(openAIResponse);
-    } catch (error) {
-      this.logger.error(`Error during OpenAI get model (${modelName}):`, error);
-      handleApiError(res, error, modelName);
-    }
-  }
-
-  @Get('/version')
-  async getVersion(@Res() res: Response) {
-    try {
-      
-
-      const versionInfo = await this.ollamaService.showModelVersion();
-
-      res.status(200).json({
-        version: versionInfo.version,
-        openai_compatibility: true,
+      res.status(500).json({
+        error: {
+          message: error instanceof Error ? error.message : 'Failed to list models',
+          type: 'api_error',
+          code: 'internal_error'
+        }
       });
-    } catch (error) {
-      this.logger.error('Error during OpenAI version request:', error);
-      handleApiError(res, error);
     }
   }
+
+  /**
+   * OpenAI-compatible embeddings endpoint
+   * Uses new framework manager architecture
+   */
+  @Post('/embeddings')
+  async embeddings(@Body() args: any, @Res() res: Response) {
+    try {
+      // Use unified model service
+      const result = await this.unifiedModelService.generateEmbeddings(args);
+
+      res.json(result);
+
+    } catch (error) {
+      this.logger.error(`Embeddings error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+      res.status(500).json({
+        error: {
+          message: error instanceof Error ? error.message : 'Failed to generate embeddings',
+          type: 'api_error',
+          code: 'internal_error'
+        }
+      });
+    }
+  }
+
+  /**
+   * Custom responses endpoint
+   * This endpoint handles response-related operations
+   */
+  @Post('/responses')
+  async responses(@Body() args: Record<string, any>, @Res() res: Response) {
+    try {
+      this.logger.debug('Responses endpoint called');
+
+      // Use unified model service
+
+      // Check if this is a chat completion request
+      if (args.messages && Array.isArray(args.messages)) {
+        // Handle as chat completion
+        await this.unifiedModelService.chat(args as any, res, '/v1/chat/completions');
+      } else if (args.prompt) {
+        // Handle as text completion
+        await this.unifiedModelService.complete(args as any, res, '/v1/completions');
+      } else {
+        // Return error for invalid request
+        if (!res.headersSent) {
+          res.status(400).json({
+            error: {
+              message: 'Invalid request format. Expected messages array or prompt string.',
+              type: 'invalid_request_error',
+              code: 'invalid_format',
+              cause: {}
+            },
+            cause: {},
+            provider: 'openai'
+          });
+        }
+      }
+
+    } catch (error) {
+      this.logger.error(`Responses error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: {
+            message: error instanceof Error ? error.message : 'Internal server error',
+            type: 'api_error',
+            code: 'internal_error',
+            cause: {}
+          },
+          cause: {},
+          provider: 'openai'
+        });
+      }
+    }
+  }
+
 }

@@ -18,18 +18,28 @@ export class ModelCommands {
       spinner.start();
 
       try {
-        const modelList = await AppServices.getOllamaModels();
+        // 使用统一的模型服务接口
+        const modelResponse = await AppServices.getUnifiedModels();
         spinner.stop();
 
+        if (!modelResponse.success) {
+          UIUtils.error(`Failed to fetch models: ${modelResponse.error}`);
+          return;
+        }
+
+        const modelList = modelResponse.data;
         if (modelList.models.length === 0) {
           UIUtils.showBox(
             'No Models Found',
-            'No models are currently installed.\nPlease install models using "ollama pull <model-name>"',
+            'No models are currently installed.\nPlease install models using the appropriate command for your framework.',
             'warning'
           );
           return;
         }
 
+        console.log('');
+        // 显示当前使用的框架
+        UIUtils.info(`Framework: ${modelList.framework}`);
         console.log('');
         TableUtils.showModelsTable(modelList.models);
         console.log('');
@@ -41,7 +51,7 @@ export class ModelCommands {
         // 提供故障排除建议
         UIUtils.showBox(
           'Troubleshooting',
-          '• Make sure Ollama is installed and running\n• Try running "ollama serve" to start the service\n• Check if OLLAMA_API_URL environment variable is set correctly',
+          '• Check framework status: sight framework status\n• Make sure your inference framework is running\n• Try switching framework: sight framework switch <framework>',
           'info'
         );
       }
@@ -61,17 +71,28 @@ export class ModelCommands {
       spinner.start();
 
       try {
-        const modelList = await AppServices.getOllamaModels();
+        // 使用统一的模型服务接口
+        const modelResponse = await AppServices.getUnifiedModels();
         spinner.stop();
 
+        if (!modelResponse.success) {
+          UIUtils.error(`Failed to fetch models: ${modelResponse.error}`);
+          return;
+        }
+
+        const modelList = modelResponse.data;
         if (modelList.models.length === 0) {
           UIUtils.showBox(
             'No Models Found',
-            'No models are currently installed.\nPlease install models using "ollama pull <model-name>"',
+            'No models are currently installed.\nPlease install models using the appropriate command for your framework.',
             'warning'
           );
           return;
         }
+
+        // 显示当前框架信息
+        UIUtils.info(`Using framework: ${modelList.framework}`);
+        console.log('');
 
         // 显示可用模型
         console.log('');
@@ -183,17 +204,27 @@ export class ModelCommands {
       spinner.start();
 
       try {
-        const modelList = await AppServices.getOllamaModels();
+        // 使用统一的模型服务接口
+        const modelResponse = await AppServices.getUnifiedModels();
         spinner.stop();
 
+        if (!modelResponse.success) {
+          UIUtils.error(`Failed to fetch models: ${modelResponse.error}`);
+          return;
+        }
+
+        const modelList = modelResponse.data;
         if (modelList.models.length === 0) {
           UIUtils.showBox(
             'No Models Found',
-            'No models are currently installed.\nPlease install models using "ollama pull <model-name>"',
+            'No models are currently installed.\nPlease install models using the appropriate command for your framework.',
             'warning'
           );
           return;
         }
+
+        // 显示当前框架信息
+        UIUtils.info(`Using framework: ${modelList.framework}`);
 
         const allModels = modelList.models.map((model: any) => model.name);
 
@@ -256,16 +287,19 @@ export class ModelCommands {
       spinner.start();
 
       try {
-        const registrationStorage = AppServices.getRegistrationStorage();
-        const savedModels = registrationStorage.getReportedModels();
-        const reportedModels = savedModels; // 使用本地存储的模型信息
+        const registrationStorage = AppServices.getStorageManager();
+        const savedModels = await registrationStorage.getReportedModels();
+
+        // 提取模型名称列表
+        const reportedModelNames = savedModels.flatMap(report => report.models);
+        const savedModelNames = savedModels.flatMap(report => report.models);
 
         spinner.stop();
 
         console.log('');
-        TableUtils.showModelReportStatusTable(reportedModels, savedModels);
+        TableUtils.showModelReportStatusTable(reportedModelNames, savedModelNames);
 
-        if (reportedModels.length === 0 && savedModels.length === 0) {
+        if (reportedModelNames.length === 0 && savedModelNames.length === 0) {
           console.log('');
           UIUtils.showBox(
             'No Models Reported',

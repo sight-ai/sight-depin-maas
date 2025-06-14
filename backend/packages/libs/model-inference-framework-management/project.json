@@ -1,0 +1,36 @@
+{
+  "name": "model-inference-framework-management",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/libs/model-inference-framework-management/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/libs/model-inference-framework-management",
+        "main": "packages/libs/model-inference-framework-management/src/index.ts",
+        "tsConfig": "packages/libs/model-inference-framework-management/tsconfig.lib.json",
+        "assets": ["packages/libs/model-inference-framework-management/*.md"]
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "packages/libs/model-inference-framework-management/**/*.ts",
+          "packages/libs/model-inference-framework-management/package.json"
+        ]
+      }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "packages/libs/model-inference-framework-management/jest.config.ts"
+      }
+    }
+  },
+  "tags": []
+}
