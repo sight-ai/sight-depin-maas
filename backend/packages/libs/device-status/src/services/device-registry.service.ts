@@ -41,7 +41,7 @@ export class DeviceRegistryService implements TDeviceRegistry {
           error: 'Invalid credentials provided'
         };
       }
-
+      console.log(credentials)
       // 创建设备配置
       const deviceConfig = this.createDeviceConfig(credentials);
 
@@ -64,6 +64,11 @@ export class DeviceRegistryService implements TDeviceRegistry {
       };
 
       await this.configService.updateConfig(finalConfig);
+
+      // 保存 basePath 到注册信息
+      if (credentials.basePath) {
+        await this.configService.saveConfigToStorage(finalConfig, credentials.basePath);
+      }
 
       this.logger.log(`Device registered successfully: ${finalConfig.deviceId}`);
 
@@ -141,6 +146,7 @@ export class DeviceRegistryService implements TDeviceRegistry {
       deviceName: 'SightAI Device',
       gatewayAddress: credentials.gateway_address,
       rewardAddress: credentials.reward_address,
+      basePath: credentials.basePath,
       key: credentials.key,
       code: credentials.code,
       isRegistered: false

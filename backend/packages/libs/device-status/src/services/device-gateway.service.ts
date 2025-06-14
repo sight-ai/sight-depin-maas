@@ -95,11 +95,13 @@ export class DeviceGatewayService implements TDeviceGateway {
         this.logger.log(`Gateway registration successful: ${nodeId}`);
 
         // 注册成功，更新本地配置文件中的设备ID
+        console.log(config)
         await this.updateLocalConfigAfterSuccessfulRegistration(responseData, config);
 
         // 获取 basePath 并创建 socket 连接
-        const basePath = await this.dynamicConfigService.getBasePath();
-        this.tunnelService.createSocket(config.gatewayAddress, config.key, config.code, basePath);
+        // const basePath = await this.dynamicConfigService.getBasePath();
+        console.log(config.basePath)
+        this.tunnelService.createSocket(config.gatewayAddress, config.key, config.code, config.basePath);
         await this.tunnelService.connectSocket(nodeId);
 
         return {
@@ -216,14 +218,15 @@ export class DeviceGatewayService implements TDeviceGateway {
         // 更新配置
         const updatedConfig: Partial<DeviceConfig> = {
           deviceId: newDeviceId,
-          isRegistered: true
+          isRegistered: true,
+          basePath: originalConfig.basePath
         };
 
         // 如果响应中包含其他信息，也一并更新
         if (deviceData.device_name && deviceData.device_name !== originalConfig.deviceName) {
           updatedConfig.deviceName = deviceData.device_name;
         }
-
+        console.log('updatedConfig', updatedConfig)
         await this.deviceConfigService.updateConfig(updatedConfig);
         this.logger.log('✅ Local configuration updated successfully');
       } else {

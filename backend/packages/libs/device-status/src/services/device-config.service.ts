@@ -113,6 +113,7 @@ export class DeviceConfigService implements TDeviceConfig {
           deviceName: storedConfig.deviceName || '',
           gatewayAddress: storedConfig.gatewayAddress || '',
           rewardAddress: storedConfig.rewardAddress || '',
+          basePath: storedConfig.basePath || '',
           key: storedConfig.key || '',
           code: storedConfig.code || '',
           isRegistered: storedConfig.isRegistered || false
@@ -127,6 +128,28 @@ export class DeviceConfigService implements TDeviceConfig {
   }
 
   /**
+   * 保存配置到存储（带 basePath 支持）
+   */
+  async saveConfigToStorage(config: DeviceConfig, basePath?: string): Promise<void> {
+    try {
+      this.storage.saveRegistrationInfo({
+        deviceId: config.deviceId,
+        deviceName: config.deviceName,
+        gatewayAddress: config.gatewayAddress,
+        rewardAddress: config.rewardAddress,
+        key: config.key,
+        code: config.code || '',
+        isRegistered: config.isRegistered,
+        basePath
+      });
+      this.logger.debug('Config saved to storage with basePath:', basePath);
+    } catch (error) {
+      this.logger.error('Failed to save config to storage:', error);
+      throw error;
+    }
+  }
+
+  /**
    * 保存配置到存储
    */
   private saveConfig(config: DeviceConfig): void {
@@ -135,6 +158,7 @@ export class DeviceConfigService implements TDeviceConfig {
         deviceId: config.deviceId,
         deviceName: config.deviceName,
         gatewayAddress: config.gatewayAddress,
+        basePath: config.basePath,
         rewardAddress: config.rewardAddress,
         key: config.key,
         code: config.code || '',
@@ -155,6 +179,7 @@ export class DeviceConfigService implements TDeviceConfig {
       deviceName: '',
       gatewayAddress: '',
       rewardAddress: '',
+      basePath: '',
       key: '',
       code: '',
       isRegistered: false

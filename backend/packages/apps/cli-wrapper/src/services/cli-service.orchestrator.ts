@@ -74,8 +74,7 @@ export class CliServiceOrchestrator implements ICliService {
     this.deviceHandler = new DeviceCommandsHandler(
       this.serviceAccess,
       this.ui,
-      this.storageManager,
-      this.errorHandler
+      this.storageManager
     );
 
     this.modelHandler = new ModelCommandsHandler(

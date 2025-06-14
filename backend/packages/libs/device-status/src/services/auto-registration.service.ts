@@ -68,7 +68,7 @@ export class AutoRegistrationService implements OnModuleInit {
 
       // 检查是否有存储的注册信息
       const config = this.configService.getCurrentConfig();
-      
+      console.log(config, 'getCurrentConfig')
       if (!this.hasValidRegistrationInfo(config)) {
         this.logger.debug('No valid registration information found, skipping auto registration');
         return false;
