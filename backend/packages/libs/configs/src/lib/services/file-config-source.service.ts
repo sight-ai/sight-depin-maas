@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { promises as fs } from 'fs';
 import { join, dirname } from 'path';
-import { watch, FSWatcher } from 'chokidar';
+import chokidar from 'chokidar';
 import { 
   IConfigSource, 
   ConfigChangeCallback, 
@@ -17,7 +17,7 @@ import { ErrorHandlerService } from '@saito/common';
 @Injectable()
 export class FileConfigSourceService implements IConfigSource {
   private readonly logger = new Logger(FileConfigSourceService.name);
-  private watcher: FSWatcher | null = null;
+  private watcher: ReturnType<typeof chokidar.watch> | null = null;
   private changeCallback: ConfigChangeCallback | null = null;
 
   constructor(
@@ -101,12 +101,13 @@ export class FileConfigSourceService implements IConfigSource {
       // 确保目录存在
       await this.ensureDirectoryExists();
       
-      this.watcher = watch(this.filePath, {
+      this.watcher = chokidar.watch(this.filePath, {
         persistent: true,
         ignoreInitial: true
       });
 
-      this.watcher.on('change', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (this.watcher as any).on('change', async () => {
         try {
           this.logger.debug(`Config file changed: ${this.filePath}`);
           
@@ -127,7 +128,8 @@ export class FileConfigSourceService implements IConfigSource {
         }
       });
 
-      this.watcher.on('unlink', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (this.watcher as any).on('unlink', () => {
         this.logger.warn(`Config file deleted: ${this.filePath}`);
         
         if (this.changeCallback) {
@@ -142,7 +144,8 @@ export class FileConfigSourceService implements IConfigSource {
         }
       });
 
-      this.watcher.on('error', (error) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (this.watcher as any).on('error', (error: Error) => {
         this.logger.error(`Config file watcher error: ${this.filePath}`, error);
       });
 
@@ -241,14 +244,18 @@ export class FileConfigSourceService implements IConfigSource {
       try {
         await fs.access(this.filePath, fs.constants.R_OK);
         isReadable = true;
-      } catch {}
+      } catch {
+        // 文件不可读，保持 isReadable = false
+      }
       
       try {
         if (!this.isReadonly) {
           await fs.access(this.filePath, fs.constants.W_OK);
           isWritable = true;
         }
-      } catch {}
+      } catch {
+        // 文件不可写，保持 isWritable = false
+      }
 
       return {
         exists: true,
@@ -290,7 +297,7 @@ export class FileConfigSourceService implements IConfigSource {
   /**
    * 解析文件内容
    */
-  private parseContent(content: string): Record<string, any> {
+  private parseContent(content: string): Record<string, unknown> {
     try {
       switch (this.format) {
         case ConfigFormat.JSON:
@@ -323,7 +330,7 @@ export class FileConfigSourceService implements IConfigSource {
   /**
    * 序列化配置内容
    */
-  private stringifyContent(config: Record<string, any>): string {
+  private stringifyContent(config: Record<string, unknown>): string {
     try {
       switch (this.format) {
         case ConfigFormat.JSON:

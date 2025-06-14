@@ -19,14 +19,28 @@ export class DeviceStatusController {
     try {
       const data = await this.deviceStatusService.register(body);
 
-
       if (data.success) {
-        res.status(200).send('Registration successful, starting heartbeat');
+        res.status(200).json({
+          success: true,
+          message: 'Registration successful, starting heartbeat',
+          deviceId: data.node_id,
+          deviceName: data.name,
+          timestamp: new Date().toISOString()
+        });
       } else {
-        res.status(400).send(data);
+        res.status(400).json({
+          success: false,
+          error: data.error || 'Registration failed',
+          timestamp: new Date().toISOString()
+        });
       }
     } catch (error) {
-      res.status(500).send('server error');
+      this.logger.error('Registration error:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString()
+      });
     }
   }
 

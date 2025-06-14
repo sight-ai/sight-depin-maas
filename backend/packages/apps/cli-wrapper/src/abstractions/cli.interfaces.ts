@@ -271,6 +271,9 @@ export interface RegistrationInfo {
   deviceName: string;
   gatewayAddress: string;
   rewardAddress: string;
+  key?: string;
+  code?: string;
+  basePath?: string;
   isRegistered: boolean;
   timestamp: string;
 }

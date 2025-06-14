@@ -112,7 +112,7 @@ export class DynamicConfigService {
   async getBasePath(): Promise<string> {
     try {
       const registration = this.registrationStorage.loadRegistrationInfo();
-
+      console.log('registration', registration)
       if (registration?.basePath) {
         this.logger.debug(`Base path from registration: ${registration.basePath}`);
         return registration.basePath;

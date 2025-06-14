@@ -26,6 +26,7 @@ export interface DeviceConfig {
   rewardAddress: string;
   key: string;
   code?: string;
+  basePath?: string;
   isRegistered: boolean;
 }
 
@@ -66,6 +67,7 @@ export interface TDeviceConfig {
   initialize(): Promise<void>;
   getCurrentConfig(): DeviceConfig;
   updateConfig(updates: Partial<DeviceConfig>): Promise<void>;
+  saveConfigToStorage(config: DeviceConfig, basePath?: string): Promise<void>;
   getDeviceId(): string;
   getDeviceName(): string;
   getGatewayAddress(): string;
