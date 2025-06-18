@@ -84,7 +84,7 @@ export async function bootstrap() {
       process.exit(1);
     });
 
-  const port = process.env.API_PORT!;
+  const port = process.env.API_PORT! || 8716;
   await app.listen(port, () => {
     logger.log(`Saito API server started at port ${port}`);
   });
