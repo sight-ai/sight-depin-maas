@@ -41,11 +41,10 @@ export interface TunnelService {
   /**
    * 创建Socket连接
    * @param gatewayAddress 网关地址
-   * @param key 认证密钥
    * @param code 一次性认证码
    * @param basePath API服务器基础路径
    */
-  createSocket(gatewayAddress: string, key: string, code?: string, basePath?: string): Promise<void>;
+  createSocket(gatewayAddress: string, code?: string, basePath?: string): Promise<void>;
 
   /**
    * 获取所有已连接设备
@@ -59,6 +58,12 @@ export interface TunnelService {
    * @returns 设备是否已连接
    */
   isDeviceConnected(deviceId: string): Promise<boolean>;
+
+  /**
+   * 检查Socket连接状态
+   * @returns 连接是否已建立
+   */
+  isConnected(): boolean;
 
   // 内部属性和方法
   node_id: string;

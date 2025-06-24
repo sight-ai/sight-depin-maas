@@ -5,6 +5,8 @@ import { LocalConfigService } from '@saito/common';
 import { DeviceStatusRepository } from './device-status.repository';
 import DeviceStatusServiceProvider from './device-status.service';
 import { TunnelModule } from '@saito/tunnel';
+// import { DidModule } from '@saito/did';
+
 import { ScheduleModule } from '@nestjs/schedule';
 import { ModelInferenceClientModule } from '@saito/model-inference-client';
 
@@ -25,22 +27,18 @@ import { EnvironmentDetectorService } from './services/environment-detector.serv
 import { DeviceStatusManagerService } from './services/device-status-manager.service';
 import { EnhancedDeviceStatusService } from './services/enhanced-device-status.service';
 
-// 保留旧的管理器组件以保持兼容性
-import { SystemInfoCollector } from './collectors/system-info.collector';
-import { HeartbeatManager } from './managers/heartbeat.manager';
-import { DeviceConfigManager } from './managers/device-config.manager';
-import { DeviceRegistrationManager } from './managers/device-registration.manager';
-import { ConnectionManager } from './managers/connection.manager';
-import { ModelManager } from './managers/model.manager';
-import { DatabaseManager } from './managers/database.manager';
+import TunnelCommunicationServiceProvider from './services/tunnel-communication.service';
+import { DidIntegrationService } from './services/did-integration.service';
+import { DidModule } from '@saito/did';
 
 @Module({
   imports: [
     HttpModule,
     PersistentModule,
     ScheduleModule.forRoot(),
+    ModelInferenceClientModule,
     forwardRef(() => TunnelModule),
-    ModelInferenceClientModule
+    DidModule
   ],
   providers: [
     // 共享服务
@@ -68,15 +66,8 @@ import { DatabaseManager } from './managers/database.manager';
     DeviceStatusServiceProvider,
     DeviceStatusRepository,
 
-    // 保留旧的组件以保持兼容性
-    SystemInfoCollector,
-    HeartbeatManager,
-    DeviceConfigManager,
-    DeviceRegistrationManager,
-    ConnectionManager,
-    ModelManager,
-    DatabaseManager,
-    TunnelModule
+    TunnelCommunicationServiceProvider,
+    DidIntegrationService
   ],
   exports: [
     // 共享服务
@@ -104,14 +95,8 @@ import { DatabaseManager } from './managers/database.manager';
     DeviceStatusServiceProvider,
     DeviceStatusRepository,
 
-    // 保留旧的组件以保持兼容性
-    SystemInfoCollector,
-    HeartbeatManager,
-    DeviceConfigManager,
-    DeviceRegistrationManager,
-    ConnectionManager,
-    ModelManager,
-    DatabaseManager,
+    TunnelCommunicationServiceProvider,
+    DidIntegrationService,
   ],
 })
 export class DeviceStatusModule {}

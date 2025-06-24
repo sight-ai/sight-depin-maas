@@ -120,7 +120,6 @@ export class AutoRegistrationService implements OnModuleInit {
   private hasValidRegistrationInfo(config: DeviceConfig): boolean {
     return !!(
       config.gatewayAddress &&
-      config.key &&
       config.code &&
       config.rewardAddress &&
       config.deviceName

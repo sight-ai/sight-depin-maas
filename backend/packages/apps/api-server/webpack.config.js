@@ -140,6 +140,12 @@ module.exports = composePlugins(withNx(), (config, context) => {
     type: 'asset/source',
   });
 
+  // 添加JSON文件处理规则
+  // config.module.rules.push({
+  //   test: /\.json$/,
+  //   type: 'json',
+  // });
+
   config.output.devtoolModuleFilenameTemplate = function (info) {
     const rel = path.relative(process.cwd(), info.absoluteResourcePath);
     return `webpack:///./${rel}`;

@@ -84,11 +84,14 @@ export class TunnelServiceImpl implements TunnelService {
   /**
    * 创建Socket连接
    */
-  async createSocket(gatewayAddress: string, key: string, code?: string, basePath?: string): Promise<void> {
+  async createSocket(gatewayAddress: string, code?: string, basePath?: string): Promise<void> {
     try {
-      await this.messageGateway.connect(gatewayAddress, key, code, basePath);
+      this.logger.log(`🔗 正在建立Socket连接到: ${gatewayAddress}`);
+      // 建立连接
+      await this.messageGateway.connect(gatewayAddress, code, basePath);
       this.gatewayUrl = gatewayAddress;
       this.socket = {} as Socket; // 保持兼容性
+      this.logger.log(`✅ Socket连接建立成功`);
     } catch (error) {
       this.logger.error(`创建Socket连接失败: ${error instanceof Error ? error.message : '未知错误'}`);
       throw new ConnectionError('创建Socket连接失败', error as Error);
@@ -106,7 +109,7 @@ export class TunnelServiceImpl implements TunnelService {
       // 更新全局PEER_ID提供者
       GLOBAL_PEER_ID_PROVIDER.setPeerId(node_id);
 
-      await this.messageGateway.registerDevice(node_id);
+      // await this.messageGateway.registerDevice(node_id);
       this.logger.log(`发送设备注册请求，ID: ${node_id}`);
     } catch (error) {
       this.logger.error(`设备注册失败: ${error instanceof Error ? error.message : '未知错误'}`);
@@ -146,6 +149,29 @@ export class TunnelServiceImpl implements TunnelService {
    */
   async isDeviceConnected(deviceId: string): Promise<boolean> {
     return this.connectedDevices.has(deviceId);
+  }
+
+  /**
+   * 检查Socket连接状态
+   */
+  isConnected(): boolean {
+    return this.messageGateway.isConnected();
+  }
+
+  /**
+   * 等待连接建立
+   */
+  async waitForConnection(timeoutMs: number = 10000): Promise<boolean> {
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeoutMs) {
+      if (this.isConnected()) {
+        return true;
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    return false;
   }
 
   /**
@@ -248,3 +274,4 @@ export class TunnelServiceImpl implements TunnelService {
     this.listeners = remaining;
   }
 }
+

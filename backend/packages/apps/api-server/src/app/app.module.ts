@@ -10,6 +10,7 @@ import { DeviceStatusController } from "./controllers/device-status.controller";
 import { OpenAIController } from "./controllers/openai.controller";
 import { ModelsController } from "./controllers/models.controller";
 import { AppConfigController } from "./controllers/app-config.controller";
+import {DidModule} from "@saito/did"
 
 // 导入应用配置服务
 import { AppConfigurationService } from "./services/app-configuration.service";
@@ -30,7 +31,8 @@ import { EarningsTrackingModule } from '@saito/earnings-tracking';
     ModelReportingModule,
     ModelInferenceClientModule,
     ModelInferenceFrameworkManagementModule,
-    EarningsTrackingModule
+    EarningsTrackingModule,
+    DidModule
   ],
   controllers: [
     IndexController,
