@@ -1,15 +1,9 @@
-import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IncomeBaseMessageHandler } from '../base-message-handler';
 import { TunnelMessage, DeviceRegisterAckMessage, DeviceRegisterAckMessageSchema } from '@saito/models';
 import { MessageHandler } from '../message-handler.decorator';
-import {
-  TDeviceHeartbeat,
-  TDeviceConfig,
-  TDeviceSystem,
-  DEVICE_HEARTBEAT_SERVICE,
-  DEVICE_CONFIG_SERVICE,
-  DEVICE_SYSTEM_SERVICE
-} from '@saito/device-status';
+import { TUNNEL_EVENTS, TunnelDeviceStatusUpdateRequestEvent } from '../../events';
 
 /**
  * 设备注册确认消息处理器
@@ -18,19 +12,12 @@ import {
  */
 @MessageHandler({ type: 'device_register_ack', direction: 'income' })
 @Injectable()
-export class IncomeDeviceRegisterAckHandler extends IncomeBaseMessageHandler implements OnModuleDestroy {
+export class IncomeDeviceRegisterAckHandler extends IncomeBaseMessageHandler {
   private readonly logger = new Logger(IncomeDeviceRegisterAckHandler.name);
-  private heartbeatInterval: NodeJS.Timeout | null = null;
-  private readonly HEARTBEAT_INTERVAL = 30000; // 30秒
 
   constructor(
     @Inject('PEER_ID') private readonly injectedPeerId: string,
-    @Inject(DEVICE_HEARTBEAT_SERVICE)
-    private readonly heartbeatService: TDeviceHeartbeat,
-    @Inject(DEVICE_CONFIG_SERVICE)
-    private readonly configService: TDeviceConfig,
-    @Inject(DEVICE_SYSTEM_SERVICE)
-    private readonly systemService: TDeviceSystem
+    private readonly eventEmitter: EventEmitter2
   ) {
     super();
   }
@@ -106,13 +93,18 @@ export class IncomeDeviceRegisterAckHandler extends IncomeBaseMessageHandler imp
     this.logger.debug(`设备注册成功时间: ${new Date(registrationTime).toISOString()}`);
 
     try {
-      // 1. 启动定时心跳服务
-      await this.startHeartbeatService();
+      // 发射设备状态更新请求事件
+      this.eventEmitter.emit(
+        TUNNEL_EVENTS.DEVICE_STATUS_UPDATE_REQUEST,
+        new TunnelDeviceStatusUpdateRequestEvent(
+          deviceId,
+          'connected',
+          `Device registration successful: ${message || 'No additional message'}`
+        )
+      );
 
-      // 2. 立即发送一次心跳
-      await this.sendImmediateHeartbeat();
-
-      this.logger.log(`✅ 注册成功后处理完成 - 心跳服务已启动`);
+      this.logger.log(`✅ 已发射设备状态更新事件 - 注册成功`);
+      this.logger.log(`✅ 注册成功后处理完成 - 心跳由设备状态服务管理`);
     } catch (error) {
       this.logger.error(`注册成功后处理失败:`, error);
     }
@@ -128,85 +120,25 @@ export class IncomeDeviceRegisterAckHandler extends IncomeBaseMessageHandler imp
     const failureTime = Date.now();
     this.logger.debug(`设备注册失败时间: ${new Date(failureTime).toISOString()}`);
 
-    // 停止心跳服务（如果正在运行）
-    this.stopHeartbeatService();
+    try {
+      // 发射设备状态更新请求事件
+      this.eventEmitter.emit(
+        TUNNEL_EVENTS.DEVICE_STATUS_UPDATE_REQUEST,
+        new TunnelDeviceStatusUpdateRequestEvent(
+          deviceId,
+          'failed',
+          `Device registration failed: ${error || '未知错误'}`
+        )
+      );
+
+      this.logger.log(`已发射设备状态更新事件 - 注册失败`);
+    } catch (updateError) {
+      this.logger.error(`发射设备状态更新事件失败:`, updateError);
+    }
 
     // 这里可以添加具体的失败处理逻辑
     // 例如：重试注册、通知用户、记录错误等
   }
 
-  /**
-   * 启动心跳服务
-   */
-  private async startHeartbeatService(): Promise<void> {
-    // 如果已经有心跳在运行，先停止
-    if (this.heartbeatInterval) {
-      this.stopHeartbeatService();
-    }
 
-    this.logger.log(`🚀 启动定时心跳服务 - 间隔: ${this.HEARTBEAT_INTERVAL}ms`);
-
-    // 启动定时心跳
-    this.heartbeatInterval = setInterval(async () => {
-      try {
-        await this.sendHeartbeat();
-      } catch (error) {
-        this.logger.error('定时心跳发送失败:', error);
-      }
-    }, this.HEARTBEAT_INTERVAL);
-
-    this.logger.log(`✅ 心跳服务已启动`);
-  }
-
-  /**
-   * 停止心跳服务
-   */
-  private stopHeartbeatService(): void {
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
-      this.logger.log(`⏹️ 心跳服务已停止`);
-    }
-  }
-
-  /**
-   * 立即发送一次心跳
-   */
-  private async sendImmediateHeartbeat(): Promise<void> {
-    this.logger.log(`💓 发送立即心跳`);
-    await this.sendHeartbeat();
-  }
-
-  /**
-   * 发送心跳
-   */
-  private async sendHeartbeat(): Promise<void> {
-    try {
-      // 获取当前设备配置
-      const config = this.configService.getCurrentConfig();
-
-      if (!config.isRegistered || !config.gatewayAddress) {
-        this.logger.debug('设备未注册或网关地址为空，跳过心跳发送');
-        return;
-      }
-
-      // 收集系统信息
-      const systemInfo = await this.systemService.collectSystemInfo();
-
-      // 发送心跳
-      await this.heartbeatService.sendHeartbeat(config, systemInfo);
-
-      this.logger.debug(`💓 心跳发送成功 - DeviceID: ${config.deviceId}`);
-    } catch (error) {
-      this.logger.error('心跳发送失败:', error);
-      // 不抛出错误，避免中断心跳服务
-    }
-  }
-
-  /**
-   * 清理资源
-   */
-  onModuleDestroy(): void {
-    this.stopHeartbeatService();
-  }
 }

@@ -1,11 +1,18 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TunnelServiceImpl } from './tunnel.service';
 import { MessageGatewayService, MessageGatewayProvider } from './message-gateway/message-gateway.service';
 import { MessageHandlerRegistry } from './message-handler/message-handler.registry';
 import { TunnelMessageService } from './services/tunnel-message.service';
-import { ModelInferenceClientModule } from '@saito/model-inference-client';
-import { DeviceStatusModule } from '@saito/device-status';
+// 移除对 ModelInferenceClientModule 的依赖以解决循环依赖
+// import { ModelInferenceClientModule } from '@saito/model-inference-client';
+// 移除对 DeviceStatusModule 的依赖以解决循环依赖
+// import { DeviceStatusModule } from '@saito/device-status';
+
+// 定义本地接口标识符，避免循环依赖
+export const TUNNEL_SERVICE = Symbol('TUNNEL_SERVICE');
+export const TUNNEL_MESSAGE_SERVICE = Symbol('TUNNEL_MESSAGE_SERVICE');
 
 // Message Handlers - Income
 import { IncomePingHandler } from './message-handler/income/income-ping.handler';
@@ -61,8 +68,9 @@ export const GLOBAL_PEER_ID_PROVIDER = new DynamicPeerIdProvider();
 @Module({
   imports: [
     DiscoveryModule,
-    ModelInferenceClientModule,
-    forwardRef(() => DeviceStatusModule)
+    EventEmitterModule,
+    // 移除对 ModelInferenceClientModule 的依赖以解决循环依赖
+    // 移除对 DeviceStatusModule 的依赖以解决循环依赖
   ],
   providers: [
     // 新的重构后的服务

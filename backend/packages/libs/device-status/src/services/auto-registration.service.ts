@@ -12,7 +12,8 @@ import {
   DeviceConfig,
   RegistrationResult
 } from '../device-status.interface';
-import { UnifiedModelService } from '@saito/model-inference-client';
+// 移除对 UnifiedModelService 的直接依赖以解决循环依赖
+// import { UnifiedModelService } from '@saito/model-inference-client';
 
 /**
  * 自动注册服务
@@ -38,9 +39,10 @@ export class AutoRegistrationService implements OnModuleInit {
     private readonly systemService: TDeviceSystem,
 
     @Inject(DEVICE_GATEWAY_SERVICE)
-    private readonly gatewayService: TDeviceGateway,
+    private readonly gatewayService: TDeviceGateway
 
-    private readonly unifiedModelService: UnifiedModelService
+    // 移除对 UnifiedModelService 的直接依赖
+    // private readonly unifiedModelService: UnifiedModelService
   ) {}
 
   /**
@@ -131,41 +133,19 @@ export class AutoRegistrationService implements OnModuleInit {
    */
   private async getLocalModels(): Promise<any[]> {
     try {
-      this.logger.debug('Getting local models from model framework service...');
+      this.logger.debug('Getting local models...');
 
-      // 尝试获取当前可用的服务
-      const modelList = await this.unifiedModelService.listModels();
-      const currentFramework = this.unifiedModelService.getCurrentFramework();
+      // TODO: 使用事件或其他方式获取模型信息，避免直接依赖
+      // 暂时返回空数组，避免循环依赖
+      this.logger.warn('⚠️  模型信息获取功能暂时禁用以避免循环依赖');
+      return [];
 
-      if (modelList && modelList.models) {
-        this.logger.debug(`Using ${currentFramework} framework to get models`);
-
-        // 转换为网关期望的格式
-        const formattedModels = modelList.models.map((model: any) => ({
-          name: model.name,
-          size: model.size || 'unknown',
-          digest: model.digest || '',
-          modified_at: model.modified_at
-        }));
-
-        this.logger.debug(`Found ${formattedModels.length} models from ${currentFramework}`);
-        return formattedModels;
-      } else {
-        this.logger.warn('No model framework service available, falling back to system service');
-        return await this.systemService.getLocalModels();
-      }
     } catch (error) {
-      this.logger.warn('Failed to get models from framework service, falling back to system service:', error);
-
-      // 回退到系统服务
-      try {
-        return await this.systemService.getLocalModels();
-      } catch (fallbackError) {
-        this.logger.error('Failed to get models from system service as well:', fallbackError);
-        return [];
-      }
+      this.logger.error('获取本地模型失败:', error);
+      return [];
     }
   }
+
 
   /**
    * 获取系统信息

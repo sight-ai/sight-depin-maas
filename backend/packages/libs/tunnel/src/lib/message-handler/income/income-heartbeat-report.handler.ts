@@ -1,7 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IncomeBaseMessageHandler } from '../base-message-handler';
 import { TunnelMessage, DeviceHeartbeatReportMessage, DeviceHeartbeatReportMessageSchema } from '@saito/models';
 import { MessageHandler } from '../message-handler.decorator';
+import { TUNNEL_EVENTS, TunnelHeartbeatReceivedEvent } from '../../events';
 
 /**
  * 心跳上报消息入站处理器
@@ -14,7 +16,9 @@ import { MessageHandler } from '../message-handler.decorator';
 export class IncomeDeviceHeartbeatReportHandler extends IncomeBaseMessageHandler {
   private readonly logger = new Logger(IncomeDeviceHeartbeatReportHandler.name);
 
-  constructor() {
+  constructor(
+    private readonly eventEmitter: EventEmitter2
+  ) {
     super();
   }
 
@@ -38,11 +42,16 @@ export class IncomeDeviceHeartbeatReportHandler extends IncomeBaseMessageHandler
         device_info: heartbeatMessage.payload.device_info ? 'provided' : 'not provided'
       });
 
-      // TODO: 这里可以发送事件或者通过其他方式通知心跳服务
-      // 避免直接依赖DeviceStatusService以防止循环依赖
+      // 发射心跳接收事件，让其他模块处理
+      this.eventEmitter.emit(
+        TUNNEL_EVENTS.HEARTBEAT_RECEIVED,
+        new TunnelHeartbeatReceivedEvent(
+          heartbeatMessage.from,
+          heartbeatMessage.payload
+        )
+      );
 
-      // 这里可以发送响应消息回给发送方
-      // 或者触发其他后续处理逻辑
+      this.logger.log(`Heart beat event emitted for device: ${heartbeatMessage.from}`);
 
     } catch (error) {
       this.logger.error('Error processing heartbeat report message:', error);

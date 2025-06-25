@@ -1,14 +1,17 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { PersistentModule } from '@saito/persistent';
 import { LocalConfigService } from '@saito/common';
 import { DeviceStatusRepository } from './device-status.repository';
 import DeviceStatusServiceProvider from './device-status.service';
-import { TunnelModule } from '@saito/tunnel';
+// 移除对 TunnelModule 的直接依赖以解决循环依赖
+// import { TunnelModule } from '@saito/tunnel';
 // import { DidModule } from '@saito/did';
 
 import { ScheduleModule } from '@nestjs/schedule';
-import { ModelInferenceClientModule } from '@saito/model-inference-client';
+// 移除对 ModelInferenceClientModule 的依赖以解决循环依赖
+// import { ModelInferenceClientModule } from '@saito/model-inference-client';
 
 // 导入新的服务组件
 import DeviceRegistryServiceProvider from './services/device-registry.service';
@@ -28,17 +31,25 @@ import { DeviceStatusManagerService } from './services/device-status-manager.ser
 import { EnhancedDeviceStatusService } from './services/enhanced-device-status.service';
 
 import TunnelCommunicationServiceProvider from './services/tunnel-communication.service';
+import { TunnelEventListenerService } from './services/tunnel-event-listener.service';
 import { DidIntegrationService } from './services/did-integration.service';
 import { DidModule } from '@saito/did';
+import { TunnelModule } from '@saito/tunnel';
+  
+// 定义本地符号，避免循环依赖
+const TUNNEL_COMMUNICATION_SERVICE = Symbol('TUNNEL_COMMUNICATION_SERVICE');
 
 @Module({
   imports: [
     HttpModule,
     PersistentModule,
     ScheduleModule.forRoot(),
-    ModelInferenceClientModule,
-    forwardRef(() => TunnelModule),
-    DidModule
+    EventEmitterModule,
+    // 移除对 ModelInferenceClientModule 的依赖以解决循环依赖
+    // ModelInferenceClientModule,
+    // 移除对 TunnelModule 的直接依赖以解决循环依赖
+    DidModule,
+    TunnelModule
   ],
   providers: [
     // 共享服务
@@ -67,6 +78,12 @@ import { DidModule } from '@saito/did';
     DeviceStatusRepository,
 
     TunnelCommunicationServiceProvider,
+    // 提供接口实现
+    {
+      provide: TUNNEL_COMMUNICATION_SERVICE,
+      useExisting: TunnelCommunicationServiceProvider.provide,
+    },
+    TunnelEventListenerService,
     DidIntegrationService
   ],
   exports: [
@@ -96,6 +113,8 @@ import { DidModule } from '@saito/did';
     DeviceStatusRepository,
 
     TunnelCommunicationServiceProvider,
+    TUNNEL_COMMUNICATION_SERVICE,
+    TunnelEventListenerService,
     DidIntegrationService,
   ],
 })

@@ -10,10 +10,14 @@ import { DidLocalManager } from './did-local.manager';
 import { DidLocalBuilder } from './did-local.builder';
 import { DidLocalStorage } from './did-document-storage/did-local.storage';
 import { DidManagerStorage } from './did-document-storage/did-manager.storage';
-import { TunnelModule } from '@saito/tunnel';
+// 移除对 TunnelModule 的依赖以解决循环依赖
+// import { TunnelModule } from '@saito/tunnel';
 
 @Module({
-  imports: [TunnelModule],
+  imports: [
+    // 移除 TunnelModule 以解决循环依赖
+    // TunnelModule
+  ],
   providers: [
     DidServiceProvider,
     DidDocumentOrchestratorProvider,

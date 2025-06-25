@@ -7,6 +7,7 @@ export * from './message-gateway/message-gateway.service';
 export * from './message-handler';
 export * from './services/tunnel-message.service';
 export * from './errors';
+export * from './events';
 
 // 导出具体的类和模块
 export { TunnelModule } from './tunnel.module';
