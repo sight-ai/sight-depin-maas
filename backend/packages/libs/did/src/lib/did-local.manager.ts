@@ -10,7 +10,7 @@ import {
 // import { MessageHandlerRegistry } from '@saito/tunnel';
 import { ContextHandlerRegistry } from './core/context/context-handler/context-handler.registry';
 import { DidLocalBuilder } from './did-local.builder';
-import { toKeyPair, toPeerId, toPublicKeyBase58 } from './did.utils';
+import { toKeyPair, toPeerId, toPublicKeyBase58, peerIdToPublicKey, sign, verifySignature } from './did.utils';
 import { DidLocalStorage } from './did-document-storage/did-local.storage';
 import { DidDocumentImpl } from './core/did-document';
 
@@ -51,7 +51,7 @@ export class DidLocalManager {
     const contextList = this.contextRegistry.getLocalUrls();
     const keyPair = toKeyPair(this.seed);
     const publicKey = toPublicKeyBase58(keyPair);
-    const peerId = toPeerId(publicKey);
+    const peerId = toPeerId(keyPair.publicKey);
     const did = `did:sight:hoster:${peerId}`;
     // 暂时禁用服务列表构建以避免循环依赖
     const serviceList: ServiceEntry[] = [];
@@ -79,6 +79,8 @@ export class DidLocalManager {
       this.state.controller = loaded.controller;
       this.logger.log(`Loaded the controller.`);
     }
+    // const pk = peerIdToPublicKey(did);
+    // console.log(`keypair: ${keyPair.publicKey}, pk: ${pk}`);
   }
 
   // re-scan local state and generate a new did document
@@ -169,6 +171,14 @@ export class DidLocalManager {
     return this.state.controller;
   }
 
+  signNonce(nonce: string | Uint8Array): string {
+    return sign(nonce, this.state.keyPair.secretKey);
+  }
+
+  verifyNonceSignature(nonce: string | Uint8Array, signature: string, publicKey: string): boolean {
+    return verifySignature(nonce, signature, publicKey);
+  }
+
   async resetDidUpdated() {
     this.didUpdated = false;
   }
@@ -198,7 +208,7 @@ export class DidLocalManager {
   private async setKeyPair(seed: Uint8Array) {
     const keyPair = toKeyPair(seed);
     const publicKey = toPublicKeyBase58(keyPair);
-    const peerId = toPeerId(publicKey);
+    const peerId = toPeerId(keyPair.publicKey);
     const did = `did:sight:hoster:${peerId}`;
     const verificationMethod = [
       {
