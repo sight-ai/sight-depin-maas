@@ -50,7 +50,7 @@ export class TunnelServiceImpl implements TunnelService {
     @Inject('PEER_ID') private peerId: string,
     private readonly eventEmitter: EventEmitter2,
   ) {
-    // 初始化socket为空对象，实际连接在createSocket中建立
+    // 初始化socket为空对象，实际连接在createConnection中建立
     this.socket = {} as Socket;
     this.setupMessageGatewayCallbacks();
   }
@@ -125,9 +125,9 @@ export class TunnelServiceImpl implements TunnelService {
   }
 
   /**
-   * 创建Socket连接
+   * 创建Socket连接 createConnection
    */
-  async createSocket(gatewayAddress: string, code?: string, basePath?: string): Promise<void> {
+  async createConnection(gatewayAddress: string, code?: string, basePath?: string): Promise<void> {
     try {
       this.logger.log(`🔗 正在建立Socket连接到: ${gatewayAddress}`);
       // 建立连接
@@ -149,7 +149,7 @@ export class TunnelServiceImpl implements TunnelService {
         TUNNEL_EVENTS.ERROR,
         new TunnelErrorEvent(
           error instanceof Error ? error : new Error('创建Socket连接失败'),
-          'createSocket',
+          'createConnection',
           this.peerId
         )
       );
@@ -161,7 +161,7 @@ export class TunnelServiceImpl implements TunnelService {
   /**
    * 连接Socket
    */
-  async connectSocket(node_id: string): Promise<void> {
+  async connect(node_id: string): Promise<void> {
     try {
       this.node_id = node_id;
       this.peerId = node_id;
@@ -185,7 +185,7 @@ export class TunnelServiceImpl implements TunnelService {
         TUNNEL_EVENTS.ERROR,
         new TunnelErrorEvent(
           error instanceof Error ? error : new Error('设备注册失败'),
-          'connectSocket',
+          'connect',
           node_id
         )
       );
@@ -197,7 +197,7 @@ export class TunnelServiceImpl implements TunnelService {
   /**
    * 断开Socket连接
    */
-  async disconnectSocket(): Promise<void> {
+  async disconnect(): Promise<void> {
     try {
       await this.messageGateway.disconnect();
       this.logger.log('Socket连接已断开');
@@ -222,7 +222,7 @@ export class TunnelServiceImpl implements TunnelService {
         TUNNEL_EVENTS.ERROR,
         new TunnelErrorEvent(
           error instanceof Error ? error : new Error('断开连接失败'),
-          'disconnectSocket',
+          'disconnect',
           this.peerId
         )
       );

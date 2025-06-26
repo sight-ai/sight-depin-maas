@@ -12,7 +12,7 @@ import { TunnelService } from '../tunnel.interface';
 
 /**
  * Tunnel消息发送服务
- * 
+ *
  * 提供便捷的方法来发送各种类型的tunnel消息
  */
 @Injectable()
@@ -29,7 +29,7 @@ export class TunnelMessageService {
    */
   private async ensureConnection(): Promise<void> {
     if (!this.tunnelService.isConnected()) {
-      throw new Error('WebSocket连接未建立，请先调用 TunnelService.createSocket() 建立连接');
+      throw new Error('WebSocket连接未建立，请先调用 TunnelService.createConnection() 建立连接');
     }
   }
 

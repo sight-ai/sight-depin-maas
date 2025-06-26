@@ -68,10 +68,10 @@ export class DeviceGatewayService implements TDeviceGateway {
 
       // 首先建立WebSocket连接
       this.logger.log(`🔗 建立WebSocket连接到: ${config.gatewayAddress}`);
-      await this.tunnelService.createSocket(config.gatewayAddress, config.code, config.basePath);
+      await this.tunnelService.createConnection(config.gatewayAddress, config.code, config.basePath);
       this.logger.log(`✅ WebSocket连接已建立`);
 
-      await this.tunnelService.connectSocket(deviceId);
+      await this.tunnelService.connect(deviceId);
 
       // 通过WebSocket发送注册请求，包含DID的设备ID和DID文档
       const tunnelSuccess = await this.tunnelCommunicationService.sendDeviceRegistration(
@@ -151,7 +151,7 @@ export class DeviceGatewayService implements TDeviceGateway {
 
       // 使用WebSocket发送心跳
       const heartbeatData = {
-        code: deviceId,
+        code: config.code || '',
         cpu_usage: 45.5, // TODO: 从systemInfo获取实际数据
         memory_usage: 60.2, // TODO: 从systemInfo获取实际数据
         gpu_usage: 80.1, // TODO: 从systemInfo获取实际数据

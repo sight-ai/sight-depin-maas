@@ -76,7 +76,7 @@ describe('TunnelServiceImpl', () => {
     const key = 'test-key';
     const code = 'test-code';
 
-    await service.createSocket(gatewayAddress, key, code);
+    await service.createConnection(gatewayAddress, key, code);
 
     expect(mockMessageGateway.connect).toHaveBeenCalledWith(gatewayAddress, key, code, undefined);
   });
@@ -84,14 +84,14 @@ describe('TunnelServiceImpl', () => {
   it('should register device through gateway', async () => {
     const deviceId = 'test-device-123';
 
-    await service.connectSocket(deviceId);
+    await service.connect(deviceId);
 
     expect(mockMessageGateway.registerDevice).toHaveBeenCalledWith(deviceId);
     expect(service.node_id).toBe(deviceId);
   });
 
   it('should disconnect through gateway', async () => {
-    await service.disconnectSocket();
+    await service.disconnect();
 
     expect(mockMessageGateway.disconnect).toHaveBeenCalled();
   });

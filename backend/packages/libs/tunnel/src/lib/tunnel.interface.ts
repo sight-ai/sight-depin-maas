@@ -31,12 +31,12 @@ export interface TunnelService {
    * 连接Socket
    * @param node_id 节点ID
    */
-  connectSocket(node_id: string): Promise<void>;
+  connect(node_id: string): Promise<void>;
 
   /**
    * 断开Socket连接
    */
-  disconnectSocket(): Promise<void>;
+  disconnect(): Promise<void>;
 
   /**
    * 创建Socket连接
@@ -44,7 +44,7 @@ export interface TunnelService {
    * @param code 一次性认证码
    * @param basePath API服务器基础路径
    */
-  createSocket(gatewayAddress: string, code?: string, basePath?: string): Promise<void>;
+  createConnection(gatewayAddress: string, code?: string, basePath?: string): Promise<void>;
 
   /**
    * 获取所有已连接设备

@@ -137,13 +137,13 @@ export class StartupInitializationService implements OnApplicationBootstrap {
       if (config.gatewayAddress && config.key) {
         this.logger.log(`🔗 建立WebSocket连接到: ${config.gatewayAddress}`);
 
-        await this.tunnelService.createSocket(
+        await this.tunnelService.createConnection(
           config.gatewayAddress,
           config.code,
           config.basePath || '/'
         );
 
-        await this.tunnelService.connectSocket(deviceId);
+        await this.tunnelService.connect(deviceId);
         this.logger.log('✅ WebSocket连接建立成功');
       } else {
         this.logger.warn('⚠️ 缺少网关地址或密钥，跳过WebSocket连接');
@@ -168,7 +168,7 @@ export class StartupInitializationService implements OnApplicationBootstrap {
       this.logger.log(`   Gateway: ${config.gatewayAddress || 'Not set'}`);
       this.logger.log(`   Registration Status: ${config.isRegistered ? '✅ Registered' : '❌ Not Registered'}`);
       this.logger.log(`   Auto Registration: ${autoRegStatus.isRegistering ? '🔄 In Progress' : '⏸️ Idle'}`);
-      
+
       if (autoRegStatus.retryCount > 0) {
         this.logger.log(`   Retry Count: ${autoRegStatus.retryCount}/${autoRegStatus.maxRetries}`);
       }
@@ -254,11 +254,11 @@ export class StartupInitializationService implements OnApplicationBootstrap {
   async reinitialize(): Promise<boolean> {
     try {
       this.logger.log('🔄 Manual reinitialization requested...');
-      
+
       await this.initializeDeviceConfig();
       await this.checkAndPerformAutoRegistration();
       this.displayStartupStatus();
-      
+
       this.logger.log('✅ Manual reinitialization completed');
       return true;
     } catch (error) {
