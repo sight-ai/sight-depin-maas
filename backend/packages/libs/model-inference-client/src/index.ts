@@ -78,6 +78,12 @@ export * from './lib/model-operations/dynamic-model-config.service';
 // request-response.types 已迁移到 @saito/models
 
 // -----------------------------------------------------------------------------
+// Services (服务层)
+// -----------------------------------------------------------------------------
+export * from './lib/services/tunnel-inference-event-listener.service';
+export { TUNNEL_SERVICE_TOKEN } from './lib/services/tunnel-inference-event-listener.service';
+
+// -----------------------------------------------------------------------------
 // Models (Zod schemas) - 注意：根据规范，这些应该移到 models 模块
 // -----------------------------------------------------------------------------
 // 模型定义已迁移到 @saito/models 模块

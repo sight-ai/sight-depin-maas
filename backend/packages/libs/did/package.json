@@ -1,5 +1,5 @@
 {
-  "name": "@saito/tunnel",
+  "name": "@saito/did",
   "version": "0.0.1",
   "dependencies": {
     "@nestjs/common": "^10.2.10",

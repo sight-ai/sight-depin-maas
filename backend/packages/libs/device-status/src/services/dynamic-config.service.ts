@@ -83,27 +83,6 @@ export class DynamicConfigService {
     }
   }
 
-  /**
-   * 获取网关 API 密钥
-   * 从注册信息中动态获取
-   */
-  async getGatewayApiKey(): Promise<string | null> {
-    try {
-      const registration = this.registrationStorage.loadRegistrationInfo();
-
-      if (registration?.key) {
-        this.logger.debug('API key retrieved from registration');
-        return registration.key;
-      }
-
-      this.logger.warn('No API key found in registration');
-      return null;
-
-    } catch (error) {
-      this.logger.error('Failed to get API key from registration:', error);
-      return null;
-    }
-  }
 
   /**
    * 获取基础路径
@@ -137,7 +116,6 @@ export class DynamicConfigService {
     gatewayUrl: string;
     nodeCode: string | null;
     rewardAddress: string | null;
-    apiKey: string | null;
     basePath: string;
   }> {
     try {
@@ -147,7 +125,6 @@ export class DynamicConfigService {
         gatewayUrl: registration?.gatewayAddress || 'http://localhost:3000',
         nodeCode: registration?.code || null,
         rewardAddress: registration?.rewardAddress || null,
-        apiKey: registration?.key || null,
         basePath: registration?.basePath || '/api/model'
       };
 
@@ -157,7 +134,6 @@ export class DynamicConfigService {
         gatewayUrl: 'http://localhost:3000',
         nodeCode: null,
         rewardAddress: null,
-        apiKey: null,
         basePath: '/api/model'
       };
     }
@@ -173,8 +149,7 @@ export class DynamicConfigService {
       return !!(
         config.gatewayUrl && 
         config.nodeCode && 
-        config.rewardAddress && 
-        config.apiKey
+        config.rewardAddress
       );
       
     } catch (error) {
@@ -191,7 +166,6 @@ export class DynamicConfigService {
     hasGatewayUrl: boolean;
     hasNodeCode: boolean;
     hasRewardAddress: boolean;
-    hasApiKey: boolean;
     hasBasePath: boolean;
   }> {
     try {
@@ -202,7 +176,6 @@ export class DynamicConfigService {
         hasGatewayUrl: !!config.gatewayUrl,
         hasNodeCode: !!config.nodeCode,
         hasRewardAddress: !!config.rewardAddress,
-        hasApiKey: !!config.apiKey,
         hasBasePath: !!config.basePath
       };
       
@@ -213,7 +186,6 @@ export class DynamicConfigService {
         hasGatewayUrl: false,
         hasNodeCode: false,
         hasRewardAddress: false,
-        hasApiKey: false,
         hasBasePath: false
       };
     }
@@ -246,9 +218,6 @@ export class DynamicConfigService {
         errors.push('Reward address is missing');
       }
 
-      if (!config.apiKey) {
-        errors.push('API key is missing');
-      }
 
       // 检查 URL 格式
       if (config.gatewayUrl) {

@@ -215,7 +215,6 @@ export class DeviceCommandsHandler {
     data.code = options.code || await this.ui.input('Enter registration code:');
     data.gateway_address = options.gatewayAddress || await this.ui.input('Enter gateway address:', 'http://localhost:8716');
     data.reward_address = options.rewardAddress || await this.ui.input('Enter reward address:');
-    data.key = options.key || await this.ui.input('Enter authentication key:');
     data.base_path = options.basePath || await this.ui.input('Enter base path (optional):', '');
 
     return data;
@@ -336,8 +335,7 @@ export class DeviceCommandsHandler {
         code: data.code,
         gateway_address: data.gateway_address,
         reward_address: data.reward_address,
-        basePath: data.base_path,
-        key: data.key
+        basePath: data.base_path
       };
 
       // 调用本地 API 接口
