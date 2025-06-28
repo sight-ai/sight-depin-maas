@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { TunnelModule, KEYPAIR_EVENTS, KeyPairReadyEvent } from '@saito/tunnel';
 import { ContextHandlerRegistry } from './core/context/context-handler/context-handler.registry';
 import { DidDocumentAssembler } from './core/did-document.assembler';
 import { DidDocumentParser } from './core/parser/did-document.parser';
@@ -16,14 +18,10 @@ import {
 import { DidLocalBuilder } from './did-local.builder';
 import { DidLocalManager } from './did-local.manager';
 import { DidServiceImpl, DidServiceProvider } from './did.service';
-// 移除对 TunnelModule 的依赖以解决循环依赖
-// import { TunnelModule } from '@saito/tunnel';
+import { KeyPairManager } from './services/key-pair-manager.service';
 
 @Module({
-  imports: [
-    // 移除 TunnelModule 以解决循环依赖
-    // TunnelModule
-  ],
+  imports: [TunnelModule],
   providers: [
     DidServiceProvider,
     DidDocumentOrchestratorProvider,
@@ -40,6 +38,7 @@ import { DidServiceImpl, DidServiceProvider } from './did.service';
     DidLocalBuilder,
     DidLocalStorage,
     DidManagerStorage,
+    KeyPairManager,
     {
       provide: 'SIGHT_SEQ',
       useValue: 1,
@@ -50,16 +49,27 @@ import { DidServiceImpl, DidServiceProvider } from './did.service';
     },
     {
       provide: 'KEY_PAIR',
-      useValue: new Uint8Array([
-        32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15,
-        14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1,
-      ]),
+      useFactory: async (keyPairManager: KeyPairManager, eventEmitter: EventEmitter2) => {
+        const keyPair = await keyPairManager.getOrGenerateKeyPair();
+
+        // 发送 KeyPair 准备就绪事件，通知 tunnel 模块
+        eventEmitter.emit(KEYPAIR_EVENTS.KEYPAIR_READY, new KeyPairReadyEvent(keyPair));
+
+        return keyPair;
+      },
+      inject: [KeyPairManager, EventEmitter2],
     },
     {
       provide: 'AUTHENTICATION',
       useValue: '#key-1',
     },
   ],
-  exports: [DidServiceProvider, DidDocumentManagerService, DidServiceImpl],
+  exports: [
+    'KEY_PAIR',
+    DidServiceProvider,
+    DidDocumentManagerService,
+    DidServiceImpl,
+    KeyPairManager,
+  ],
 })
 export class DidModule {}

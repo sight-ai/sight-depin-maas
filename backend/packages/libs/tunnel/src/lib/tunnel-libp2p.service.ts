@@ -1,23 +1,46 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { TunnelService, TunnelMessageListener } from './tunnel.interface';
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { TunnelMessage } from '@saito/models';
-import { MessageHandlerRegistry } from './message-handler/message-handler.registry';
+import { MessageSendError } from './errors/connection.error';
 import { UnknownMessageTypeError } from './errors/unknown-message-type.error';
-import { MessageGateway } from './message-gateway/message-gateway.interface';
-import { ConnectionError, DeviceRegistrationError, MessageSendError } from './errors/connection.error';
-import { GLOBAL_PEER_ID_PROVIDER } from './tunnel.module';
 import {
   TUNNEL_EVENTS,
   TunnelConnectionEstablishedEvent,
   TunnelConnectionLostEvent,
   TunnelDeviceRegisteredEvent,
+  TunnelMessageFailedEvent,
   TunnelMessageReceivedEvent,
   TunnelMessageSentEvent,
-  TunnelMessageFailedEvent,
-  TunnelErrorEvent
 } from './events';
-import { MessageGatewayLibp2pService } from './message-gateway';
+import { KEYPAIR_EVENTS, KeyPairReadyEvent } from './events/keypair.events';
+import { MessageGateway } from './message-gateway/message-gateway.interface';
+import { MessageHandlerRegistry } from './message-handler/message-handler.registry';
+import { TunnelMessageListener, TunnelService } from './tunnel.interface';
+import { GLOBAL_PEER_ID_PROVIDER } from './tunnel.module';
+
+let globalKeyPair: Uint8Array;
+
+// 导出函数供外部使用
+export function getGlobalKeyPair(): Uint8Array | undefined {
+  return globalKeyPair;
+}
+
+export function isKeyPairReady(): boolean {
+  return !!globalKeyPair;
+}
+
+export async function startLibp2pNodeManually(): Promise<void> {
+  if (!globalKeyPair) {
+    throw new Error('KeyPair not ready. Please wait for KeyPair ready event.');
+  }
+
+  console.log('🚀 Starting LibP2P node manually...');
+  console.log('⚠️  LibP2P implementation is currently disabled/commented out');
+  console.log('✅ KeyPair is ready and available for LibP2P initialization');
+
+  // TODO: Uncomment and implement actual LibP2P startup when ready
+  // return startLibp2pNode();
+}
 
 @Injectable()
 export class TunnelServiceLibp2pImpl implements TunnelService {
@@ -33,26 +56,60 @@ export class TunnelServiceLibp2pImpl implements TunnelService {
   private connectedDevices: Set<string> = new Set<string>();
 
   // 存储任务处理器
-  private streamHandlers: Map<string, (message: any) => Promise<void>> = new Map();
-  private noStreamHandlers: Map<string, (message: any) => Promise<any>> = new Map();
+  private streamHandlers: Map<string, (message: any) => Promise<void>> =
+    new Map();
+  private noStreamHandlers: Map<string, (message: any) => Promise<any>> =
+    new Map();
 
   // 存储设备与任务的映射关系
   private deviceTaskMap: Map<string, Set<string>> = new Map();
 
   constructor(
     private readonly handlerRegistry: MessageHandlerRegistry,
-    @Inject('MessageGatewayLibp2p') private readonly messageGateway: MessageGatewayLibp2pService,
+    @Inject('MessageGatewayLibp2p')
+    private readonly messageGateway: MessageGateway,
     @Inject('PEER_ID') private peerId: string,
     private readonly eventEmitter: EventEmitter2,
+    // @Inject(forwardRef(() => 'KEY_PAIR')) private readonly seed: Uint8Array,
   ) {
     // libp2p 场景下无 socket，直接设置 gateway 回调
     this.setupMessageGatewayCallbacks();
+    // globalKeyPair = seed;
+  }
+
+  /**
+   * 监听 KeyPair 准备就绪事件
+   */
+  @OnEvent(KEYPAIR_EVENTS.KEYPAIR_READY)
+  handleKeyPairReady(event: KeyPairReadyEvent) {
+    this.logger.log('🔑 Received KeyPair ready event');
+    globalKeyPair = event.keyPair;
+    this.logger.log('✅ Global KeyPair has been set for tunnel module');
+  }
+
+  /**
+   * 手动启动 LibP2P 节点
+   */
+  async startLibp2pNode(): Promise<void> {
+    if (!globalKeyPair) {
+      throw new Error('KeyPair not set. Please ensure KeyPair ready event has been fired.');
+    }
+
+    this.logger.log('🚀 Starting LibP2P node...');
+    this.logger.warn('⚠️  LibP2P implementation is currently disabled/commented out');
+    this.logger.log('✅ KeyPair is ready and available for LibP2P initialization');
+
+    // TODO: Uncomment and implement actual LibP2P startup when ready
+    // return startLibp2pNode();
   }
 
   /**
    * 处理消息
    */
-  async handleMessage(message: TunnelMessage, listener?: TunnelMessageListener): Promise<void> {
+  async handleMessage(
+    message: TunnelMessage,
+    listener?: TunnelMessageListener,
+  ): Promise<void> {
     this.logger.log(`🔍 当前设备ID (peerId): ${this.peerId}`);
     this.logger.log(`📨 消息目标: ${message.to}, 消息来源: ${message.from}`);
     this.logger.log(`🔄 消息类型: ${message.type}`);
@@ -155,7 +212,10 @@ export class TunnelServiceLibp2pImpl implements TunnelService {
   /**
    * 处理入站消息
    */
-  private async handleIncomeMessage(message: TunnelMessage, listener?: TunnelMessageListener): Promise<void> {
+  private async handleIncomeMessage(
+    message: TunnelMessage,
+    listener?: TunnelMessageListener,
+  ): Promise<void> {
     await this.triggerListener(message);
 
     const handler = this.handlerRegistry.getIncomeHandler(message.type);
@@ -174,7 +234,10 @@ export class TunnelServiceLibp2pImpl implements TunnelService {
   /**
    * 处理出站消息
    */
-  private async handleOutcomeMessage(message: TunnelMessage, listener?: TunnelMessageListener): Promise<void> {
+  private async handleOutcomeMessage(
+    message: TunnelMessage,
+    listener?: TunnelMessageListener,
+  ): Promise<void> {
     await this.triggerListener(message);
 
     const handler = this.handlerRegistry.getOutcomeHandler(message.type);
@@ -216,13 +279,22 @@ export class TunnelServiceLibp2pImpl implements TunnelService {
 
   /** 兼容性空实现部分 —— 全部无需任何实际 socket 逻辑，仅为保留接口 **/
 
-  async createConnection(gatewayAddress: string, code?: string, basePath?: string): Promise<void> {
+  async createConnection(
+    gatewayAddress: string,
+    _code?: string,
+    _basePath?: string,
+  ): Promise<void> {
     // 只更新状态，发事件，完全不用 socket
     this.gatewayUrl = gatewayAddress;
-    this.logger.log(`libp2p模式，忽略实际连接，仅记录 gatewayUrl: ${gatewayAddress}`);
+    this.logger.log(
+      `libp2p模式，忽略实际连接，仅记录 gatewayUrl: ${gatewayAddress}`,
+    );
     this.eventEmitter.emit(
       TUNNEL_EVENTS.CONNECTION_ESTABLISHED,
-      new TunnelConnectionEstablishedEvent(this.peerId || 'unknown', gatewayAddress)
+      new TunnelConnectionEstablishedEvent(
+        this.peerId || 'unknown',
+        gatewayAddress,
+      ),
     );
   }
 
@@ -233,7 +305,7 @@ export class TunnelServiceLibp2pImpl implements TunnelService {
     this.logger.log(`libp2p模式设备注册: ${node_id}`);
     this.eventEmitter.emit(
       TUNNEL_EVENTS.DEVICE_REGISTERED,
-      new TunnelDeviceRegisteredEvent(node_id, node_id)
+      new TunnelDeviceRegisteredEvent(node_id, node_id),
     );
   }
 
@@ -241,7 +313,7 @@ export class TunnelServiceLibp2pImpl implements TunnelService {
     this.logger.log('libp2p模式下断开连接，状态清理');
     this.eventEmitter.emit(
       TUNNEL_EVENTS.CONNECTION_LOST,
-      new TunnelConnectionLostEvent(this.peerId, 'Manual disconnect')
+      new TunnelConnectionLostEvent(this.peerId, 'Manual disconnect'),
     );
     this.connectedDevices.clear();
     this.streamHandlers.clear();
@@ -281,3 +353,10 @@ export class TunnelServiceLibp2pImpl implements TunnelService {
     this.logger.warn('handleDisconnect called (libp2p兼容性空实现)');
   }
 }
+
+// TODO: LibP2P implementation
+// The actual LibP2P node startup implementation has been commented out
+// to ensure clean builds without LibP2P dependencies.
+//
+// When ready to implement LibP2P functionality, uncomment and implement
+// the startLibp2pNode function with proper LibP2P initialization.

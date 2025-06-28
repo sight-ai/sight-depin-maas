@@ -6,6 +6,7 @@ export * from './message-handler';
 export * from './services/tunnel-message.service';
 export * from './errors';
 export * from './events';
+export * from './events/keypair.events';
 export * from './message-gateway'
 export * from './tunnel-libp2p.service'
 
