@@ -1,3 +1,17 @@
+import { tcp } from '@libp2p/tcp';
+import { noise } from '@chainsafe/libp2p-noise';
+import { yamux } from '@chainsafe/libp2p-yamux';
+import { gossipsub } from '@chainsafe/libp2p-gossipsub';
+import { identify } from '@libp2p/identify';
+import { bootstrap } from '@libp2p/bootstrap';
+import { createLibp2p } from 'libp2p';
+import * as bs58 from '@libp2p/crypto/keys/keys';
+import axios from 'axios';
+import { multiaddr } from '@multiformats/multiaddr';
+import { express, Router } from 'express';
+import bodyParser from 'body-parser';
+import { privateKeyFromRaw } from '@libp2p/crypto/keys';
+
 
 var TOPIC = "sight-message";
 async function createNode(privateKey, port, onMessage, bootstrapList) {
@@ -18,7 +32,6 @@ async function createNode(privateKey, port, onMessage, bootstrapList) {
       //   }),
       pubsub: gossipsub({
         emitSelf: false,
-        // @ts-ignore
         allowPublishToZeroPeers: true,
         fallbackToFloodsub: false
       }),
@@ -75,13 +88,13 @@ var Libp2pNodeService = class {
   did;
   async initNode() {
     this.node = await createNode(
-      keys.privateKeyFromRaw(this.keyPair.secretKey),
+      privateKeyFromRaw(this.keyPair.secretKey),
       this.nodePort,
       this.handleIncomeMessage.bind(this),
       this.bootstrapList
     );
   }
-  async handleIncomeMessage(msg, from) {
+  async handleIncomeMessage(msg) {
     if (msg.to === this.did) {
       try {
         const res = await axios.post(this.tunnelAPI, msg.payload, {

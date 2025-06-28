@@ -7,12 +7,13 @@
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
     "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "allowJs": true
   },
   "files": [],
   "include": [
     "src/**/*.ts",
-    "src/lib/libp2p/**/*.js"
+    "src/**/*.js"
   ],
   "references": [
     {
