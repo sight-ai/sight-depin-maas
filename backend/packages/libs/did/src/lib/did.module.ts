@@ -11,6 +11,7 @@ import { DidLocalBuilder } from './did-local.builder';
 import { DidLocalStorage } from './did-document-storage/did-local.storage';
 import { DidManagerStorage } from './did-document-storage/did-manager.storage';
 import { TunnelModule } from '@saito/tunnel';
+import { KeyPairManager } from './services/key-pair-manager.service';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { TunnelModule } from '@saito/tunnel';
     DidLocalBuilder,
     DidLocalStorage,
     DidManagerStorage,
+    KeyPairManager,
     {
       provide: 'SIGHT_SEQ',
       useValue: 1,
@@ -42,16 +44,16 @@ import { TunnelModule } from '@saito/tunnel';
     },
     {
       provide: 'KEY_PAIR',
-      useValue: new Uint8Array([
-        1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,
-        17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32
-      ]),
+      useFactory: async (keyPairManager: KeyPairManager) => {
+        return await keyPairManager.getOrGenerateKeyPair();
+      },
+      inject: [KeyPairManager],
     },
     {
       provide: 'AUTHENTICATION',
       useValue: '#key-1',
     },
   ],
-  exports: [DidServiceProvider, DidDocumentManagerService, DidServiceImpl],
+  exports: [DidServiceProvider, DidDocumentManagerService, DidServiceImpl, KeyPairManager],
 })
 export class DidModule {}
