@@ -29,18 +29,42 @@ export function isKeyPairReady(): boolean {
   return !!globalKeyPair;
 }
 
-export async function startLibp2pNodeManually(): Promise<void> {
-  if (!globalKeyPair) {
-    throw new Error('KeyPair not ready. Please wait for KeyPair ready event.');
-  }
+// export async function startLibp2pNodeManually(): Promise<void> {
+//   if (!globalKeyPair) {
+//     throw new Error('KeyPair not ready. Please wait for KeyPair ready event.');
+//   }
 
-  console.log('🚀 Starting LibP2P node manually...');
-  console.log('⚠️  LibP2P implementation is currently disabled/commented out');
-  console.log('✅ KeyPair is ready and available for LibP2P initialization');
+//   console.log('🚀 Starting LibP2P node manually...');
+//   console.log('⚠️  LibP2P implementation is currently disabled/commented out');
+//   console.log('✅ KeyPair is ready and available for LibP2P initialization');
+//   return startLibp2pNode()
+// }
 
-  // TODO: Uncomment and implement actual LibP2P startup when ready
-  // return startLibp2pNode();
-}
+// async function startLibp2pNode() {
+//   const IS_GATEWAY = Number(process.env['IS_GATEWAY']) === 1;
+//   const LIBP2P_PORT = Number(process.env['LIBP2P_PORT'] || 4010);
+//   const NODE_PORT = Number(process.env['NODE_PORT'] || 15050);
+//   const API_PORT = Number(process.env['API_PORT'] || 8716);
+//   const BOOTSTRAP_ADDRS = process.env['BOOTSTRAP_ADDRS'] || '';
+//   const bootstrapList = BOOTSTRAP_ADDRS.split(',')
+//     .map(addr => addr.trim())
+//     .filter(Boolean);
+//   const seed = getGlobalKeyPair()
+//   const nacl = await import('tweetnacl');
+//   const keyPair = nacl.sign.keyPair.fromSeed(seed!);
+
+//   const options = {
+//     expressPort: LIBP2P_PORT,
+//     nodePort: NODE_PORT,
+//     keyPair,
+//     tunnelAPI: `http://localhost:${API_PORT}/libp2p/message`,
+//     isGateway: IS_GATEWAY,
+//     bootstrapList,
+//   };
+
+//   const { startLibP2PServer } = await import('./libp2p/libp2p.bundle.js');
+//   startLibP2PServer(options);
+// }
 
 @Injectable()
 export class TunnelServiceLibp2pImpl implements TunnelService {
@@ -90,18 +114,18 @@ export class TunnelServiceLibp2pImpl implements TunnelService {
   /**
    * 手动启动 LibP2P 节点
    */
-  async startLibp2pNode(): Promise<void> {
-    if (!globalKeyPair) {
-      throw new Error('KeyPair not set. Please ensure KeyPair ready event has been fired.');
-    }
+  // async startLibp2p(): Promise<void> {
+  //   if (!globalKeyPair) {
+  //     throw new Error('KeyPair not set. Please ensure KeyPair ready event has been fired.');
+  //   }
 
-    this.logger.log('🚀 Starting LibP2P node...');
-    this.logger.warn('⚠️  LibP2P implementation is currently disabled/commented out');
-    this.logger.log('✅ KeyPair is ready and available for LibP2P initialization');
+  //   this.logger.log('🚀 Starting LibP2P node...');
+  //   this.logger.warn('⚠️  LibP2P implementation is currently disabled/commented out');
+  //   this.logger.log('✅ KeyPair is ready and available for LibP2P initialization');
 
-    // TODO: Uncomment and implement actual LibP2P startup when ready
-    // return startLibp2pNode();
-  }
+  //   // TODO: Uncomment and implement actual LibP2P startup when ready
+  //   return startLibp2pNode();
+  // }
 
   /**
    * 处理消息
@@ -353,10 +377,3 @@ export class TunnelServiceLibp2pImpl implements TunnelService {
     this.logger.warn('handleDisconnect called (libp2p兼容性空实现)');
   }
 }
-
-// TODO: LibP2P implementation
-// The actual LibP2P node startup implementation has been commented out
-// to ensure clean builds without LibP2P dependencies.
-//
-// When ready to implement LibP2P functionality, uncomment and implement
-// the startLibp2pNode function with proper LibP2P initialization.

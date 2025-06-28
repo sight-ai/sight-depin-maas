@@ -160,10 +160,10 @@ export const GLOBAL_PEER_ID_PROVIDER = new DynamicPeerIdProvider();
     },
 
     // 提供PEER_ID - 从全局提供者获取
-    // {
-    //   provide: 'PEER_ID',
-    //   useFactory: () => GLOBAL_PEER_ID_PROVIDER.getPeerId(),
-    // },
+    {
+      provide: 'PEER_ID',
+      useFactory: () => GLOBAL_PEER_ID_PROVIDER.getPeerId(),
+    },
   ],
   exports: [
     'TunnelService',

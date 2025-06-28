@@ -10,7 +10,7 @@ import nacl from 'tweetnacl';
  * 密钥对配置接口
  */
 interface KeyPairConfig {
-  seed: string; // Base64 编码的种子
+  seed: number[]; // 数组形式的种子
   deviceId: string; // 设备唯一标识
   createdAt: string; // 创建时间
   lastUsed: string; // 最后使用时间
@@ -153,8 +153,8 @@ export class KeyPairManager {
         await this.saveKeyPairConfig(existingConfig);
         
         // 解码种子
-        const seed = Buffer.from(existingConfig.seed, 'base64');
-        this.cachedKeyPair = new Uint8Array(seed);
+        const seed = Uint8Array.from(existingConfig.seed);
+        this.cachedKeyPair = seed;
         this.cachedDeviceId = currentDeviceId;
         
         return this.cachedKeyPair;
@@ -166,7 +166,7 @@ export class KeyPairManager {
         const now = new Date().toISOString();
         
         const newConfig: KeyPairConfig = {
-          seed: Buffer.from(seed).toString('base64'),
+          seed: Array.from(seed),
           deviceId: currentDeviceId,
           createdAt: now,
           lastUsed: now
@@ -210,7 +210,7 @@ export class KeyPairManager {
     const now = new Date().toISOString();
     
     const newConfig: KeyPairConfig = {
-      seed: Buffer.from(seed).toString('base64'),
+      seed: Array.from(seed),
       deviceId: currentDeviceId,
       createdAt: now,
       lastUsed: now
@@ -241,7 +241,7 @@ export class KeyPairManager {
       }
 
       // 生成公钥用于显示
-      const seed = Buffer.from(config.seed, 'base64');
+      const seed = Uint8Array.from(config.seed);
       const keyPair = nacl.sign.keyPair.fromSeed(new Uint8Array(seed));
       const publicKey = Buffer.from(keyPair.publicKey).toString('base64');
 
