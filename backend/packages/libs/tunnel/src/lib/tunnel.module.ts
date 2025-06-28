@@ -43,6 +43,8 @@ import { OutcomeChatResponseStreamHandler } from './message-handler/outcome/outc
 import { OutcomeChatResponseHandler } from './message-handler/outcome/outcome-chat-response.handler';
 import { OutcomeCompletionResponseStreamHandler } from './message-handler/outcome/outcome-completion-response-stream.handler';
 import { OutcomeCompletionResponseHandler } from './message-handler/outcome/outcome-completion-response.handler';
+import { MessageGatewayLibp2pProvider, MessageGatewayLibp2pService } from './message-gateway';
+import { TunnelServiceLibp2pImpl } from './tunnel-libp2p.service';
 
 /**
  * 动态PEER_ID提供者
@@ -76,11 +78,14 @@ export const GLOBAL_PEER_ID_PROVIDER = new DynamicPeerIdProvider();
     // 新的重构后的服务
     {
       provide: 'TunnelService',
-      useClass: TunnelServiceImpl,
+      useClass: TunnelServiceLibp2pImpl,
     },
     MessageGatewayProvider,
     MessageHandlerRegistry,
     TunnelMessageService,
+    MessageGatewayLibp2pProvider,
+    TunnelServiceLibp2pImpl,
+    MessageGatewayLibp2pService,
 
     // Income Message Handlers
     IncomePingHandler,
@@ -129,6 +134,9 @@ export const GLOBAL_PEER_ID_PROVIDER = new DynamicPeerIdProvider();
     MessageGatewayProvider,
     MessageHandlerRegistry,
     TunnelMessageService,
+    MessageGatewayLibp2pProvider,
+    MessageGatewayLibp2pService,
+    // TunnelServiceLibp2pImpl,
   ],
 })
 export class TunnelModule {}

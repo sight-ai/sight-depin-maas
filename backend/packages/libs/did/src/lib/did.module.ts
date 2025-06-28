@@ -3,13 +3,19 @@ import { ContextHandlerRegistry } from './core/context/context-handler/context-h
 import { DidDocumentAssembler } from './core/did-document.assembler';
 import { DidDocumentParser } from './core/parser/did-document.parser';
 import { DidDocumentProofSigner, DidDocumentVerifier } from './core/proof';
-import { DidDocumentManagerProvider, DidDocumentManagerService } from './did-document-manager/did-document-manager.service';
-import { DidDocumentOrchestrator, DidDocumentOrchestratorProvider } from './did-document.orchestrator';
-import { DidServiceImpl, DidServiceProvider } from './did.service';
-import { DidLocalManager } from './did-local.manager';
-import { DidLocalBuilder } from './did-local.builder';
+import {
+  DidDocumentManagerProvider,
+  DidDocumentManagerService,
+} from './did-document-manager/did-document-manager.service';
 import { DidLocalStorage } from './did-document-storage/did-local.storage';
 import { DidManagerStorage } from './did-document-storage/did-manager.storage';
+import {
+  DidDocumentOrchestrator,
+  DidDocumentOrchestratorProvider,
+} from './did-document.orchestrator';
+import { DidLocalBuilder } from './did-local.builder';
+import { DidLocalManager } from './did-local.manager';
+import { DidServiceImpl, DidServiceProvider } from './did.service';
 // 移除对 TunnelModule 的依赖以解决循环依赖
 // import { TunnelModule } from '@saito/tunnel';
 
@@ -45,8 +51,8 @@ import { DidManagerStorage } from './did-document-storage/did-manager.storage';
     {
       provide: 'KEY_PAIR',
       useValue: new Uint8Array([
-        1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,
-        17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32
+        32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15,
+        14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1,
       ]),
     },
     {
