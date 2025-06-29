@@ -12,6 +12,8 @@ import { noise } from "../node_modules/@chainsafe/libp2p-noise/dist/src/index.js
 import { yamux } from "../node_modules/@chainsafe/libp2p-yamux/dist/src/index.js";
 import { identify } from "../node_modules/@libp2p/identify/dist/src/index.js";
 import { bootstrap } from "../node_modules/@libp2p/bootstrap/dist/src/index.js";
+import { autoNAT } from "../node_modules/@libp2p/autonat/dist/src/index.js";
+import { circuitRelayServer, circuitRelayTransport } from "../node_modules/@libp2p/circuit-relay-v2/dist/src/index.js";
 var TOPIC = "sight-message";
 async function createNode(privateKey, port, onMessage, bootstrapList) {
   const libp2pConfig = {
@@ -19,7 +21,7 @@ async function createNode(privateKey, port, onMessage, bootstrapList) {
     addresses: {
       listen: [`/ip4/0.0.0.0/tcp/${port}`]
     },
-    transports: [tcp()],
+    transports: [tcp(), circuitRelayTransport()],
     connectionEncrypters: [noise()],
     streamMuxers: [yamux()],
     services: {
@@ -35,7 +37,9 @@ async function createNode(privateKey, port, onMessage, bootstrapList) {
         allowPublishToZeroPeers: true,
         fallbackToFloodsub: false
       }),
-      identify: identify()
+      identify: identify(),
+      autonat: autoNAT(),
+      relay: circuitRelayServer({})
     }
   };
   if (bootstrapList && bootstrapList.length > 0) {
