@@ -1,7 +1,9 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IncomeBaseMessageHandler } from '../base-message-handler';
 import { TunnelMessage, DeviceRegisterAckMessage, DeviceRegisterAckMessageSchema } from '@saito/models';
 import { MessageHandler } from '../message-handler.decorator';
+import { TUNNEL_EVENTS, TunnelDeviceStatusUpdateRequestEvent } from '../../events';
 
 /**
  * 设备注册确认消息处理器
@@ -14,7 +16,8 @@ export class IncomeDeviceRegisterAckHandler extends IncomeBaseMessageHandler {
   private readonly logger = new Logger(IncomeDeviceRegisterAckHandler.name);
 
   constructor(
-    @Inject('PEER_ID') private readonly injectedPeerId: string
+    @Inject('PEER_ID') private readonly injectedPeerId: string,
+    private readonly eventEmitter: EventEmitter2
   ) {
     super();
   }
@@ -84,13 +87,27 @@ export class IncomeDeviceRegisterAckHandler extends IncomeBaseMessageHandler {
    */
   private async handleRegistrationSuccess(deviceId: string, message?: string): Promise<void> {
     this.logger.log(`处理设备注册成功 - DeviceID: ${deviceId}`);
-    
+
     // 记录注册成功时间
     const registrationTime = Date.now();
     this.logger.debug(`设备注册成功时间: ${new Date(registrationTime).toISOString()}`);
-    
-    // 这里可以添加具体的成功处理逻辑
-    // 例如：更新设备状态、启动服务等
+
+    try {
+      // 发射设备状态更新请求事件
+      this.eventEmitter.emit(
+        TUNNEL_EVENTS.DEVICE_STATUS_UPDATE_REQUEST,
+        new TunnelDeviceStatusUpdateRequestEvent(
+          deviceId,
+          'connected',
+          `Device registration successful: ${message || 'No additional message'}`
+        )
+      );
+
+      this.logger.log(`✅ 已发射设备状态更新事件 - 注册成功`);
+      this.logger.log(`✅ 注册成功后处理完成 - 心跳由设备状态服务管理`);
+    } catch (error) {
+      this.logger.error(`注册成功后处理失败:`, error);
+    }
   }
 
   /**
@@ -98,12 +115,30 @@ export class IncomeDeviceRegisterAckHandler extends IncomeBaseMessageHandler {
    */
   private async handleRegistrationFailure(deviceId: string, error?: string): Promise<void> {
     this.logger.error(`处理设备注册失败 - DeviceID: ${deviceId}, Error: ${error || '未知错误'}`);
-    
+
     // 记录注册失败时间
     const failureTime = Date.now();
     this.logger.debug(`设备注册失败时间: ${new Date(failureTime).toISOString()}`);
-    
+
+    try {
+      // 发射设备状态更新请求事件
+      this.eventEmitter.emit(
+        TUNNEL_EVENTS.DEVICE_STATUS_UPDATE_REQUEST,
+        new TunnelDeviceStatusUpdateRequestEvent(
+          deviceId,
+          'failed',
+          `Device registration failed: ${error || '未知错误'}`
+        )
+      );
+
+      this.logger.log(`已发射设备状态更新事件 - 注册失败`);
+    } catch (updateError) {
+      this.logger.error(`发射设备状态更新事件失败:`, updateError);
+    }
+
     // 这里可以添加具体的失败处理逻辑
     // 例如：重试注册、通知用户、记录错误等
   }
+
+
 }

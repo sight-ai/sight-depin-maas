@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { DidLocalState, RawDidDocument } from '@saito/models';
+import { DidDocumentImpl } from './core/did-document';
 import { DidLocalManager } from './did-local.manager';
 import { DidServiceInterface } from './did.interface';
-import { DidDocumentImpl } from './core/did-document';
 
 @Injectable()
 export class DidServiceImpl implements DidServiceInterface {
@@ -32,10 +32,10 @@ export class DidServiceImpl implements DidServiceInterface {
     return this.manager.getDidUodated();
   }
 
-  getController(): string | undefined{
+  getController(): string | undefined {
     return this.manager.getController();
   }
- 
+
   async resetDidUpdated() {
     await this.manager.resetDidUpdated();
   }
@@ -54,6 +54,16 @@ export class DidServiceImpl implements DidServiceInterface {
 
   async isNewerThanPersist(did: RawDidDocument): Promise<boolean> {
     return await this.manager.isNewerThanPersist(did);
+  }
+
+  // 用本地DID私钥签名nonce，输入nonce，用自己的私钥签名。
+  async signNonce(nonce: string | Uint8Array): Promise<string> {
+    return this.manager.signNonce(nonce);
+  }
+
+  // 验证签名，输入nonce，signature和对应的公钥(可以did.getPublicKey()获取)
+  async verifyNonceSignature(nonce: string | Uint8Array, signature: string, publicKey: string): Promise<boolean> {
+    return this.manager.verifyNonceSignature(nonce, signature, publicKey);
   }
 }
 

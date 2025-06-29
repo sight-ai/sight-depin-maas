@@ -157,8 +157,12 @@ export {
   TaskRequestMessageSchema,
   TaskResponseMessageSchema,
   TaskStreamMessageSchema,
-  DeviceRegistrationMessageSchema,
-  DeviceRegisterAckMessageSchema,
+  DeviceRegisterRequestMessageSchema,
+  DeviceRegisterResponseMessageSchema,
+  DeviceModelReportMessageSchema,
+  DeviceModelReportResponseMessageSchema,
+  DeviceHeartbeatReportMessageSchema,
+  DeviceHeartbeatResponseMessageSchema,
   ChatRequestStreamMessageSchema,
   ChatResponseStreamSchema,
   // 导出类型
@@ -170,10 +174,22 @@ export {
   TaskRequestMessage,
   TaskResponseMessage,
   TaskStreamMessage,
-  DeviceRegistrationMessage,
   DeviceRegisterAckMessage,
+  DeviceRegisterRequestMessage,
+  DeviceRegisterResponseMessage,
+  DeviceModelReportMessage,
+  DeviceModelReportResponseMessage,
+  DeviceHeartbeatReportMessage,
+  DeviceHeartbeatResponseMessage,
   ChatRequestStreamMessage,
-  ChatResponseStreamMessage
+  ChatResponseStreamMessage,
+  // 导出载荷类型
+  DeviceRegisterRequestPayload,
+  DeviceRegisterResponsePayload,
+  DeviceModelReportPayload,
+  DeviceModelReportResponsePayload,
+  DeviceHeartbeatReportPayload,
+  DeviceHeartbeatResponsePayload
 } from './tunnel/tunnel-message.schema';
 
 export {

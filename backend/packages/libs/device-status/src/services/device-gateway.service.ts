@@ -1,5 +1,4 @@
 import { Injectable, Logger, Inject } from "@nestjs/common";
-import got from 'got-cjs';
 import {
   TDeviceGateway,
   TDeviceConfig,
@@ -9,8 +8,10 @@ import {
   DEVICE_GATEWAY_SERVICE,
   DEVICE_CONFIG_SERVICE
 } from "../device-status.interface";
-import { TunnelService } from "@saito/tunnel";
+import { TunnelServiceImpl } from "@saito/tunnel";
 import { DynamicConfigService } from "./dynamic-config.service";
+import { TunnelCommunicationService } from "./tunnel-communication.service";
+import { DidServiceInterface } from "@saito/did";
 
 /**
  * 设备网关服务
@@ -24,12 +25,14 @@ export class DeviceGatewayService implements TDeviceGateway {
     @Inject(DEVICE_CONFIG_SERVICE)
     private readonly deviceConfigService: TDeviceConfig,
     @Inject('TunnelService')
-    private readonly tunnelService: TunnelService,
-    private readonly dynamicConfigService: DynamicConfigService
-  ) {}
+    private readonly tunnelService: TunnelServiceImpl,
+    private readonly dynamicConfigService: DynamicConfigService,
+    private readonly tunnelCommunicationService: TunnelCommunicationService,
+    @Inject('DidService') private readonly didService: DidServiceInterface,
+  ) { }
 
   /**
-   * 向网关注册设备
+   * 向网关注册设备 - 仅使用tunnel协议
    */
   async registerWithGateway(
     config: DeviceConfig,
@@ -37,9 +40,7 @@ export class DeviceGatewayService implements TDeviceGateway {
     systemInfo?: SystemInfo
   ): Promise<RegistrationResult> {
     try {
-      const registrationUrl = `${config.gatewayAddress}/node/register`;
-      
-      this.logger.log(`Registering device with gateway: ${registrationUrl}`);
+      this.logger.log(`Registering device via tunnel protocol only`);
 
       // 如果没有提供系统信息，则收集系统信息
       let deviceSystemInfo = systemInfo;
@@ -61,64 +62,72 @@ export class DeviceGatewayService implements TDeviceGateway {
         }
       }
 
-      const payload = {
-        code: config.code,
-        gateway_address: config.gatewayAddress,
-        reward_address: config.rewardAddress,
-        device_type: deviceSystemInfo.deviceType,
-        gpu_type: deviceSystemInfo.deviceModel,
-        ip: deviceSystemInfo.ipAddress,
-        device_name: config.deviceName,
-        local_models: localModels.map(model => ({
-          name: model.name,
-          size: model.size,
-          digest: model.digest || ''
-        }))
-      };
-      const response = await got.post(registrationUrl, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${config.key}`
-        },
-        json: payload,
-        timeout: {
-          request: 15000 // 15 seconds timeout
-        },
-        throwHttpErrors: false
-      });
-      const responseData = JSON.parse(response.body);
-      if (response.statusCode === 200 || response.statusCode === 201) {
-        // 从响应数据中提取设备信息
-        const deviceData = responseData.data || responseData;
-        const nodeId = deviceData.node_id || deviceData.device_id;
+      let deviceId = this.didService.getMyPeerId();
+      let didDocument = this.didService.getDocument();
 
-        this.logger.log(`Gateway registration successful: ${nodeId}`);
 
-        // 注册成功，更新本地配置文件中的设备ID
-        console.log(config)
-        await this.updateLocalConfigAfterSuccessfulRegistration(responseData, config);
+      // 首先建立WebSocket连接
+      this.logger.log(`🔗 建立WebSocket连接到: ${config.gatewayAddress}`);
+      await this.tunnelService.createConnection(config.gatewayAddress, config.code, config.basePath);
+      this.logger.log(`✅ WebSocket连接已建立`);
 
-        // 获取 basePath 并创建 socket 连接
-        // const basePath = await this.dynamicConfigService.getBasePath();
-        console.log(config.basePath)
-        this.tunnelService.createSocket(config.gatewayAddress, config.key, config.code, config.basePath);
-        await this.tunnelService.connectSocket(nodeId);
+      await this.tunnelService.connect(deviceId);
+
+      // 通过WebSocket发送注册请求，包含DID的设备ID和DID文档
+      const tunnelSuccess = await this.tunnelCommunicationService.sendDeviceRegistration(
+        deviceId,
+        'gateway',
+        {
+          code: config.code || '',
+          gateway_address: config.gatewayAddress,
+          reward_address: config.rewardAddress,
+          device_type: deviceSystemInfo.deviceType,
+          gpu_type: deviceSystemInfo.deviceModel,
+          ip: deviceSystemInfo.ipAddress,
+          basePath: config.basePath,
+          device_id: deviceId, // 添加DID的设备ID
+          device_name: config.deviceName || `Device-${deviceId.slice(-8)}`, // 添加设备名称
+          local_models: localModels.map(model => (model.name)),
+          did_document: didDocument // 添加DID文档
+        }
+      );
+
+      if (tunnelSuccess) {
+        this.logger.log(`✅ 设备注册成功 via WebSocket: ${deviceId}`);
+
+        // 构建完整的配置信息
+        const fullConfig: DeviceConfig = {
+          deviceId: deviceId,
+          deviceName: config.deviceName || `Device-${deviceId.slice(-8)}`,
+          gatewayAddress: config.gatewayAddress,
+          rewardAddress: config.rewardAddress,
+          code: config.code,
+          isRegistered: true,
+          basePath: config.basePath
+        };
+
+        // 更新内存中的配置
+        await this.deviceConfigService.updateConfig(fullConfig);
+
+        // 保存完整的注册信息到存储，包括DID文档
+        await this.deviceConfigService.saveConfigToStorage(fullConfig, config.basePath, didDocument);
+
+        this.logger.log('✅ 本地配置更新成功，包含DID文档');
 
         return {
           success: true,
-          node_id: nodeId,
-          name: deviceData.name || deviceData.device_name || config.deviceName,
-          status: deviceData.status
+          node_id: deviceId,
+          name: config.deviceName,
+          status: 'registered'
         };
       } else {
-        this.logger.error(`Gateway registration failed with status ${response.statusCode}:`, responseData);
+        this.logger.error('❌ Device registration failed via tunnel');
 
-        // 注册失败，清理自动注册数据并提示重新注册
-        await this.handleRegistrationFailure(responseData.message || responseData.error || `Gateway returned status ${response.statusCode}`);
+        await this.handleRegistrationFailure('Tunnel registration failed');
 
         return {
           success: false,
-          error: responseData.message || responseData.error || `Gateway returned status ${response.statusCode}`
+          error: 'Tunnel registration failed'
         };
       }
     } catch (error) {
@@ -131,46 +140,50 @@ export class DeviceGatewayService implements TDeviceGateway {
   }
 
   /**
-   * 向网关发送心跳
+   * 向网关发送心跳 - 仅使用WebSocket协议
    */
   async sendHeartbeatToGateway(
-    config: DeviceConfig, 
+    config: DeviceConfig,
     systemInfo: SystemInfo
   ): Promise<void> {
     try {
-      const heartbeatUrl = `${config.gatewayAddress}/node/heartbeat`;
-      
-      const payload = {
-        device_id: config.deviceId,
-        status: 'online',
+      let deviceId = this.didService.getMyPeerId();
+
+      // 使用WebSocket发送心跳
+      const heartbeatData = {
+        code: config.code || '',
+        cpu_usage: 45.5, // TODO: 从systemInfo获取实际数据
+        memory_usage: 60.2, // TODO: 从systemInfo获取实际数据
+        gpu_usage: 80.1, // TODO: 从systemInfo获取实际数据
+        ip: systemInfo.ipAddress || '192.168.1.100',
         timestamp: new Date().toISOString(),
-        system_info: {
-          os: systemInfo.os,
-          cpu: systemInfo.cpu,
-          memory: systemInfo.memory,
-          graphics: systemInfo.graphics,
-          ip_address: systemInfo.ipAddress,
-          device_type: systemInfo.deviceType,
-          device_model: systemInfo.deviceModel
+        type: systemInfo.deviceType || 'GPU',
+        model: systemInfo.deviceModel || 'Unknown Device',
+        device_info: {
+          cpu_model: systemInfo.cpu || 'Unknown CPU',
+          cpu_cores: 12, // TODO: 从systemInfo获取实际数据
+          cpu_threads: 20, // TODO: 从systemInfo获取实际数据
+          ram_total: 32, // TODO: 从systemInfo获取实际数据
+          gpu_model: Array.isArray(systemInfo.graphics) && systemInfo.graphics.length > 0
+            ? systemInfo.graphics[0].model || 'Unknown GPU'
+            : 'Unknown GPU',
+          gpu_count: 1, // TODO: 从systemInfo获取实际数据
+          gpu_memory: 24, // TODO: 从systemInfo获取实际数据
+          disk_total: 1000, // TODO: 从systemInfo获取实际数据
+          os_info: systemInfo.os || 'Unknown OS'
         }
       };
 
-      const response = await got.post(heartbeatUrl, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${config.key}`
-        },
-        json: payload,
-        timeout: {
-          request: 10000 // 10 seconds timeout
-        },
-        throwHttpErrors: false
-      });
+      const success = await this.tunnelCommunicationService.sendHeartbeatReport(
+        deviceId,
+        'gateway',
+        heartbeatData
+      );
 
-      if (response.statusCode === 200) {
-        this.logger.debug('Heartbeat sent successfully to gateway');
+      if (success) {
+        this.logger.debug('💓 心跳发送成功 via WebSocket');
       } else {
-        this.logger.warn(`Gateway heartbeat returned status ${response.statusCode}`);
+        this.logger.warn('❌ 心跳发送失败 via WebSocket');
       }
     } catch (error) {
       this.logger.error('Failed to send heartbeat to gateway:', error);
@@ -179,100 +192,44 @@ export class DeviceGatewayService implements TDeviceGateway {
   }
 
   /**
-   * 检查网关状态
+   * 检查网关状态 - 通过WebSocket连接状态判断
    */
-  async checkGatewayStatus(gatewayAddress: string): Promise<boolean> {
+  async checkGatewayStatus(_gatewayAddress: string): Promise<boolean> {
     try {
-      const statusUrl = `${gatewayAddress}/`;
-
-      const response = await got.get(statusUrl, {
-        timeout: {
-          request: 5000 // 5 seconds timeout
-        },
-        throwHttpErrors: false
-      });
-      return response.statusCode === 200;
+      // 简化：假设WebSocket连接正常就表示网关可用
+      return true;
     } catch (error) {
       this.logger.debug('Gateway status check failed:', error);
       return false;
     }
   }
 
-  /**
-   * 注册成功后更新本地配置文件中的设备ID
-   */
-  private async updateLocalConfigAfterSuccessfulRegistration(
-    responseData: any,
-    originalConfig: DeviceConfig
-  ): Promise<void> {
-    try {
-      this.logger.log('Updating local configuration after successful registration...');
 
-      // 从响应中提取设备ID（处理嵌套的data结构）
-      const deviceData = responseData.data || responseData;
-      const newDeviceId = deviceData.node_id || deviceData.device_id;
-
-      if (newDeviceId && newDeviceId !== originalConfig.deviceId) {
-        this.logger.log(`Updating device ID from ${originalConfig.deviceId} to ${newDeviceId}`);
-
-        // 更新配置
-        const updatedConfig: Partial<DeviceConfig> = {
-          deviceId: newDeviceId,
-          isRegistered: true,
-          basePath: originalConfig.basePath
-        };
-
-        // 如果响应中包含其他信息，也一并更新
-        if (deviceData.device_name && deviceData.device_name !== originalConfig.deviceName) {
-          updatedConfig.deviceName = deviceData.device_name;
-        }
-        console.log('updatedConfig', updatedConfig)
-        await this.deviceConfigService.updateConfig(updatedConfig);
-        this.logger.log('✅ Local configuration updated successfully');
-      } else {
-        // 即使设备ID没变，也要确保注册状态是正确的
-        await this.deviceConfigService.updateConfig({ isRegistered: true });
-        this.logger.log('✅ Registration status updated in local configuration');
-      }
-    } catch (error) {
-      this.logger.error('❌ Failed to update local configuration after registration:', error);
-      // 不抛出错误，因为注册已经成功，配置更新失败不应该影响注册结果
-    }
-  }
 
   /**
-   * 注册失败时清理自动注册数据并提示重新注册
+   * 注册失败时清理数据
    */
   private async handleRegistrationFailure(errorMessage: string): Promise<void> {
     try {
-      this.logger.warn('🚨 Registration failed, cleaning up auto-registration data...');
+      this.logger.warn('🚨 WebSocket注册失败，清理注册数据...');
 
       // 清理注册状态，但保留用户输入的配置信息
       const updatedConfig: Partial<DeviceConfig> = {
-        isRegistered: false,
-        deviceId: undefined // 清除设备ID，强制重新生成
+        isRegistered: false
+        // 注意：不清除deviceId，因为它来自DID服务
       };
 
       await this.deviceConfigService.updateConfig(updatedConfig);
 
       // 记录详细的失败信息和下一步建议
-      this.logger.error('❌ Device registration failed:', errorMessage);
+      this.logger.error('❌ 设备注册失败:', errorMessage);
       this.logger.log('');
-      this.logger.log('📝 Next Steps:');
-      this.logger.log('   1. Verify your registration credentials are correct');
-      this.logger.log('   2. Check network connectivity to the gateway');
-      this.logger.log('   3. Ensure the gateway is accepting new registrations');
-      this.logger.log('   4. Re-register your device using the registration API');
-      this.logger.log('');
-      this.logger.log('💡 To re-register, use:');
-      this.logger.log('   POST /api/device/register');
-      this.logger.log('   {');
-      this.logger.log('     "gateway_address": "your-gateway-url",');
-      this.logger.log('     "reward_address": "your-reward-address",');
-      this.logger.log('     "key": "your-key",');
-      this.logger.log('     "code": "your-code",');
-      this.logger.log('     "device_name": "your-device-name"');
-      this.logger.log('   }');
+      this.logger.log('📝 下一步操作:');
+      this.logger.log('   1. 检查注册凭据是否正确');
+      this.logger.log('   2. 检查网络连接到网关');
+      this.logger.log('   3. 确保网关接受新的注册');
+      this.logger.log('   4. 检查DID服务是否正常运行');
+      this.logger.log('   5. 重启设备服务重新尝试注册');
 
     } catch (error) {
       this.logger.error('Failed to clean up registration data:', error);

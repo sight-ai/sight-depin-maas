@@ -140,6 +140,24 @@ module.exports = composePlugins(withNx(), (config, context) => {
     type: 'asset/source',
   });
 
+  // 排除 .d.ts 文件的处理，避免 ts-loader 错误
+  config.module.rules.forEach(rule => {
+    if (rule.test && rule.test.toString().includes('tsx?')) {
+      rule.exclude = rule.exclude || [];
+      if (Array.isArray(rule.exclude)) {
+        rule.exclude.push(/\.d\.ts$/);
+      } else {
+        rule.exclude = [rule.exclude, /\.d\.ts$/];
+      }
+    }
+  });
+
+  // 添加JSON文件处理规则
+  // config.module.rules.push({
+  //   test: /\.json$/,
+  //   type: 'json',
+  // });
+
   config.output.devtoolModuleFilenameTemplate = function (info) {
     const rel = path.relative(process.cwd(), info.absoluteResourcePath);
     return `webpack:///./${rel}`;

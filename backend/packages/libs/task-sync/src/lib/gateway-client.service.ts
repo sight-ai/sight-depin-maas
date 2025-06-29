@@ -39,6 +39,7 @@ export class GatewayClientService implements TGatewayClient {
    */
   async fetchEarnings(params: SyncRequestParams): Promise<EarningType[]> {
     try {
+      console.log(`${params.gatewayAddress}/node/devices/${params.deviceId}/earnings`)
       const response = await got.get(`${params.gatewayAddress}/node/devices/${params.deviceId}/earnings`, {
         headers: {
           'Content-Type': 'application/json',
