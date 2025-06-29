@@ -1,14 +1,20 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IncomeBaseMessageHandler } from '../base-message-handler';
 import {
   TunnelMessage,
   CompletionCompatibilityPayload,
   CompletionRequestStreamMessage,
-  CompletionResponseStreamMessage
+  CompletionResponseStreamMessage,
+  OpenAICompletionRequest
 } from '@saito/models';
 import { MessageHandler } from '../message-handler.decorator';
 import { TunnelService } from '../../tunnel.interface';
-import { UnifiedModelService } from '@saito/model-inference-client';
+import {
+  TUNNEL_EVENTS,
+  TunnelCompletionRequestReceivedEvent,
+  TunnelCompletionInferenceRequestEvent
+} from '../../events';
 
 // 使用 models 中定义的类型，无需本地定义
 
@@ -36,7 +42,7 @@ export class IncomeCompletionRequestStreamHandler extends IncomeBaseMessageHandl
 
   constructor(
     @Inject('TunnelService') private readonly tunnel: TunnelService,
-    private readonly unifiedModelService: UnifiedModelService
+    private readonly eventEmitter: EventEmitter2
   ) {
     super();
   }
@@ -172,11 +178,24 @@ export class IncomeCompletionRequestStreamHandler extends IncomeBaseMessageHandl
       // 创建流式响应处理器
       const responseHandler = this.createStreamResponseHandler(taskId, message.from);
 
-      // 调用推理服务
-      await this.unifiedModelService.complete(requestParams, responseHandler as unknown as any, path);
+      // 发射完成推理请求事件，让推理服务模块处理
+      // Tunnel 模块只负责消息传输，不直接调用推理服务
+      this.eventEmitter.emit(
+        TUNNEL_EVENTS.COMPLETION_INFERENCE_REQUEST,
+        new TunnelCompletionInferenceRequestEvent(
+          taskId,
+          message.from,
+          requestParams,
+          path,
+          true // 流式请求
+        )
+      );
+
+      this.logger.log(`✅ 已发射流式完成推理请求事件 - TaskID: ${taskId}`);
+      this.logger.debug(`📡 事件已发射，等待推理服务模块处理并响应`);
 
     } catch (error) {
-      this.logger.error(`推理执行失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      this.logger.error(`❌ 发射推理请求事件失败: ${error instanceof Error ? error.message : '未知错误'}`);
       throw error;
     }
   }

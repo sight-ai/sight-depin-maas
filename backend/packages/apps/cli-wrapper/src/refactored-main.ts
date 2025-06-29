@@ -100,7 +100,6 @@ class RefactoredCliApplication {
       .option('-c, --code <code>', 'Registration code')
       .option('-g, --gateway <url>', 'Gateway address')
       .option('-r, --reward <address>', 'Reward address')
-      .option('-k, --key <key>', 'Authentication key')
       .action(async (options) => {
         const result = await this.cliService.register(options);
         this.handleCommandResult(result);
@@ -129,7 +128,6 @@ class RefactoredCliApplication {
       .option('-c, --code <code>', 'Registration code')
       .option('-g, --gateway <url>', 'Gateway address')
       .option('-r, --reward <address>', 'Reward address')
-      .option('-k, --key <key>', 'Authentication key')
       .action(async (options) => {
         const result = await this.cliService.register(options);
         this.handleCommandResult(result);

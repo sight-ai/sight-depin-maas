@@ -1,5 +1,5 @@
 import { Injectable, Inject, Logger, OnModuleInit } from '@nestjs/common';
-import { DeviceStatusService, RegistrationStorage } from '@saito/device-status';
+import { DeviceStatusService, RegistrationStorage, TunnelCommunicationService } from '@saito/device-status';
 import { UnifiedModelService } from '@saito/model-inference-client';
 import got from 'got-cjs';
 import { ModelReportingService } from './model-reporting.interface';
@@ -16,7 +16,8 @@ export class DefaultModelReportingService implements ModelReportingService, OnMo
 
   constructor(
     private readonly unifiedModelService: UnifiedModelService,
-    @Inject(DeviceStatusService) private readonly deviceStatusService: DeviceStatusService
+    @Inject(DeviceStatusService) private readonly deviceStatusService: DeviceStatusService,
+    @Inject(TunnelCommunicationService) private readonly tunnelService: TunnelCommunicationService
   ) {}
 
   /**
@@ -107,23 +108,121 @@ export class DefaultModelReportingService implements ModelReportingService, OnMo
   }
 
   /**
+   * 通过tunnel上报模型
+   * @param models List of model names to report
+   * @param fromPeerId Source peer ID
+   * @param toPeerId Target peer ID
+   */
+  async reportModelsViaTunnel(models: string[], fromPeerId: string, toPeerId: string): Promise<boolean> {
+    try {
+      this.logger.log(`Reporting models via tunnel: ${models.join(', ')}`);
+
+      // Store the reported models
+      this.reportedModels = models;
+
+      // Get device information for reporting
+      const deviceId = await this.deviceStatusService.getDeviceId();
+
+      // Get model details
+      const modelDetails = await this.getModelDetails(models);
+
+      // Prepare the models data for tunnel reporting
+      const reportData = {
+        device_id: deviceId,
+        models: modelDetails
+      };
+
+      // 保存上报的模型信息到用户目录
+      this.registrationStorage.updateReportedModels(models);
+      this.logger.log('Saved reported models to user directory');
+
+      // Report via tunnel
+      const result = await this.tunnelService.sendModelReport(
+        fromPeerId,
+        toPeerId,
+        reportData
+      );
+
+      if (result) {
+        this.logger.log(`Models reported successfully via tunnel from ${fromPeerId} to ${toPeerId}`);
+      }
+
+      return result;
+    } catch (error) {
+      this.logger.error(`Error reporting models via tunnel: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return false;
+    }
+  }
+
+  /**
+   * 同时通过HTTP和tunnel上报模型
+   * @param models List of model names to report
+   * @param fromPeerId Source peer ID (optional)
+   * @param toPeerId Target peer ID (optional)
+   */
+  async reportModelsBothWays(models: string[], fromPeerId?: string, toPeerId?: string): Promise<{ http: boolean; tunnel: boolean }> {
+    const promises = [
+      this.reportModels(models)
+    ];
+
+    // 如果提供了tunnel参数，也通过tunnel发送
+    if (fromPeerId && toPeerId) {
+      promises.push(
+        this.reportModelsViaTunnel(models, fromPeerId, toPeerId)
+      );
+    }
+
+    const [httpResult, tunnelResult] = await Promise.allSettled(promises);
+
+    return {
+      http: httpResult.status === 'fulfilled' ? httpResult.value : false,
+      tunnel: tunnelResult && tunnelResult.status === 'fulfilled' ? tunnelResult.value : false
+    };
+  }
+
+  /**
    * Get model details from current model service
    * @param models List of model names
    */
-  private async getModelDetails(models: string[]): Promise<Record<string, any>[]> {
+  private async getModelDetails(models: string[]): Promise<Array<{
+    name: string;
+    modified_at: string;
+    size: number;
+    digest: string;
+    details: {
+      format: string;
+      family: string;
+      families: string[];
+      parameter_size: string;
+      quantization_level: string;
+    };
+  }>> {
     try {
       const modelList = await this.unifiedModelService.listModels();
 
       // 确保模型列表格式正确，无论来自哪个框架
       // 获取当前框架类型
       const currentFramework = this.unifiedModelService.getCurrentFramework();
-      let processedModels = modelList.models;
+
+      let processedModels: Array<{
+        name: string;
+        modified_at: string;
+        size: number;
+        digest: string;
+        details: {
+          format: string;
+          family: string;
+          families: string[];
+          parameter_size: string;
+          quantization_level: string;
+        };
+      }>;
 
       if (currentFramework === 'vllm') {
         // 将 vLLM 模型转换为 Ollama 格式
         processedModels = modelList.models.map((model: any) => ({
           name: model.name || model.id,
-          size: this.formatModelSize(this.estimateModelSize(model.name || model.id)),
+          size: this.estimateModelSize(model.name || model.id),
           modified_at: model.modified_at || new Date().toISOString(),
           digest: this.generateDigest(model.name || model.id),
           details: {
@@ -134,9 +233,24 @@ export class DefaultModelReportingService implements ModelReportingService, OnMo
             quantization_level: this.extractQuantization(model.name || model.id)
           }
         }));
+      } else {
+        // Ollama 格式，需要转换为我们期望的格式
+        processedModels = modelList.models.map((model: any) => ({
+          name: model.name,
+          size: model.size || this.estimateModelSize(model.name),
+          modified_at: model.modified_at || new Date().toISOString(),
+          digest: model.digest || this.generateDigest(model.name),
+          details: {
+            format: model.details?.format || 'gguf',
+            family: model.details?.family || this.extractModelFamily(model.name),
+            families: model.details?.families || [this.extractModelFamily(model.name)],
+            parameter_size: model.details?.parameter_size || this.extractParameters(model.name),
+            quantization_level: model.details?.quantization_level || this.extractQuantization(model.name)
+          }
+        }));
       }
 
-      return processedModels.filter((model: {name: string }) => models.includes(model.name));
+      return processedModels.filter((model) => models.includes(model.name));
     } catch (error) {
       this.logger.error(`Error getting model details: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return [];

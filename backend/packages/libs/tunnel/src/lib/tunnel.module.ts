@@ -1,17 +1,30 @@
 import { Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TunnelServiceImpl } from './tunnel.service';
 import { MessageGatewayService, MessageGatewayProvider } from './message-gateway/message-gateway.service';
 import { MessageHandlerRegistry } from './message-handler/message-handler.registry';
-import { ModelInferenceClientModule } from '@saito/model-inference-client';
+import { TunnelMessageService } from './services/tunnel-message.service';
+// 移除对 ModelInferenceClientModule 的依赖以解决循环依赖
+// import { ModelInferenceClientModule } from '@saito/model-inference-client';
+// 移除对 DeviceStatusModule 的依赖以解决循环依赖
+// import { DeviceStatusModule } from '@saito/device-status';
+
+// 定义本地接口标识符，避免循环依赖
+export const TUNNEL_SERVICE = Symbol('TUNNEL_SERVICE');
+export const TUNNEL_MESSAGE_SERVICE = Symbol('TUNNEL_MESSAGE_SERVICE');
 
 // Message Handlers - Income
 import { IncomePingHandler } from './message-handler/income/income-ping.handler';
 import { IncomePongHandler } from './message-handler/income/income-pong.handler';
 import { IncomeContextPingHandler } from './message-handler/income/income-context-ping.handler';
 import { IncomeContextPongHandler } from './message-handler/income/income-context-pong.handler';
-import { IncomeDeviceRegistrationHandler } from './message-handler/income/income-device-registration.handler';
 import { IncomeDeviceRegisterAckHandler } from './message-handler/income/income-device-register-ack.handler';
+import { IncomeDeviceRegisterRequestHandler } from './message-handler/income/income-device-register.handler';
+import { IncomeDeviceModelReportHandler } from './message-handler/income/income-model-report.handler';
+import { IncomeDeviceHeartbeatReportHandler } from './message-handler/income/income-heartbeat-report.handler';
+import { IncomeDeviceHeartbeatResponseHandler } from './message-handler/income/income-device-heartbeat-response.handler';
+import { IncomeDeviceModelReportResponseHandler } from './message-handler/income/income-device-model-report-response.handler';
 import { IncomeChatRequestStreamHandler } from './message-handler/income/income-chat-request-stream.handler';
 import { IncomeChatRequestNoStreamHandler } from './message-handler/income/income-chat-request-no-stream.handler';
 import { IncomeCompletionRequestStreamHandler } from './message-handler/income/income-completion-request-stream.handler';
@@ -22,8 +35,10 @@ import { OutcomePingHandler } from './message-handler/outcome/outcome-ping.handl
 import { OutcomePongHandler } from './message-handler/outcome/outcome-pong.handler';
 import { OutcomeContextPingHandler } from './message-handler/outcome/outcome-context-ping.handler';
 import { OutcomeContextPongHandler } from './message-handler/outcome/outcome-context-pong.handler';
-import { OutcomeDeviceRegistrationHandler } from './message-handler/outcome/outcome-device-registration.handler';
 import { OutcomeDeviceRegisterAckHandler } from './message-handler/outcome/outcome-device-register-ack.handler';
+import { OutcomeDeviceRegisterRequestHandler } from './message-handler/outcome/outcome-device-register.handler';
+import { OutcomeDeviceModelReportHandler } from './message-handler/outcome/outcome-model-report.handler';
+import { OutcomeDeviceHeartbeatReportHandler } from './message-handler/outcome/outcome-heartbeat-report.handler';
 import { OutcomeChatResponseStreamHandler } from './message-handler/outcome/outcome-chat-response-stream.handler';
 import { OutcomeChatResponseHandler } from './message-handler/outcome/outcome-chat-response.handler';
 import { OutcomeCompletionResponseStreamHandler } from './message-handler/outcome/outcome-completion-response-stream.handler';
@@ -53,7 +68,9 @@ export const GLOBAL_PEER_ID_PROVIDER = new DynamicPeerIdProvider();
 @Module({
   imports: [
     DiscoveryModule,
-    ModelInferenceClientModule
+    EventEmitterModule,
+    // 移除对 ModelInferenceClientModule 的依赖以解决循环依赖
+    // 移除对 DeviceStatusModule 的依赖以解决循环依赖
   ],
   providers: [
     // 新的重构后的服务
@@ -63,14 +80,19 @@ export const GLOBAL_PEER_ID_PROVIDER = new DynamicPeerIdProvider();
     },
     MessageGatewayProvider,
     MessageHandlerRegistry,
+    TunnelMessageService,
 
     // Income Message Handlers
     IncomePingHandler,
     IncomePongHandler,
     IncomeContextPingHandler,
     IncomeContextPongHandler,
-    IncomeDeviceRegistrationHandler,
     IncomeDeviceRegisterAckHandler,
+    IncomeDeviceRegisterRequestHandler,
+    IncomeDeviceModelReportHandler,
+    IncomeDeviceHeartbeatReportHandler,
+    IncomeDeviceHeartbeatResponseHandler,
+    IncomeDeviceModelReportResponseHandler,
     IncomeChatRequestStreamHandler,
     IncomeChatRequestNoStreamHandler,
     IncomeCompletionRequestStreamHandler,
@@ -81,8 +103,10 @@ export const GLOBAL_PEER_ID_PROVIDER = new DynamicPeerIdProvider();
     OutcomePongHandler,
     OutcomeContextPingHandler,
     OutcomeContextPongHandler,
-    OutcomeDeviceRegistrationHandler,
     OutcomeDeviceRegisterAckHandler,
+    OutcomeDeviceRegisterRequestHandler,
+    OutcomeDeviceModelReportHandler,
+    OutcomeDeviceHeartbeatReportHandler,
     OutcomeChatResponseStreamHandler,
     OutcomeChatResponseHandler,
     OutcomeCompletionResponseStreamHandler,
@@ -104,6 +128,7 @@ export const GLOBAL_PEER_ID_PROVIDER = new DynamicPeerIdProvider();
     'TunnelService',
     MessageGatewayProvider,
     MessageHandlerRegistry,
+    TunnelMessageService,
   ],
 })
 export class TunnelModule {}

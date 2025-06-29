@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { IncomeBaseMessageHandler } from '../base-message-handler';
 import {
   TunnelMessage,
@@ -12,7 +13,12 @@ import {
 } from '@saito/models';
 import { MessageHandler } from '../message-handler.decorator';
 import { TunnelService } from '../../tunnel.interface';
-import { UnifiedModelService } from '@saito/model-inference-client';
+import {
+  TUNNEL_EVENTS,
+  TunnelChatRequestReceivedEvent,
+  TunnelChatInferenceRequestEvent,
+  TunnelInferenceResponseEvent
+} from '../../events';
 
 // 使用 models 中定义的类型，无需本地定义
 
@@ -37,7 +43,7 @@ export class IncomeChatRequestNoStreamHandler extends IncomeBaseMessageHandler {
 
   constructor(
     @Inject('TunnelService') private readonly tunnel: TunnelService,
-    private readonly unifiedModelService: UnifiedModelService
+    private readonly eventEmitter: EventEmitter2
   ) {
     super();
   }
@@ -52,6 +58,17 @@ export class IncomeChatRequestNoStreamHandler extends IncomeBaseMessageHandler {
     try {
       // 1. 验证并解析消息
       const chatRequest = this.parseAndValidateMessage(message);
+
+      // 发射聊天请求接收事件
+      this.eventEmitter.emit(
+        TUNNEL_EVENTS.CHAT_REQUEST_RECEIVED,
+        new TunnelChatRequestReceivedEvent(
+          chatRequest.payload.taskId || `${Date.now()}`,
+          chatRequest.from,
+          chatRequest.payload,
+          false // 非流式请求
+        )
+      );
 
       // 2. 执行非流式聊天推理
       await this.processChatRequestNoStream(chatRequest);
@@ -187,14 +204,22 @@ export class IncomeChatRequestNoStreamHandler extends IncomeBaseMessageHandler {
     this.logger.debug(`调用推理服务 - Model: ${requestParams.model}, Messages: ${requestParams.messages.length}`);
 
     try {
-      // 创建非流式响应处理器
-      const responseHandler = this.createNoStreamResponseHandler(taskId, message.from);
+      // 发射聊天推理请求事件，让推理服务模块处理
+      this.eventEmitter.emit(
+        TUNNEL_EVENTS.CHAT_INFERENCE_REQUEST,
+        new TunnelChatInferenceRequestEvent(
+          taskId,
+          message.from,
+          requestParams,
+          path,
+          false // 非流式请求
+        )
+      );
 
-      // 调用推理服务
-      await this.unifiedModelService.chat(requestParams, responseHandler as unknown as any, path);
+      this.logger.log(`✅ 已发射聊天推理请求事件 - TaskID: ${taskId}`);
 
     } catch (error) {
-      this.logger.error(`推理执行失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      this.logger.error(`发射推理请求事件失败: ${error instanceof Error ? error.message : '未知错误'}`);
       throw error;
     }
   }
@@ -211,6 +236,9 @@ export class IncomeChatRequestNoStreamHandler extends IncomeBaseMessageHandler {
       throw new Error('Invalid chat request: missing model');
     }
   }
+
+  // 注意：推理响应监听器已移除
+  // 现在推理服务直接通过 tunnel 发送响应，不再需要事件转发
 
   /**
    * 创建非流式响应处理器

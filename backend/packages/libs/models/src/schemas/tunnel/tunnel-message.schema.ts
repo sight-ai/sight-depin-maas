@@ -110,6 +110,96 @@ export const DeviceRegisterAckPayloadSchema = z.object({
 });
 
 /**
+ * 设备注册请求消息载荷 Schema (按照节点对接文档)
+ */
+export const DeviceRegisterRequestPayloadSchema = z.object({
+  code: z.string().describe('一次性注册码'),
+  gateway_address: z.string().describe('网关地址'),
+  reward_address: z.string().describe('奖励地址'),
+  device_type: z.string().optional().describe('设备类型'),
+  gpu_type: z.string().optional().describe('GPU类型'),
+  device_id: z.string().optional().describe('设备ID'),
+  device_name: z.string().optional().describe('设备名称'),
+  ip: z.string().optional().describe('IP地址'),
+  local_models: z.any().optional().describe('本地模型信息'),
+  did_document: z.any().optional().describe('DID文档')
+});
+
+/**
+ * 设备注册响应消息载荷 Schema
+ */
+export const DeviceRegisterResponsePayloadSchema = z.object({
+  device_id: z.string().describe('设备ID'),
+  status: z.enum(['connected', 'failed']).describe('注册状态'),
+  device_type: z.string().optional().describe('设备类型'),
+  reward_address: z.string().optional().describe('奖励地址'),
+  error: z.string().optional().describe('错误信息')
+});
+
+/**
+ * 模型上报消息载荷 Schema (按照节点对接文档)
+ */
+export const DeviceModelReportPayloadSchema = z.object({
+  device_id: z.string().describe('设备ID (UUID格式)'),
+  models: z.array(z.object({
+    name: z.string().describe('模型名称'),
+    modified_at: z.string().describe('修改时间'),
+    size: z.number().describe('模型大小 (字节)'),
+    digest: z.string().describe('模型摘要'),
+    details: z.object({
+      format: z.string().describe('模型格式'),
+      family: z.string().describe('模型家族'),
+      families: z.array(z.string()).nullable().describe('模型家族列表'),
+      parameter_size: z.string().describe('参数大小'),
+      quantization_level: z.string().describe('量化级别')
+    })
+  })).describe('模型列表')
+});
+
+/**
+ * 模型上报响应消息载荷 Schema
+ */
+export const DeviceModelReportResponsePayloadSchema = z.object({
+  success: z.boolean().describe('上报是否成功'),
+  message: z.string().optional().describe('响应消息')
+});
+
+/**
+ * 心跳上报消息载荷 Schema (按照节点对接文档)
+ */
+export const DeviceHeartbeatReportPayloadSchema = z.object({
+  code: z.string().describe('设备识别码'),
+  cpu_usage: z.number().min(0).max(100).optional().describe('CPU使用率 (0-100)'),
+  memory_usage: z.number().min(0).max(100).optional().describe('内存使用率 (0-100)'),
+  gpu_usage: z.number().min(0).max(100).optional().describe('GPU使用率 (0-100)'),
+  ip: z.string().optional().describe('IP地址'),
+  timestamp: z.string().optional().describe('时间戳'),
+  type: z.string().optional().describe('设备类型'),
+  model: z.string().optional().describe('当前运行模型'),
+  device_info: z.object({
+    cpu_model: z.string().optional().describe('CPU型号'),
+    cpu_cores: z.number().optional().describe('CPU核心数'),
+    cpu_threads: z.number().optional().describe('CPU线程数'),
+    ram_total: z.number().optional().describe('总内存 (GB)'),
+    gpu_model: z.string().optional().describe('GPU型号'),
+    gpu_count: z.number().optional().describe('GPU数量'),
+    gpu_memory: z.number().optional().describe('GPU显存 (GB)'),
+    disk_total: z.number().optional().describe('总磁盘空间 (GB)'),
+    os_info: z.string().optional().describe('操作系统信息')
+  }).optional().describe('设备详细信息'),
+  gateway_url: z.string().optional().describe('网关URL'),
+  device_id: z.string().optional().describe('设备ID')
+});
+
+/**
+ * 心跳响应消息载荷 Schema
+ */
+export const DeviceHeartbeatResponsePayloadSchema = z.object({
+  success: z.boolean().describe('处理是否成功'),
+  message: z.string().optional().describe('响应消息')
+});
+
+/**
  * Tunnel聊天消息 Schema
  */
 export const TunnelChatMessageSchema = z.object({
@@ -350,19 +440,59 @@ export const TaskStreamMessageSchema = BaseTunnelMessageSchema.extend({
 });
 
 /**
- * 设备注册消息 Schema
- */
-export const DeviceRegistrationMessageSchema = BaseTunnelMessageSchema.extend({
-  type: z.literal('device_registration'),
-  payload: DeviceRegistrationPayloadSchema,
-});
-
-/**
  * 设备注册确认消息 Schema
  */
 export const DeviceRegisterAckMessageSchema = BaseTunnelMessageSchema.extend({
   type: z.literal('device_register_ack'),
   payload: DeviceRegisterAckPayloadSchema,
+});
+
+/**
+ * 设备注册请求消息 Schema (按照节点对接文档)
+ */
+export const DeviceRegisterRequestMessageSchema = BaseTunnelMessageSchema.extend({
+  type: z.literal('device_register_request'),
+  payload: DeviceRegisterRequestPayloadSchema,
+});
+
+/**
+ * 设备注册响应消息 Schema
+ */
+export const DeviceRegisterResponseMessageSchema = BaseTunnelMessageSchema.extend({
+  type: z.literal('device_register_response'),
+  payload: DeviceRegisterResponsePayloadSchema,
+});
+
+/**
+ * 模型上报消息 Schema (按照节点对接文档)
+ */
+export const DeviceModelReportMessageSchema = BaseTunnelMessageSchema.extend({
+  type: z.literal('device_model_report'),
+  payload: DeviceModelReportPayloadSchema,
+});
+
+/**
+ * 模型上报响应消息 Schema
+ */
+export const DeviceModelReportResponseMessageSchema = BaseTunnelMessageSchema.extend({
+  type: z.literal('device_model_report_response'),
+  payload: DeviceModelReportResponsePayloadSchema,
+});
+
+/**
+ * 心跳上报消息 Schema (按照节点对接文档)
+ */
+export const DeviceHeartbeatReportMessageSchema = BaseTunnelMessageSchema.extend({
+  type: z.literal('device_heartbeat_report'),
+  payload: DeviceHeartbeatReportPayloadSchema,
+});
+
+/**
+ * 心跳响应消息 Schema
+ */
+export const DeviceHeartbeatResponseMessageSchema = BaseTunnelMessageSchema.extend({
+  type: z.literal('device_heartbeat_response'),
+  payload: DeviceHeartbeatResponsePayloadSchema,
 });
 
 /**
@@ -467,8 +597,13 @@ export const TunnelMessageSchema = z.discriminatedUnion('type', [
   TaskRequestMessageSchema,
   TaskResponseMessageSchema,
   TaskStreamMessageSchema,
-  DeviceRegistrationMessageSchema,
   DeviceRegisterAckMessageSchema,
+  DeviceRegisterRequestMessageSchema,
+  DeviceRegisterResponseMessageSchema,
+  DeviceModelReportMessageSchema,
+  DeviceModelReportResponseMessageSchema,
+  DeviceHeartbeatReportMessageSchema,
+  DeviceHeartbeatResponseMessageSchema,
   ChatRequestStreamMessageSchema,
   ChatResponseStreamSchema,
   ChatRequestNoStreamMessageSchema,
@@ -493,6 +628,12 @@ export type TaskResponsePayload = z.infer<typeof TaskResponsePayloadSchema>;
 export type TaskStreamPayload = z.infer<typeof TaskStreamPayloadSchema>;
 export type DeviceRegistrationPayload = z.infer<typeof DeviceRegistrationPayloadSchema>;
 export type DeviceRegisterAckPayload = z.infer<typeof DeviceRegisterAckPayloadSchema>;
+export type DeviceRegisterRequestPayload = z.infer<typeof DeviceRegisterRequestPayloadSchema>;
+export type DeviceRegisterResponsePayload = z.infer<typeof DeviceRegisterResponsePayloadSchema>;
+export type DeviceModelReportPayload = z.infer<typeof DeviceModelReportPayloadSchema>;
+export type DeviceModelReportResponsePayload = z.infer<typeof DeviceModelReportResponsePayloadSchema>;
+export type DeviceHeartbeatReportPayload = z.infer<typeof DeviceHeartbeatReportPayloadSchema>;
+export type DeviceHeartbeatResponsePayload = z.infer<typeof DeviceHeartbeatResponsePayloadSchema>;
 export type TunnelChatMessage = z.infer<typeof TunnelChatMessageSchema>;
 export type ChatRequestStreamPayload = z.infer<typeof ChatRequestStreamPayloadSchema>;
 export type ChatRequestNoStreamPayload = z.infer<typeof ChatRequestNoStreamPayloadSchema>;
@@ -507,8 +648,13 @@ export type ContextPongMessage = z.infer<typeof ContextPongMessageSchema>;
 export type TaskRequestMessage = z.infer<typeof TaskRequestMessageSchema>;
 export type TaskResponseMessage = z.infer<typeof TaskResponseMessageSchema>;
 export type TaskStreamMessage = z.infer<typeof TaskStreamMessageSchema>;
-export type DeviceRegistrationMessage = z.infer<typeof DeviceRegistrationMessageSchema>;
 export type DeviceRegisterAckMessage = z.infer<typeof DeviceRegisterAckMessageSchema>;
+export type DeviceRegisterRequestMessage = z.infer<typeof DeviceRegisterRequestMessageSchema>;
+export type DeviceRegisterResponseMessage = z.infer<typeof DeviceRegisterResponseMessageSchema>;
+export type DeviceModelReportMessage = z.infer<typeof DeviceModelReportMessageSchema>;
+export type DeviceModelReportResponseMessage = z.infer<typeof DeviceModelReportResponseMessageSchema>;
+export type DeviceHeartbeatReportMessage = z.infer<typeof DeviceHeartbeatReportMessageSchema>;
+export type DeviceHeartbeatResponseMessage = z.infer<typeof DeviceHeartbeatResponseMessageSchema>;
 export type ChatRequestStreamMessage = z.infer<typeof ChatRequestStreamMessageSchema>;
 // 基础类型导出
 export type ChatCompatibilityData = z.infer<typeof ChatCompatibilityDataSchema>;
@@ -540,6 +686,13 @@ export const TunnelMessageSchemas = {
   TaskResponsePayloadSchema,
   TaskStreamPayloadSchema,
   DeviceRegistrationPayloadSchema,
+  DeviceRegisterAckPayloadSchema,
+  DeviceRegisterRequestPayloadSchema,
+  DeviceRegisterResponsePayloadSchema,
+  DeviceModelReportPayloadSchema,
+  DeviceModelReportResponsePayloadSchema,
+  DeviceHeartbeatReportPayloadSchema,
+  DeviceHeartbeatResponsePayloadSchema,
   PingMessageSchema,
   PongMessageSchema,
   ContextPingMessageSchema,
@@ -547,7 +700,13 @@ export const TunnelMessageSchemas = {
   TaskRequestMessageSchema,
   TaskResponseMessageSchema,
   TaskStreamMessageSchema,
-  DeviceRegistrationMessageSchema,
+  DeviceRegisterAckMessageSchema,
+  DeviceRegisterRequestMessageSchema,
+  DeviceRegisterResponseMessageSchema,
+  DeviceModelReportMessageSchema,
+  DeviceModelReportResponseMessageSchema,
+  DeviceHeartbeatReportMessageSchema,
+  DeviceHeartbeatResponseMessageSchema,
   TunnelMessageSchema,
   ChatResponseStreamSchema
 } as const;

@@ -11,12 +11,12 @@ export interface RegistrationInfo {
   deviceName: string;
   rewardAddress: string;
   gatewayAddress: string;
-  key: string;
   code: string;
   isRegistered: boolean;
   timestamp?: string;
   reportedModels?: string[]; // 已上报的模型列表
   basePath?: string; // API服务器基础路径
+  didDoc?: any; // DID文档
 }
 
 /**

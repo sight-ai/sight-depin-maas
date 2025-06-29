@@ -6,7 +6,7 @@ import { TunnelService } from '../../tunnel.interface';
 
 /**
  * 流式聊天响应出站处理器
- * 
+ *
  * 职责：
  * 1. 处理发送出去的流式聊天响应
  * 2. 记录响应发送状态
@@ -38,8 +38,8 @@ export class OutcomeChatResponseStreamHandler extends OutcomeBaseMessageHandler 
         // 不阻断发送，继续处理
       }
 
-      const responseMessage = parseResult.success ? 
-        parseResult.data as ChatResponseStreamMessage : 
+      const responseMessage = parseResult.success ?
+        parseResult.data as ChatResponseStreamMessage :
         message as ChatResponseStreamMessage;
 
       // 实际发送消息到网关
@@ -57,6 +57,7 @@ export class OutcomeChatResponseStreamHandler extends OutcomeBaseMessageHandler 
    */
   private async sendToGateway(message: ChatResponseStreamMessage): Promise<void> {
     try {
+      console.log(message, 111)
       // 记录发送详情
       this.logger.debug(`向网关发送消息: ${message.type} -> ${message.to}`);
       this.logger.debug(`消息内容: TaskID=${message.payload.taskId}, Done=${message.payload.data?.choices || 'N/A'}, Error=${message.payload.error}`);

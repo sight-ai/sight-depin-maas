@@ -199,6 +199,14 @@ export class DeviceStatusManagerService {
   }
 
   /**
+   * 公共方法：更新设备状态
+   * 供外部模块调用，例如事件监听器
+   */
+  async updateDeviceStatus(newStatus: DeviceStatus, reason: string): Promise<void> {
+    await this.updateStatus(newStatus, reason);
+  }
+
+  /**
    * 定期状态检查 (每30秒)
    */
   @Cron(CronExpression.EVERY_30_SECONDS)

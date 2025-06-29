@@ -6,6 +6,7 @@
     "moduleResolution": "node",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
+    "resolveJsonModule": true,
     "esModuleInterop": true,
     "strict": true,
     "target": "ES2021",
@@ -33,6 +34,7 @@
       "@saito/earnings-tracking": ["packages/libs/earnings-tracking/src/index.ts"],
       "@saito/ollama": ["packages/libs/ollama1/src/index.ts"],
       "@saito/vllm": ["packages/libs/vllm1/src/index.ts"],
+      "@saito/did": ["packages/libs/did/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"],

@@ -7,6 +7,7 @@ import { UnifiedModelService, ClientSwitchService } from "@saito/model-inference
 import { FrameworkSwitchService } from "@saito/model-inference-framework-management";
 import { VllmProcessManagerService, OllamaProcessManagerService } from "@saito/model-inference-framework-management";
 import type { VllmProcessConfig } from "@saito/model-inference-framework-management";
+import { DeviceStatusService, TunnelCommunicationService } from "@saito/device-status";
 
 // Define DTOs for the new endpoints
 const ModelReportRequestSchema = z.object({
@@ -35,16 +36,18 @@ export class VllmConfigUpdateDto extends createZodDto(VllmConfigUpdateSchema) { 
 export class VllmStartDto extends createZodDto(VllmStartSchema) { }
 export class OllamaStartDto extends createZodDto(OllamaStartSchema) { }
 
+
 @Controller('/api/v1/models')
 export class ModelsController {
   private readonly logger = new Logger(ModelsController.name);
 
   constructor(
     private readonly unifiedModelService: UnifiedModelService,
-    private readonly frameworkSwitchService: FrameworkSwitchService,
     @Inject(ModelReportingService) private readonly modelReportingService: ModelReportingService,
     private readonly vllmProcessManager: VllmProcessManagerService,
-    private readonly ollamaProcessManager: OllamaProcessManagerService
+    private readonly ollamaProcessManager: OllamaProcessManagerService,
+    @Inject(DeviceStatusService) private readonly deviceStatusService: DeviceStatusService,
+    @Inject(TunnelCommunicationService) private readonly tunnelService: TunnelCommunicationService
   ) { }
 
   @Get('/list')
@@ -74,7 +77,39 @@ export class ModelsController {
   @Post('/report')
   async reportModels(@Body() args: ModelReportRequestDto, @Res() res: Response) {
     try {
-      // Use the model reporting service to report models
+      // 首先尝试通过tunnel发送模型上报
+      console.log(args)
+      try {
+        const deviceId = await this.deviceStatusService.getDeviceId();
+        const tunnelResult = await this.tunnelService.sendModelReport(
+          deviceId,
+          'gateway', // 固定发送给网关
+          {
+            device_id: deviceId,
+            models: args.models.map(modelName => ({
+              name: modelName,
+              modified_at: new Date().toISOString(),
+              size: 2048000000,
+              digest: `sha256:${Buffer.from(modelName).toString('hex').substring(0, 12)}`,
+              details: {
+                format: 'gguf',
+                family: this.extractModelFamily(modelName),
+                families: [this.extractModelFamily(modelName)],
+                parameter_size: this.extractParameters(modelName),
+                quantization_level: this.extractQuantization(modelName)
+              }
+            }))
+          }
+        );
+
+        if (tunnelResult) {
+          this.logger.log('Model report sent via tunnel');
+        }
+      } catch (tunnelError) {
+        this.logger.warn('Failed to send model report via tunnel:', tunnelError);
+      }
+
+      // 继续执行原有的HTTP上报逻辑
       const success = await this.modelReportingService.reportModels(args.models);
 
       res.status(200).json({
@@ -90,6 +125,7 @@ export class ModelsController {
       });
     }
   }
+
 
   @Get('/vllm/config')
   async getVllmConfig(@Res() res: Response) {
@@ -481,5 +517,50 @@ export class ModelsController {
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
+  }
+
+  // 辅助方法
+  private extractModelFamily(modelName: string): string {
+    const familyPatterns = [
+      { pattern: /llama/i, value: 'llama' },
+      { pattern: /mistral/i, value: 'mistral' },
+      { pattern: /deepseek/i, value: 'deepseek' },
+      { pattern: /phi/i, value: 'phi' },
+      { pattern: /qwen/i, value: 'qwen' },
+      { pattern: /gemma/i, value: 'gemma' },
+      { pattern: /mixtral/i, value: 'mixtral' },
+      { pattern: /vicuna/i, value: 'vicuna' },
+      { pattern: /falcon/i, value: 'falcon' }
+    ];
+
+    for (const { pattern, value } of familyPatterns) {
+      if (pattern.test(modelName)) {
+        return value;
+      }
+    }
+    return 'unknown';
+  }
+
+  private extractParameters(modelName: string): string {
+    const paramMatch = modelName.match(/(\d+)[bB]/);
+    return paramMatch ? `${paramMatch[1]}B` : 'unknown';
+  }
+
+  private extractQuantization(modelName: string): string {
+    const quantMatches = [
+      { pattern: /q4_0/i, value: 'Q4_0' },
+      { pattern: /q4_k_m/i, value: 'Q4_K_M' },
+      { pattern: /q5_0/i, value: 'Q5_0' },
+      { pattern: /q5_k_m/i, value: 'Q5_K_M' },
+      { pattern: /q6_k/i, value: 'Q6_K' },
+      { pattern: /q8_0/i, value: 'Q8_0' }
+    ];
+
+    for (const { pattern, value } of quantMatches) {
+      if (pattern.test(modelName)) {
+        return value;
+      }
+    }
+    return '';
   }
 }

@@ -87,13 +87,6 @@ export class DeviceConfigService implements TDeviceConfig {
   }
 
   /**
-   * 获取密钥
-   */
-  getKey(): string {
-    return this.currentConfig.key || '';
-  }
-
-  /**
    * 检查是否已注册
    */
   isRegistered(): boolean {
@@ -114,7 +107,6 @@ export class DeviceConfigService implements TDeviceConfig {
           gatewayAddress: storedConfig.gatewayAddress || '',
           rewardAddress: storedConfig.rewardAddress || '',
           basePath: storedConfig.basePath || '',
-          key: storedConfig.key || '',
           code: storedConfig.code || '',
           isRegistered: storedConfig.isRegistered || false
         };
@@ -128,21 +120,21 @@ export class DeviceConfigService implements TDeviceConfig {
   }
 
   /**
-   * 保存配置到存储（带 basePath 支持）
+   * 保存配置到存储（带 basePath 和 DID 文档支持）
    */
-  async saveConfigToStorage(config: DeviceConfig, basePath?: string): Promise<void> {
+  async saveConfigToStorage(config: DeviceConfig, basePath?: string, didDoc?: any): Promise<void> {
     try {
       this.storage.saveRegistrationInfo({
         deviceId: config.deviceId,
         deviceName: config.deviceName,
         gatewayAddress: config.gatewayAddress,
         rewardAddress: config.rewardAddress,
-        key: config.key,
         code: config.code || '',
         isRegistered: config.isRegistered,
-        basePath
+        basePath,
+        didDoc
       });
-      this.logger.debug('Config saved to storage with basePath:', basePath);
+      this.logger.debug('Config saved to storage with basePath:', basePath, 'and DID doc:', !!didDoc);
     } catch (error) {
       this.logger.error('Failed to save config to storage:', error);
       throw error;
@@ -154,15 +146,19 @@ export class DeviceConfigService implements TDeviceConfig {
    */
   private saveConfig(config: DeviceConfig): void {
     try {
+      // 先尝试加载现有的注册信息，保留DID文档
+      const existingInfo = this.storage.loadRegistrationInfo();
+
       this.storage.saveRegistrationInfo({
         deviceId: config.deviceId,
         deviceName: config.deviceName,
         gatewayAddress: config.gatewayAddress,
         basePath: config.basePath,
         rewardAddress: config.rewardAddress,
-        key: config.key,
         code: config.code || '',
-        isRegistered: config.isRegistered
+        isRegistered: config.isRegistered,
+        // 保留现有的DID文档
+        didDoc: existingInfo?.didDoc
       });
     } catch (error) {
       this.logger.error('Failed to save config to storage:', error);
@@ -180,7 +176,6 @@ export class DeviceConfigService implements TDeviceConfig {
       gatewayAddress: '',
       rewardAddress: '',
       basePath: '',
-      key: '',
       code: '',
       isRegistered: false
     };

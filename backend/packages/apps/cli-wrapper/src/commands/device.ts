@@ -11,7 +11,6 @@ export interface RegisterOptions {
   code?: string;
   gatewayAddress?: string;
   rewardAddress?: string;
-  key?: string;
   basePath?: string;
 }
 
@@ -30,13 +29,12 @@ export class DeviceCommands {
       // 如果提供了所有必需的参数，直接使用；否则进入交互模式
       let credentials: any;
 
-      if (options?.code && options?.gatewayAddress && options?.rewardAddress && options?.key) {
+      if (options?.code && options?.gatewayAddress && options?.rewardAddress) {
         // 使用命令行参数
         credentials = {
           code: options.code.trim(),
           gateway_address: options.gatewayAddress.trim(),
           reward_address: options.rewardAddress.trim(),
-          key: options.key.trim(),
           basePath: options.basePath
         };
 
@@ -106,21 +104,6 @@ export class DeviceCommands {
           });
         }
 
-        if (!options?.key) {
-          questions.push({
-            type: 'password',
-            name: 'key',
-            message: 'Authentication Key:',
-            mask: '*',
-            validate: (input: string) => {
-              if (!input.trim()) {
-                return 'Authentication key is required';
-              }
-              return true;
-            }
-          });
-        }
-
         if (!options?.basePath) {
           questions.push({
             type: 'input',
@@ -142,7 +125,6 @@ export class DeviceCommands {
           code: (options?.code || answers.code).trim(),
           gateway_address: (options?.gatewayAddress || answers.gatewayAddress).trim(),
           reward_address: (options?.rewardAddress || answers.rewardAddress).trim(),
-          key: (options?.key || answers.key).trim(),
           basePath: basePath?.trim()
         };
 
@@ -198,8 +180,7 @@ export class DeviceCommands {
         code: credentials.code,
         gateway_address: credentials.gateway_address,
         reward_address: credentials.reward_address,
-        basePath: credentials.basePath,
-        key: credentials.key
+        basePath: credentials.basePath
       };
 
       // 调用本地 API 接口

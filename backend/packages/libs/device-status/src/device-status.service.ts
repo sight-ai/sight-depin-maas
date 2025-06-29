@@ -1,4 +1,4 @@
-import { Injectable, Inject, Logger } from "@nestjs/common";
+import { Injectable, Inject, Logger, OnModuleDestroy } from "@nestjs/common";
 import { Cron } from '@nestjs/schedule';
 import {
   TDeviceStatusService,
@@ -26,8 +26,10 @@ import {
  * 优化的设备状态服务
  */
 @Injectable()
-export class DefaultDeviceStatusService implements TDeviceStatusService {
+export class DefaultDeviceStatusService implements TDeviceStatusService, OnModuleDestroy {
   private readonly logger = new Logger(DefaultDeviceStatusService.name);
+  private heartbeatInterval: NodeJS.Timeout | null = null;
+  private readonly HEARTBEAT_INTERVAL = 30000; // 30秒
 
   constructor(
     @Inject(DEVICE_REGISTRY_SERVICE)
@@ -77,8 +79,8 @@ export class DefaultDeviceStatusService implements TDeviceStatusService {
           result.config.rewardAddress
         );
 
-        // 启动心跳
-        this.heartbeat();
+        // 启动定时心跳
+        this.startHeartbeat();
       }
 
       return {
@@ -97,28 +99,81 @@ export class DefaultDeviceStatusService implements TDeviceStatusService {
   }
 
   /**
+   * 启动定时心跳
+   */
+  startHeartbeat(): void {
+    // 如果已经有心跳在运行，先停止
+    if (this.heartbeatInterval) {
+      this.stopHeartbeat();
+    }
+
+    this.logger.log(`🚀 启动定时心跳服务 - 间隔: ${this.HEARTBEAT_INTERVAL}ms`);
+
+    // 立即发送一次心跳
+    this.sendHeartbeat();
+
+    // 启动定时心跳
+    this.heartbeatInterval = setInterval(async () => {
+      await this.sendHeartbeat();
+    }, this.HEARTBEAT_INTERVAL);
+
+    this.logger.log(`✅ 心跳服务已启动`);
+  }
+
+  /**
+   * 停止定时心跳
+   */
+  stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+      this.logger.log(`⏹️ 心跳服务已停止`);
+    }
+  }
+
+  /**
    * 发送心跳
    */
-  async heartbeat(): Promise<void> {
+  async sendHeartbeat(): Promise<void> {
     try {
       const config = this.configService.getCurrentConfig();
 
-      if (!config.isRegistered) {
+      if (!config.isRegistered || !config.gatewayAddress) {
+        this.logger.debug('设备未注册或网关地址为空，跳过心跳发送');
         return;
       }
 
       const systemInfo = await this.systemService.collectSystemInfo();
       await this.heartbeatService.sendHeartbeat(config, systemInfo);
+
+      this.logger.debug(`💓 心跳发送成功 - DeviceID: ${config.deviceId}`);
     } catch (error) {
-      this.logger.error('Heartbeat failed:', error);
+      this.logger.error('心跳发送失败:', error);
+      // 不抛出错误，避免中断心跳服务
     }
+  }
+
+  /**
+   * 发送心跳 (向后兼容)
+   */
+  async heartbeat(): Promise<void> {
+    await this.sendHeartbeat();
   }
 
   /**
    * 清除注册信息
    */
   async clearRegistration(): Promise<boolean> {
+    // 停止心跳服务
+    this.stopHeartbeat();
     return this.registryService.clearRegistration();
+  }
+
+  /**
+   * 服务销毁时的清理工作
+   */
+  onModuleDestroy(): void {
+    this.stopHeartbeat();
   }
 
   // ========================================
@@ -200,10 +255,6 @@ export class DefaultDeviceStatusService implements TDeviceStatusService {
 
   async getGatewayAddress(): Promise<string> {
     return this.configService.getGatewayAddress();
-  }
-
-  async getKey(): Promise<string> {
-    return this.configService.getKey();
   }
 
   async isRegistered(): Promise<boolean> {
