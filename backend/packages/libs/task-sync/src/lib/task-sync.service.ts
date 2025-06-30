@@ -46,7 +46,7 @@ export class OptimizedTaskSyncService implements TTaskSyncService {
       if (!isRegistered || !gatewayAddress || !key) {
         return null;
       }
-
+      console.log('getSyncParams', deviceId, gatewayAddress, key);
       return {
         deviceId,
         gatewayAddress,
@@ -64,7 +64,7 @@ export class OptimizedTaskSyncService implements TTaskSyncService {
    * 同步任务
    * 从网关获取任务并同步到本地数据库
    */
-  @Cron(CronExpression.EVERY_5_SECONDS)
+  // @Cron(CronExpression.EVERY_5_SECONDS)
   async syncTasks(): Promise<SyncResult> {
     try {
       const syncParams = await this.getSyncParams();
@@ -116,7 +116,7 @@ export class OptimizedTaskSyncService implements TTaskSyncService {
    * 同步收益记录
    * 从网关获取收益记录并同步到本地数据库
    */
-  @Cron(CronExpression.EVERY_10_SECONDS)
+  // @Cron(CronExpression.EVERY_10_SECONDS)
   async syncEarnings(): Promise<SyncResult> {
     try {
       const syncParams = await this.getSyncParams();

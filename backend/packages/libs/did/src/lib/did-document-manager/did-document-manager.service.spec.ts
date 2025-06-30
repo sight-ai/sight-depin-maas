@@ -54,6 +54,7 @@ describe('DidDocumentManagerService e2e', () => {
     await registry.clearAll();
     await fs.unlink(filePath).catch(() => {});
 
+
     baseDoc = {
       '@context': [
         'https://www.w3.org/ns/did/v1',
@@ -155,8 +156,14 @@ describe('DidDocumentManagerService e2e', () => {
   it('should persist and reload manifests correctly', async () => {
     const legalDoc = await generateSignedDoc(baseDoc);
     await registry.addDocument(legalDoc);
-    await registry.load();
-    const doc = await registry.getDocument(legalDoc.id);
+
+    const storage2 = new DidManagerStorage();
+    const orchestrator2 = new DidDocumentOrchestrator(assembler);
+    const registry2 = new DidDocumentManagerService(orchestrator2, storage2);
+
+    await registry2.load();
+
+    const doc = await registry2.getDocument(legalDoc.id);
     expect(doc).toBeDefined();
     expect(doc!.getPeerId()).toBe(legalDoc.id);
   });

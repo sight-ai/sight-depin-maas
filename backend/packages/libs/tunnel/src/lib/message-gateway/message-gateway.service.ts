@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { io, Socket } from 'socket.io-client';
 import { TunnelMessage } from '@saito/models';
 import { MessageGateway } from './message-gateway.interface';
+import { NetworkDiagnostics } from '../utils/network-diagnostics';
 
 /**
  * 消息网关服务实现
@@ -16,6 +17,7 @@ export class MessageGatewayService implements MessageGateway {
   private reconnectAttempts: number = 0;
   private readonly maxReconnectAttempts: number = 10;
   private readonly reconnectDelay: number = 2000;
+  private readonly diagnostics = new NetworkDiagnostics();
 
   // 回调函数
   private messageCallback: ((message: TunnelMessage) => void) | null = null;
@@ -25,48 +27,71 @@ export class MessageGatewayService implements MessageGateway {
   /**
    * 连接到网关
    */
-  async connect(gatewayAddress: string, key: string, code?: string, basePath?: string): Promise<void> {
-    try {
-      // 从完整地址中提取基础URL
-      const url = new URL(gatewayAddress);
-      this.gatewayUrl = `${url.protocol}//${url.host}`;
-      
-      // 使用传入的basePath参数，如果没有提供则使用空字符串
-      const apiBasePath = basePath || '';
-      const socketPath = `${apiBasePath}/socket.io`;
+  async connect(gatewayAddress: string, code?: string, basePath?: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        // 从完整地址中提取基础URL
+        const url = new URL(gatewayAddress);
+        this.gatewayUrl = `${url.protocol}//${url.host}`;
 
-      this.logger.debug('Socket连接配置信息:');
-      this.logger.debug(`基础URL: ${this.gatewayUrl}`);
-      this.logger.debug(`Socket.IO路径: ${socketPath}`);
-      if (code) {
-        this.logger.debug(`使用认证码: ${code}`);
-      }
+        // 使用传入的basePath参数，如果没有提供则使用空字符串
+        const apiBasePath = basePath || '';
+        // 确保路径正确：如果 basePath 为空或只有空格，直接使用 /socket.io
+        const socketPath = (apiBasePath && apiBasePath.trim()) ? `${apiBasePath.trim()}/socket.io` : '/socket.io';
 
-      // 创建Socket连接
-      this.socket = io(this.gatewayUrl, {
-        path: socketPath,
-        reconnection: true,
-        reconnectionAttempts: Infinity,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 60000,
-        timeout: 20000,
-        transports: ['polling', 'websocket'],
-        forceNew: true,
-        secure: true,
-        rejectUnauthorized: false,
-        extraHeaders: {
-          'Origin': this.gatewayUrl,
-          'Authorization': `Bearer ${key}`,
-          ...(code ? { 'X-Auth-Code': code } : {})
+        this.logger.debug('Socket连接配置信息:');
+        this.logger.debug(`基础URL: ${this.gatewayUrl}`);
+        this.logger.debug(`Socket.IO路径: ${socketPath}`);
+        if (code) {
+          this.logger.debug(`使用认证码: ${code}`);
         }
-      });
 
-      // 设置Socket事件监听器
-      this.setupSocketListeners();
-    } catch (error) {
-      this.logger.error(`创建Socket连接失败: ${error instanceof Error ? error.message : '未知错误'}`);
-      throw error;
-    }
+        // 创建Socket连接
+        const isSecure = this.gatewayUrl.startsWith('https://');
+        this.socket = io(this.gatewayUrl, {
+          path: socketPath,
+          reconnection: true,
+          reconnectionAttempts: 5, // 减少重连次数，避免无限重连
+          reconnectionDelay: 1000,
+          reconnectionDelayMax: 5000, // 减少最大延迟
+          timeout: 10000, // 减少超时时间
+          transports: ['polling'], // 暂时只使用 polling 避免升级问题
+          forceNew: true,
+          secure: isSecure,
+          rejectUnauthorized: false,
+          upgrade: true, // 允许传输升级
+          rememberUpgrade: true, // 记住升级
+          // 明确指定 Engine.IO 版本
+          autoConnect: true,
+          extraHeaders: {
+            'Origin': this.gatewayUrl,
+            ...(code ? { 'X-Auth-Code': code } : {})
+          }
+        });
+
+        // 设置连接成功和失败的监听器
+        const onConnect = () => {
+          this.socket?.off('connect', onConnect);
+          this.socket?.off('connect_error', onConnectError);
+          resolve();
+        };
+
+        const onConnectError = (error: Error) => {
+          this.socket?.off('connect', onConnect);
+          this.socket?.off('connect_error', onConnectError);
+          reject(error);
+        };
+
+        this.socket.on('connect', onConnect);
+        this.socket.on('connect_error', onConnectError);
+
+        // 设置Socket事件监听器
+        this.setupSocketListeners();
+      } catch (error) {
+        this.logger.error(`创建Socket连接失败: ${error instanceof Error ? error.message : '未知错误'}`);
+        reject(error);
+      }
+    });
   }
 
   /**
@@ -78,24 +103,6 @@ export class MessageGatewayService implements MessageGateway {
       this.socket = null;
       this.deviceId = null;
       this.logger.log('Socket连接已断开');
-    }
-  }
-
-  /**
-   * 注册设备
-   */
-  async registerDevice(deviceId: string): Promise<void> {
-    this.deviceId = deviceId;
-    if (this.socket && this.socket.connected) {
-      this.socket.emit('message', { 
-        type: 'device_register',
-        payload: {
-          deviceId
-        }
-       });
-      this.logger.log(`发送设备注册请求，ID: ${deviceId}`);
-    } else {
-      this.logger.warn('Socket未连接，无法注册设备');
     }
   }
 
@@ -162,11 +169,6 @@ export class MessageGatewayService implements MessageGateway {
       this.logger.log('Socket连接成功');
       this.reconnectAttempts = 0;
       this.connectionCallback?.(true);
-
-      // 如果有设备ID，自动注册
-      if (this.deviceId) {
-        this.registerDevice(this.deviceId);
-      }
     });
 
     // 连接断开
@@ -192,6 +194,17 @@ export class MessageGatewayService implements MessageGateway {
     // 连接错误
     this.socket.on('connect_error', (error: Error) => {
       this.logger.error(`Socket连接错误: ${error.message}`);
+
+      // 使用诊断工具分析错误
+      this.diagnostics.analyzeSocketIOError(error.message);
+
+      // 如果是第一次连接错误，运行完整诊断
+      if (this.reconnectAttempts === 0) {
+        this.diagnostics.diagnoseGatewayConnection(this.gatewayUrl).catch(() => {
+          // 忽略诊断错误，不影响主要流程
+        });
+      }
+
       this.errorCallback?.(error);
     });
 
@@ -204,6 +217,28 @@ export class MessageGatewayService implements MessageGateway {
     this.socket.on('device_registration_failed', (data: { error: string }) => {
       this.logger.error(`设备注册失败: ${data.error}`);
       this.errorCallback?.(new Error(`设备注册失败: ${data.error}`));
+    });
+
+    // 添加更多Socket.IO事件监听以便诊断
+    this.socket.on('error', (error: any) => {
+      this.logger.error(`Socket通用错误: ${error}`);
+    });
+
+    this.socket.on('reconnect', (attemptNumber: number) => {
+      this.logger.log(`Socket重连成功，尝试次数: ${attemptNumber}`);
+      this.reconnectAttempts = 0; // 重置重连计数
+    });
+
+    this.socket.on('reconnect_attempt', (attemptNumber: number) => {
+      this.logger.debug(`Socket重连尝试 #${attemptNumber}`);
+    });
+
+    this.socket.on('reconnect_error', (error: Error) => {
+      this.logger.error(`Socket重连错误: ${error.message}`);
+    });
+
+    this.socket.on('reconnect_failed', () => {
+      this.logger.error('Socket重连失败，已达到最大尝试次数');
     });
   }
 

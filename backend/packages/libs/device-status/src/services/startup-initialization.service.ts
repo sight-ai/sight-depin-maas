@@ -1,9 +1,11 @@
 import { Injectable, Logger, OnApplicationBootstrap, Inject } from '@nestjs/common';
-import { 
+import {
   TDeviceConfig,
   DEVICE_CONFIG_SERVICE
 } from '../device-status.interface';
 import { AutoRegistrationService, AUTO_REGISTRATION_SERVICE } from './auto-registration.service';
+import { DidServiceInterface } from '@saito/did';
+import { TunnelServiceImpl } from '@saito/tunnel';
 
 /**
  * 启动初始化服务
@@ -18,7 +20,13 @@ export class StartupInitializationService implements OnApplicationBootstrap {
     private readonly configService: TDeviceConfig,
 
     @Inject(AUTO_REGISTRATION_SERVICE)
-    private readonly autoRegistrationService: AutoRegistrationService
+    private readonly autoRegistrationService: AutoRegistrationService,
+
+    @Inject('DidService')
+    private readonly didService: DidServiceInterface,
+
+    @Inject('TunnelService')
+    private readonly tunnelService: TunnelServiceImpl
   ) {}
 
   /**
@@ -28,13 +36,16 @@ export class StartupInitializationService implements OnApplicationBootstrap {
     this.logger.log('🚀 Application bootstrap completed, starting initialization...');
 
     try {
-      // 1. 初始化设备配置
+      // 1. 初始化DID服务并获取设备ID
+      await this.initializeDidService();
+
+      // 2. 初始化设备配置
       await this.initializeDeviceConfig();
 
-      // 2. 检查并执行自动注册
+      // 3. 检查并执行自动注册（包含WebSocket连接建立）
       await this.checkAndPerformAutoRegistration();
 
-      // 3. 显示启动状态
+      // 4. 显示启动状态
       this.displayStartupStatus();
 
       this.logger.log('✅ Startup initialization completed successfully');
@@ -44,48 +55,102 @@ export class StartupInitializationService implements OnApplicationBootstrap {
   }
 
   /**
-   * 初始化设备配置
+   * 初始化DID服务并获取设备ID
    */
-  private async initializeDeviceConfig(): Promise<void> {
+  private async initializeDidService(): Promise<void> {
     try {
-      await this.configService.initialize();
-      this.logger.debug('Device configuration initialized');
+      // 获取DID中的设备ID
+      const deviceId = this.didService.getMyPeerId();
+      this.logger.log(`📱 从DID服务获取设备ID: ${deviceId}`);
+
+      // 确保设备配置中使用DID的设备ID
+      const currentConfig = this.configService.getCurrentConfig();
+      if (currentConfig.deviceId !== deviceId) {
+        this.logger.log(`🔄 更新设备配置中的设备ID: ${currentConfig.deviceId} -> ${deviceId}`);
+        await this.configService.updateConfig({ deviceId });
+      }
+
+      this.logger.debug('✅ DID service initialized and device ID synchronized');
     } catch (error) {
-      this.logger.error('Failed to initialize device configuration:', error);
+      this.logger.error('❌ Failed to initialize DID service:', error);
       throw error;
     }
   }
 
   /**
-   * 检查并执行自动注册
+   * 初始化设备配置
+   */
+  private async initializeDeviceConfig(): Promise<void> {
+    try {
+      await this.configService.initialize();
+      this.logger.debug('✅ Device configuration initialized');
+    } catch (error) {
+      this.logger.error('❌ Failed to initialize device configuration:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 检查并执行自动注册（包含WebSocket连接建立）
    */
   private async checkAndPerformAutoRegistration(): Promise<void> {
     try {
       const config = this.configService.getCurrentConfig();
-      
+
       if (this.hasStoredRegistrationInfo(config)) {
-        this.logger.log('📋 Found stored registration information');
-        
+        this.logger.log('📋 发现存储的注册信息');
+
+        // 获取设备ID
+        const deviceId = this.didService.getMyPeerId();
+
         if (config.isRegistered) {
-          this.logger.log('🔄 Device is registered, attempting to reconnect to gateway...');
+          this.logger.log('🔄 设备已注册，尝试重新连接到网关...');
+
+          // 先建立WebSocket连接
+          await this.establishWebSocketConnection(config, deviceId);
         } else {
-          this.logger.log('🔗 Device not registered, attempting initial registration...');
+          this.logger.log('🔗 设备未注册，尝试初始注册...');
         }
 
-        // 触发自动注册
+        // 触发自动注册（包含WebSocket连接建立）
         const success = await this.autoRegistrationService.attemptAutoRegistration();
-        
+
         if (success) {
-          this.logger.log('✅ Auto registration completed successfully');
+          this.logger.log('✅ 自动注册完成');
         } else {
-          this.logger.warn('⚠️ Auto registration failed, will retry periodically');
+          this.logger.warn('⚠️ 自动注册失败，将定期重试');
         }
       } else {
-        this.logger.log('ℹ️ No stored registration information found');
-        this.logger.log('💡 Please register the device manually using the registration API');
+        this.logger.log('ℹ️ 未发现存储的注册信息');
+        this.logger.log('💡 请使用注册API手动注册设备');
       }
     } catch (error) {
-      this.logger.error('Auto registration check failed:', error);
+      this.logger.error('自动注册检查失败:', error);
+    }
+  }
+
+  /**
+   * 建立WebSocket连接
+   */
+  private async establishWebSocketConnection(config: any, deviceId: string): Promise<void> {
+    try {
+      if (config.gatewayAddress && config.key) {
+        this.logger.log(`🔗 建立WebSocket连接到: ${config.gatewayAddress}`);
+
+        await this.tunnelService.createConnection(
+          config.gatewayAddress,
+          config.code,
+          config.basePath || '/'
+        );
+
+        await this.tunnelService.connect(deviceId);
+        this.logger.log('✅ WebSocket连接建立成功');
+      } else {
+        this.logger.warn('⚠️ 缺少网关地址或密钥，跳过WebSocket连接');
+      }
+    } catch (error) {
+      this.logger.error('❌ WebSocket连接建立失败:', error);
+      // 不抛出错误，允许继续其他初始化步骤
     }
   }
 
@@ -103,7 +168,7 @@ export class StartupInitializationService implements OnApplicationBootstrap {
       this.logger.log(`   Gateway: ${config.gatewayAddress || 'Not set'}`);
       this.logger.log(`   Registration Status: ${config.isRegistered ? '✅ Registered' : '❌ Not Registered'}`);
       this.logger.log(`   Auto Registration: ${autoRegStatus.isRegistering ? '🔄 In Progress' : '⏸️ Idle'}`);
-      
+
       if (autoRegStatus.retryCount > 0) {
         this.logger.log(`   Retry Count: ${autoRegStatus.retryCount}/${autoRegStatus.maxRetries}`);
       }
@@ -189,11 +254,11 @@ export class StartupInitializationService implements OnApplicationBootstrap {
   async reinitialize(): Promise<boolean> {
     try {
       this.logger.log('🔄 Manual reinitialization requested...');
-      
+
       await this.initializeDeviceConfig();
       await this.checkAndPerformAutoRegistration();
       this.displayStartupStatus();
-      
+
       this.logger.log('✅ Manual reinitialization completed');
       return true;
     } catch (error) {

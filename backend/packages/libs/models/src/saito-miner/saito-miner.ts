@@ -5,7 +5,6 @@ export const DeviceCredentials = z.object({
   code: z.string(),
   gateway_address: z.string(),
   reward_address: z.string(),
-  key: z.string(),
   basePath: z.string().optional()
 });
 
@@ -181,7 +180,6 @@ export const DeviceStatusModule = z.object({
   status: z.enum(['waiting', 'in-progress', 'connected', 'disconnected', 'failed']),
   reward_address: z.string().nullable(),
   gateway_address: z.string().nullable(),
-  key: z.string().nullable(),
   code: z.string().nullable(),
   up_time_start: z.string().nullable(),
   up_time_end: z.string().nullable(),

@@ -1,129 +1,195 @@
-# Tunnel Module Overview
+# Did Module Overview
 
-This module is one of the core components of the communication subsystem. It is responsible for facilitating messaging and relaying between nodes via a unified message-based mechanism.
+The DID module is a core component for managing decentralized identity (DID) documents and related identity services. It provides both local (self) DID management and decentralized document synchronization for other nodes in the network.
 
 ## Module Structure
 
-### TunnelService
+### DidService
 
-Handles core communication logic between nodes, including:
+The main service that exposes APIs to manage and access the local node’s DID document and key information.
 
-- Sending and receiving messages (both income and outcome directions)
-- Registering and triggering message listeners
-- Determining the message direction and dispatching to the appropriate handler
+- Generate and persist the node’s own DID and DID Document.
+- Update DID metadata (e.g., controller, seq, hash, etc.).
+- Query current peerId, publicKey, or DID.
+- Patch or refresh DID document state.
 
+The DidService delegates low-level state and persistence logic to the internal DidLocalManager.
 
+### DidDocumentManagerService
 
-To function properly, it relies on two internal components: MessageGateway and MessageHandler.
+The main service maintains a synchronized mapping of known DIDs from all neighbor nodes, providing APIs to manage and access neighbor nodes' DID document and key information.
 
-### MessageGateway
+- Add or update other nodes’ DID documents.
+- Query public keys and supported services by peerId.
+- Verify document signatures and freshness before persisting.
+- Support lookup by DID or peerId.
 
-Acts as the external communication interface. The Gateway serves as the ingress and egress point for the Tunnel, simulating network-layer behavior.
+### DidLocalManager
 
-- Responsible for sending and receiving messages
-- In test environments, a MockedMessageGateway is used to simulate communication
+Handles the business logic for building, updating, and persisting the local DID document.
 
-### MessageHandler
+### DidLocalStorage
 
-Handles messages of a specific type. Each handler is automatically registered based on the message’s type and direction, and triggered upon receiving a message.
+Encapsulates file-based storage for the node’s DID document.
 
+### DidManagerStorage
 
+Handles persistent storage of all known peer DID documents as an array.
 
-## Message Sending & Receiving Workflow
+### DidDocumentImpl
 
-The general message flow inside the Tunnel system is as follows:
+Implements the Composite Pattern to represent the parsed structure of a DID document as a collection of composable elements (such as verification methods, services, and proof).
 
-##### Communication Flow Example: Tunnel A <-> Tunnel B
-
-```
-Sender Node A:
-Prepare message -> OutcomeMessageHandler -> TunnelService.sendMessage() -> MessageGateway.send()
-
-Receiver Node B:
-MessageGateway.receive() -> TunnelService.handleMessage() -> IncomeMessageHandler -> Process message
-```
-
-When sending a message, the TunnelService determines its direction based on the `peerId`, and routes it through the appropriate logic branch (income or outcome).
-
-### Writing a Message Handler
-
-You can define a handler using the custom `@MessageHandler` decorator. This enables automatic registration without needing manual configuration.
-
-##### Example
+Example:
 
 ```ts
-@MessageHandler({ type: 'context-ping', direction: 'outcome' })
-@Injectable()
-export class OutcomeContextPingMessageHandler extends OutcomeBaseMessageHandler {
-  constructor(
-    @Inject('TunnelService') private readonly tunnel: TunnelService,
-    @Inject('PEER_ID') protected override readonly peerId: string,
-  ) {
-    super(peerId);
-  }
+// didImpl is a DidDocumentImpl instance
+const peerId = didImpl.getPeerId();
+const pubKey = didImpl.getPublicKey();
+const serviceIds = didImpl.getServiceId();
+```
 
-  async handleOutcomeMessage(message: TunnelMessage): Promise<void> {
-    const pingMessage = ContextPingMessageSchema.parse(message);
-    this.tunnel.sendMessage(pingMessage);
-  }
+### ContextHandler + Parser
+
+Responsible for schema-driven parsing and validation of DID documents.
+
+
+
+## DID Document Workflow & Examples
+
+### Local DID Generation
+
+On startup, the module:
+
+1. Loads keypair (or generates one if not found) from `~/.sightai/`
+2. Builds the local DID string and DID document, including service definitions
+3. Persists the document to local storage (`did-local.json`)
+4. Supports updating (e.g., `controller or seq fields`) and re-persisting as needed
+
+##### Broadcast Logic:
+
+When the local DID is updated, the module marks its status and waits for external modules (such as `Tunnel`) to query and broadcast the new DID to the network.
+
+External module can call `isDidUpdated()` to check whether need to broadcast the new DID, and after broadcasting, it also need to call `resetDidUpdated()` to reset the status.
+
+##### Querying Local DID
+
+Other modules can use DidService to:
+
+- Get the current DID: `getDocument()`
+- Get peerId: `getMyPeerId()`
+- Get public key: `getMyPublicKey()`
+- Check for updates: `isDidUpdated()`
+
+Example:
+
+```ts
+// consume didService is an entity of DidServiceImpl
+
+// 1. get current Did document
+const didDocument = didService.getDocument();
+
+// 2. get peerId
+const peerId = didService.getMyPeerId();
+
+// 3. get publicKey (base58)
+const publicKey = didService.getMyPublicKey();
+
+// 4. check whether the Did document needs broadcast
+if (didService.isDidUpdated()) {
+  console.log('DID has been updated and needs to be broadcast.');
+	// after broadcasting, set the didUpdated statud to false.
+  await didService.resetDidUpdated();
 }
 ```
 
-You can find more examples under the `message-handler` directory.
 
-##### Conventions for Writing Handlers
 
-- Each handler must be decorated with `@MessageHandler` and specify both type and direction.
-  - `type` refers to the message service type and should align with definitions in `tunnel-message.schema.ts`.
-  - `direction` must be either income or outcome.
-- Handlers should extend either `IncomeBaseMessageHandler` or `OutcomeBaseMessageHandler` and implement necessary methods.
+### Managing Remote DIDs
 
-## Listener Mechanism
+When a neighbor node sends its DID document:
 
-The Tunnel module supports attaching listeners for asynchronous message tracking. This is particularly useful for request-response patterns.
+1. The document is parsed and verified
+2. The manager checks if it is a new document or a fresher version (by `seq`)
+3. If new, updates the local cache and persists to `did-manager.json`
+4. Makes the document available for service and key lookups by other modules
 
-### Listener Object Structure
+##### Registering/Querying Remote DIDs
 
-A listener is an object that defines matching and callback logic:
+Modules (e.g., `Tunnel, Node`) can:
 
-```ts
-export interface TunnelMessageListener {
-  match: (msg: TunnelMessage) => boolean;
-  callback: (msg: TunnelMessage) => void;
-  once?: (msg: TunnelMessage) => boolean;
-}
-```
+- Verify and parse a new DID document via `DidDocumentOrchestrator`
 
-- `match`: A predicate function used to filter messages (typically by type or requestId)
-- `callback`: Executed when a matching message is received (e.g., to update UI, record timing)
-- `once`: If true, the listener will be automatically removed after being triggered once; otherwise, it will persist
+  Example:
 
-#### Adding a Listener
+  ```ts
+  // doc is the RawDid received from other nodes
+  const didImpl = await this.orchestrator.toDidImpl(doc);
+  // then can get basic infomation from didImpl
+  const peerId = didImpl.getPeerId();
+  const publicKey = didImpl.getPublicKey();
+  const serviceId = didImpl.getServiceId();
+  // ...
+  ```
 
-You can attach a listener when calling `TunnelService.handleMessage()`:
+- Submit a new remote DID for verification and storage via `DidDocumentManagerService`
 
-```ts
-const listener = ({
-  match: (msg) => msg.type === 'context-pong' && msg.payload.requestId === requestId,
-  callback: (msg) => {
-    const sendTime = originalMessage.payload.timestamp;
-    const rtt = Date.now() - sendTime;
-    console.log(`RTT = ${rtt}ms`);
-  },
-  once: () => true
-});
+- Lookup public keys or supported services by peerId
 
-tunnel.handleMessage(msg, listener);
-```
+  Example:
 
-The listener will be triggered upon receiving a `context-pong` message that matches the requestId.
+  ```ts
+  // consume didDocumentManger is an entity of DidDocumentManager
+  // add
+  await didDocumentManager.addDocument(doc);
+  // remove
+  await didDocumentManager.removeDocument(doc);
+  // filter
+  await didDocumentManager.filterDocuments(fn);
+  // check wheter the did received is newer than that in storage
+  await didDocumentManager.isNewerThanPersist(doc.id, newDoc);
+  // getPublicKeyBy Id
+  await didDocumentManager.getPublicKeyByPeerId(peerId);
+  // ...
+  ```
 
-### Listener Execution Flow
+### Context-handler + Parser
 
-1. A message is sent using `tunnel.handleMessage(msg, listener)`.
-2. The listener is registered internally.
-3. When the response message is received, TunnelService checks all registered listeners before invoking any message handlers.
-4. If a match is found:
-   - The listener’s callback is executed.
-   - If once returns true, the listener is removed from the registry.
+##### Add context-handler
+
+To add support for a new context:
+
+1. Implement a handler that understands the new context.
+
+   ```ts
+   import myDidContextHandler from './assets/newContext.json';
+   import {GenericContextHandler} from "./context-handler";
+   
+   export const myDidContextHandler = new GenericContextHandler(myDidContextHandler['@context'], 'https://mydomain.com/did/v1');
+   ```
+
+2. Register the handler in the registry, typically at module setup/startup:
+
+   ```ts
+   // 2 ways, add in the current regsiter, or create your own regsiter
+   
+   // add in the current regsiter:
+   // context-handler.registry.ts
+   import myDidContextHandler from ''
+   // add in the constructor
+    constructor() {
+       this.registerLocal(
+         myDidContextHandler.getContextUrl(),
+         myDidContextHandler,
+       );
+     }
+   
+   // or you can create your own registry:
+   const registry = new ContextHandlerRegistry();
+   registry.register('https://mydomain.com/did/v1', myDidContextHandler);
+   ```
+
+
+
+
 

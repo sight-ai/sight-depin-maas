@@ -69,12 +69,12 @@ export class DidDocumentManagerService implements DidDocumentManager {
     if (!existing) {
       // fallback to storage
       const loaded = await this.storage.loadOne(peerId);
-      console.log(`Load from storage: ${JSON.stringify(loaded, null, 2)}`);
+      // console.log(`Load from storage: ${JSON.stringify(loaded, null, 2)}`);
       if (!loaded) return true;
       existing = new DidDocumentImpl(loaded);
-      console.log(
-        `DidDOcumentImpl from raw: ${JSON.stringify(existing.raw, null, 2)}`,
-      );
+      // console.log(
+      //   `DidDOcumentImpl from raw: ${JSON.stringify(existing.raw, null, 2)}`,
+      // );
     }
     const oldSeq = Number(existing.raw['sight:seq']);
     const newSeq = Number(newDid['sight:seq']);

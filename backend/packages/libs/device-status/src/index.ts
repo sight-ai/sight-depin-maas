@@ -14,20 +14,16 @@ export { default as DeviceGatewayServiceProvider } from './services/device-gatew
 export { default as AutoRegistrationServiceProvider } from './services/auto-registration.service';
 export { default as StartupInitializationServiceProvider } from './services/startup-initialization.service';
 export * from './services/dynamic-config.service';
+export { default as TunnelCommunicationServiceProvider } from './services/tunnel-communication.service';
+export * from './services/tunnel-communication.service';
+export * from './services/did-integration.service';
 
 // Enhanced device status services
 export * from './services/environment-detector.service';
 export * from './services/device-status-manager.service';
 export * from './services/enhanced-device-status.service';
 
-// Legacy components (for backward compatibility)
-export * from './collectors/system-info.collector';
-export * from './managers/heartbeat.manager';
-export * from './managers/device-config.manager';
-export * from './managers/device-registration.manager';
-export * from './managers/connection.manager';
-export * from './managers/model.manager';
-export * from './managers/database.manager';
+// Utilities
 export * from './utils/error-handler';
 
 // Constants and utilities

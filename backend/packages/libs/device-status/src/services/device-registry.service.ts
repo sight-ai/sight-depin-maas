@@ -1,15 +1,16 @@
 import { Injectable, Inject, Logger } from "@nestjs/common";
-import { 
-  TDeviceRegistry, 
-  TDeviceConfig, 
+import {
+  TDeviceRegistry,
+  TDeviceConfig,
   TDeviceGateway,
-  DeviceCredentials, 
+  DeviceCredentials,
   RegistrationResult,
   DeviceConfig,
   DEVICE_REGISTRY_SERVICE,
   DEVICE_CONFIG_SERVICE,
   DEVICE_GATEWAY_SERVICE
 } from "../device-status.interface";
+import { DidServiceInterface } from '@saito/did';
 
 /**
  * 设备注册服务
@@ -23,7 +24,9 @@ export class DeviceRegistryService implements TDeviceRegistry {
     @Inject(DEVICE_CONFIG_SERVICE)
     private readonly configService: TDeviceConfig,
     @Inject(DEVICE_GATEWAY_SERVICE)
-    private readonly gatewayService: TDeviceGateway
+    private readonly gatewayService: TDeviceGateway,
+    @Inject('DidService')
+    private readonly didService: DidServiceInterface
   ) {}
 
   /**
@@ -43,7 +46,7 @@ export class DeviceRegistryService implements TDeviceRegistry {
       }
       console.log(credentials)
       // 创建设备配置
-      const deviceConfig = this.createDeviceConfig(credentials);
+      const deviceConfig = await this.createDeviceConfig(credentials);
 
       // 向网关注册
       const gatewayResult = await this.gatewayService.registerWithGateway(
@@ -63,12 +66,12 @@ export class DeviceRegistryService implements TDeviceRegistry {
         isRegistered: true
       };
 
-      await this.configService.updateConfig(finalConfig);
+      // await this.configService.updateConfig(finalConfig);
 
-      // 保存 basePath 到注册信息
-      if (credentials.basePath) {
-        await this.configService.saveConfigToStorage(finalConfig, credentials.basePath);
-      }
+      // // 保存 basePath 到注册信息
+      // if (credentials.basePath) {
+      //   await this.configService.saveConfigToStorage(finalConfig, credentials.basePath);
+      // }
 
       this.logger.log(`Device registered successfully: ${finalConfig.deviceId}`);
 
@@ -101,8 +104,7 @@ export class DeviceRegistryService implements TDeviceRegistry {
         deviceId: '',
         deviceName: '',
         gatewayAddress: '',
-        rewardAddress: '',
-        key: ''
+        rewardAddress: ''
       });
 
       this.logger.log('Registration cleared successfully');
@@ -131,7 +133,6 @@ export class DeviceRegistryService implements TDeviceRegistry {
   private validateCredentials(credentials: DeviceCredentials): boolean {
     return !!(
       credentials.gateway_address &&
-      credentials.key &&
       credentials.code &&
       credentials.reward_address
     );
@@ -140,14 +141,15 @@ export class DeviceRegistryService implements TDeviceRegistry {
   /**
    * 创建设备配置
    */
-  private createDeviceConfig(credentials: DeviceCredentials): DeviceConfig {
+  private async createDeviceConfig(credentials: DeviceCredentials): Promise<DeviceConfig> {
+    // 使用 DID 服务提供的设备ID
+    let deviceId = this.didService.getMyPeerId();
     return {
-      deviceId: `device_${Date.now()}`,
+      deviceId: deviceId,
       deviceName: 'SightAI Device',
       gatewayAddress: credentials.gateway_address,
       rewardAddress: credentials.reward_address,
       basePath: credentials.basePath,
-      key: credentials.key,
       code: credentials.code,
       isRegistered: false
     };
