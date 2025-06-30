@@ -25,7 +25,9 @@ async function bootstrap() {
       this.logger.log(`Created DID storage directory: ${dataDir}`);
     }
   } catch (err) {
-    this.logger.error(`Failed to create DID storage directory: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    this.logger.error(
+      `Failed to create DID storage directory: ${err instanceof Error ? err.message : 'Unknown error'}`,
+    );
   }
 
   // 处理 keySeed
@@ -40,7 +42,11 @@ async function bootstrap() {
     seed = Uint8Array.from(kpObj.seed);
     // 更新 lastUsed 字段
     kpObj.lastUsed = new Date().toISOString();
-    await fsAsync.writeFile(keypairPath, JSON.stringify(kpObj, null, 2), 'utf-8');
+    await fsAsync.writeFile(
+      keypairPath,
+      JSON.stringify(kpObj, null, 2),
+      'utf-8',
+    );
     console.log(`[KeyPair] Loaded from ${keypairPath}`);
   } else {
     // 本地没有，生成并保存
@@ -49,7 +55,7 @@ async function bootstrap() {
     const kpObj = {
       seed: Array.from(seed),
       createdAt: new Date().toISOString(),
-      lastUsed: new Date().toISOString()
+      lastUsed: new Date().toISOString(),
     };
     await fsAsync.writeFile(
       keypairPath,
@@ -61,7 +67,7 @@ async function bootstrap() {
 
   const keyPair = nacl.sign.keyPair.fromSeed(seed);
 
-  const IS_GATEWAY = Number(process.env.IS_GATEWAY) == 1 ? true : false;
+  const IS_GATEWAY = Number(process.env.IS_GATEWAY || 0) == 1 ? true : false;
   const LIBP2P_REST_API = process.env.LIBP2P_REST_API
     ? Number(process.env.LIBP2P_REST_API)
     : 4010;
@@ -70,16 +76,18 @@ async function bootstrap() {
     : 15050;
 
   const API_PORT = process.env.API_PORT ? Number(process.env.API_PORT) : 8716;
-  const BOOTSTRAP_ADDRS = process.env.BOOTSTRAP_ADDRS;
+  const BOOTSTRAP_ADDRS =
+    process.env.BOOTSTRAP_ADDRS ||
+    `/ip4/34.146.228.26/tcp/15001/p2p/12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X,/ip4/192.168.0.107/tcp/15001/p2p/12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X,/ip4/192.168.1.2/tcp/15001/p2p/12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X,/ip4/34.146.228.26/tcp/15002/p2p/12D3KooWH3uVF6wv47WnArKHk5p6cvgCJEb74UTmxztmQDc298L3,/ip4/192.168.0.107/tcp/15002/p2p/12D3KooWH3uVF6wv47WnArKHk5p6cvgCJEb74UTmxztmQDc298L3,/ip4/192.168.1.2/tcp/15002/p2p/12D3KooWH3uVF6wv47WnArKHk5p6cvgCJEb74UTmxztmQDc298L3,/ip4/34.146.228.26/tcp/15003/p2p/12D3KooWQYhTNQdmr3ArTeUHRYzFg94BKyTkoWBDWez9kSCVe2Xo,/ip4/192.168.0.107/tcp/15003/p2p/12D3KooWQYhTNQdmr3ArTeUHRYzFg94BKyTkoWBDWez9kSCVe2Xo,/ip4/192.168.1.2/tcp/15003/p2p/12D3KooWQYhTNQdmr3ArTeUHRYzFg94BKyTkoWBDWez9kSCVe2Xo,/ip4/34.146.228.26/tcp/15004/p2p/12D3KooWLJtG8fd2hkQzTn96MrLvThmnNQjTUFZwGEsLRz5EmSzc,/ip4/192.168.0.107/tcp/15004/p2p/12D3KooWLJtG8fd2hkQzTn96MrLvThmnNQjTUFZwGEsLRz5EmSzc,/ip4/192.168.1.2/tcp/15004/p2p/12D3KooWLJtG8fd2hkQzTn96MrLvThmnNQjTUFZwGEsLRz5EmSzc,/ip4/34.146.228.26/tcp/15005/p2p/12D3KooWSHj3RRbBjD15g6wekV8y3mm57Pobmps2g2WJm6F67Lay,/ip4/192.168.0.107/tcp/15005/p2p/12D3KooWSHj3RRbBjD15g6wekV8y3mm57Pobmps2g2WJm6F67Lay,/ip4/192.168.1.2/tcp/15005/p2p/12D3KooWSHj3RRbBjD15g6wekV8y3mm57Pobmps2g2WJm6F67Lay,/ip4/34.146.228.26/tcp/15006/p2p/12D3KooWDMCQbZZvLgHiHntG1KwcHoqHPAxL37KvhgibWqFtpqUY,/ip4/192.168.0.107/tcp/15006/p2p/12D3KooWDMCQbZZvLgHiHntG1KwcHoqHPAxL37KvhgibWqFtpqUY,/ip4/192.168.1.2/tcp/15006/p2p/12D3KooWDMCQbZZvLgHiHntG1KwcHoqHPAxL37KvhgibWqFtpqUY,/ip4/34.146.228.26/tcp/15007/p2p/12D3KooWLnZUpcaBwbz9uD1XsyyHnbXUrJRmxnsMiRnuCmvPix67,/ip4/192.168.0.107/tcp/15007/p2p/12D3KooWLnZUpcaBwbz9uD1XsyyHnbXUrJRmxnsMiRnuCmvPix67,/ip4/192.168.1.2/tcp/15007/p2p/12D3KooWLnZUpcaBwbz9uD1XsyyHnbXUrJRmxnsMiRnuCmvPix67,/ip4/34.146.228.26/tcp/15008/p2p/12D3KooWQ8vrERR8bnPByEjjtqV6hTWehaf8TmK7qR1cUsyrPpfZ,/ip4/192.168.0.107/tcp/15008/p2p/12D3KooWQ8vrERR8bnPByEjjtqV6hTWehaf8TmK7qR1cUsyrPpfZ,/ip4/192.168.1.2/tcp/15008/p2p/12D3KooWQ8vrERR8bnPByEjjtqV6hTWehaf8TmK7qR1cUsyrPpfZ,/ip4/34.146.228.26/tcp/15009/p2p/12D3KooWNRk8VBuTJTYyTbnJC7Nj2UN5jij4dJMo8wtSGT2hRzRP,/ip4/192.168.0.107/tcp/15009/p2p/12D3KooWNRk8VBuTJTYyTbnJC7Nj2UN5jij4dJMo8wtSGT2hRzRP,/ip4/192.168.1.2/tcp/15009/p2p/12D3KooWNRk8VBuTJTYyTbnJC7Nj2UN5jij4dJMo8wtSGT2hRzRP`;
   const bootstrapList = BOOTSTRAP_ADDRS
     ? BOOTSTRAP_ADDRS.split(',')
         .map((addr) => addr.trim())
         .filter(Boolean)
     : [];
   console.log(`bootstrap: ${bootstrapList}`);
-  let expressPort = LIBP2P_REST_API;
-  let nodePort = NODE_PORT;
-  let tunnelPort = API_PORT;
+  const expressPort = LIBP2P_REST_API;
+  const nodePort = NODE_PORT;
+  const tunnelPort = API_PORT;
   console.log(
     `expressPort: ${expressPort}, nodePort: ${nodePort}, tunnelPort: ${tunnelPort}`,
   );
