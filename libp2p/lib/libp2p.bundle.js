@@ -65,6 +65,9 @@ async function createNode(privateKey, port, onMessage, bootstrapList) {
       console.error("[libp2p] Received malformed message:", msg);
     }
   });
+  // node.addEventListener("peer:discovery", (evt) => {
+  //   console.log("[libp2p] found peer: ", JSON.stringify(evt.detail, null, 2));
+  // });
   return node;
 }
 

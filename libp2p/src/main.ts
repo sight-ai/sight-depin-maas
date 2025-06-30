@@ -62,8 +62,8 @@ async function bootstrap() {
   const keyPair = nacl.sign.keyPair.fromSeed(seed);
 
   const IS_GATEWAY = Number(process.env.IS_GATEWAY) == 1 ? true : false;
-  const LIBP2P_PORT = process.env.LIBP2P_PORT
-    ? Number(process.env.LIBP2P_PORT)
+  const LIBP2P_REST_API = process.env.LIBP2P_REST_API
+    ? Number(process.env.LIBP2P_REST_API)
     : 4010;
   const NODE_PORT = process.env.NODE_PORT
     ? Number(process.env.NODE_PORT)
@@ -77,7 +77,7 @@ async function bootstrap() {
         .filter(Boolean)
     : [];
   console.log(`bootstrap: ${bootstrapList}`);
-  let expressPort = LIBP2P_PORT;
+  let expressPort = LIBP2P_REST_API;
   let nodePort = NODE_PORT;
   let tunnelPort = API_PORT;
   console.log(
