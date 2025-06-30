@@ -85,11 +85,11 @@ async function bootstrap() {
   );
 
   // 网关节点端口 +2
-  if (IS_GATEWAY) {
-    expressPort += 2;
-    nodePort += 2;
-    tunnelPort += 2;
-  }
+  // if (IS_GATEWAY) {
+  //   expressPort += 2;
+  //   nodePort += 2;
+  //   tunnelPort += 2;
+  // }
   console.log(
     `expressPort: ${expressPort}, nodePort: ${nodePort}, tunnelPort: ${tunnelPort}`,
   );
