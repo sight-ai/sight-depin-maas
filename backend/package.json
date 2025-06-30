@@ -175,6 +175,7 @@
     "assets": [
       "dist/**/*",
       ".env",
+      "libp2p/**/*",
       "node_modules/.pnpm/classic-level@3.0.0/node_modules/classic-level/prebuilds/**/*"
     ],
     "targets": [
