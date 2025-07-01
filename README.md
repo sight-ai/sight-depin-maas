@@ -16,38 +16,6 @@ This guide will walk you through everything you need to:
 - 💰 **Earn rewards by contributing compute power**
 - 🔁 *(Optional)* **Integrate with Dify for advanced AI workflows**
 
-## 📚 Documentation
-
-- **[CLI Quick Start Guide](QUICK_START.md)** - 5分钟快速部署 CLI 工具
-- **[CLI Complete Documentation](CLI_DOCUMENTATION.md)** - 详细的 CLI 命令参考
-- **[Docker Architecture](DOCKER_ARCHITECTURE.md)** - Docker 架构和部署模式
-- **[Convenience Script](sightai-cli.sh)** - 便捷的管理脚本
-
-## 🛠️ CLI Tool
-
-SightAI Miner 提供了强大的 CLI 工具来管理您的挖矿节点：
-
-### 快速开始
-```bash
-# Docker 方式（推荐）
-docker volume create sightai-data
-docker run --rm --network=host \
-  -v sightai-data:/home/sightai/.sightai \
-  sightai-miner:latest register --interactive
-
-# 使用便捷脚本
-./sightai-cli.sh start
-./sightai-cli.sh register --interactive
-```
-
-### 主要命令
-- `sight-cli register` - 注册设备到网关
-- `sight-cli status` - 检查挖矿状态
-- `sight-cli report-models` - 报告可用模型
-- `sight-cli re-register` - 重新注册设备
-
----
-
 # ⚙️ Local Deployment
 
 ## ✅ Prerequisites
