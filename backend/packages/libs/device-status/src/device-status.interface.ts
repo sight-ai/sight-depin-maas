@@ -24,8 +24,8 @@ export interface DeviceConfig {
   deviceName: string;
   gatewayAddress: string;
   rewardAddress: string;
-  key: string;
   code?: string;
+  basePath?: string;
   isRegistered: boolean;
 }
 
@@ -66,11 +66,11 @@ export interface TDeviceConfig {
   initialize(): Promise<void>;
   getCurrentConfig(): DeviceConfig;
   updateConfig(updates: Partial<DeviceConfig>): Promise<void>;
+  saveConfigToStorage(config: DeviceConfig, basePath?: string, didDoc?: any): Promise<void>;
   getDeviceId(): string;
   getDeviceName(): string;
   getGatewayAddress(): string;
   getRewardAddress(): string;
-  getKey(): string;
   isRegistered(): boolean;
 }
 
@@ -119,7 +119,6 @@ export interface TDeviceStatusService {
   getDeviceName(): Promise<string>;
   getRewardAddress(): Promise<string>;
   getGatewayAddress(): Promise<string>;
-  getKey(): Promise<string>;
   isRegistered(): Promise<boolean>;
   getDeviceType(): Promise<string>;
   getDeviceModel(): Promise<string>;

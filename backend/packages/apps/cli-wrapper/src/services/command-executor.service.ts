@@ -182,8 +182,7 @@ export class CommandExecutorService implements ICommandExecutor {
       options: [
         { flag: '--code <code>', description: 'Registration code', required: false },
         { flag: '--gateway <url>', description: 'Gateway address', required: false },
-        { flag: '--reward <address>', description: 'Reward address', required: false },
-        { flag: '--key <key>', description: 'Authentication key', required: false }
+        { flag: '--reward <address>', description: 'Reward address', required: false }
       ],
       examples: [
         'register --code ABC123 --gateway http://gateway.example.com --reward 0x123...',

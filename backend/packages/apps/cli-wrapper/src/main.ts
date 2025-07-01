@@ -545,7 +545,6 @@ program
   .option('-c, --code <code>', 'Registration code')
   .option('-g, --gateway <address>', 'Gateway address', 'https://gateway.saito.ai')
   .option('-r, --reward <address>', 'Reward address')
-  .option('-k, --key <key>', 'Authentication key')
   .option('-b, --base-path <path>', 'API server base path for WebSocket connection')
   .action(async (options) => {
     try {
@@ -553,7 +552,6 @@ program
         code: options.code,
         gatewayAddress: options.gateway,
         rewardAddress: options.reward,
-        key: options.key,
         basePath: options.basePath
       });
     } catch (error) {

@@ -65,10 +65,8 @@ export class AppConfigurationService implements OnModuleInit {
   constructor(
     private readonly localConfigService: LocalConfigService,
     private readonly frameworkSwitchService: FrameworkSwitchService,
-    private readonly resourceManagerService: ResourceManagerService,
     private readonly deviceStatusService: EnhancedDeviceStatusService,
     private readonly environmentDetector: EnvironmentDetectorService,
-    private readonly unifiedModelService: UnifiedModelService
   ) {}
 
   /**

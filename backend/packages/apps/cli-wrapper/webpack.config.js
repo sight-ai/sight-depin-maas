@@ -5,14 +5,13 @@ const { execSync } = require('child_process');
 
 // Nx plugins for webpack.
 module.exports = composePlugins(withNx(), (config, context) => {
+  // 为了让 CLI 的网络请求在打包后能正常工作，我们需要保留核心的 Node.js 模块作为外部依赖
+  // 但是移除网络相关的模块，让 webpack 将它们打包进去
   config.externals = {
     'fs': 'commonjs fs',
     'path': 'commonjs path',
     'os': 'commonjs os',
     'crypto': 'commonjs crypto',
-    'http': 'commonjs http',
-    'https': 'commonjs https',
-    'url': 'commonjs url',
     'querystring': 'commonjs querystring',
     'stream': 'commonjs stream',
     'util': 'commonjs util',
@@ -21,11 +20,8 @@ module.exports = composePlugins(withNx(), (config, context) => {
     'child_process': 'commonjs child_process',
     'cluster': 'commonjs cluster',
     'dgram': 'commonjs dgram',
-    'dns': 'commonjs dns',
-    'net': 'commonjs net',
     'readline': 'commonjs readline',
     'repl': 'commonjs repl',
-    'tls': 'commonjs tls',
     'tty': 'commonjs tty',
     'zlib': 'commonjs zlib',
     'assert': 'commonjs assert',

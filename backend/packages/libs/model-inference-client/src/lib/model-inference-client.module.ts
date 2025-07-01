@@ -1,5 +1,6 @@
-import { Module, Global } from '@nestjs/common';
+import { Module, Global, forwardRef } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { LocalConfigService } from '@saito/common';
 import { OllamaClientService } from './client-services/ollama-client.service';
 import { VllmClientService } from './client-services/vllm-client.service';
@@ -7,6 +8,8 @@ import { DynamicModelConfigService } from './model-operations/dynamic-model-conf
 import { DynamicModelClientProvider, ACTIVE_MODEL_CLIENT } from './client-services/dynamic-client.provider';
 import { UnifiedModelService } from './client-services/unified-model.service';
 import { ClientSwitchService } from './client-services/client-switch.service';
+import { TunnelInferenceEventListenerService, TUNNEL_SERVICE_TOKEN } from './services/tunnel-inference-event-listener.service';
+import { DeviceStatusModule } from "@saito/device-status";
 
 // 聊天处理器 (按业务功能命名)
 import { OllamaChatHandler } from './chat-handlers/ollama-chat.handler';
@@ -39,7 +42,9 @@ import { VllmRequestDispatcher } from './request-dispatchers/vllm-request.dispat
 @Global()
 @Module({
   imports: [
-    HttpModule
+    HttpModule,
+    EventEmitterModule,
+    forwardRef(() => (DeviceStatusModule))
   ],
   providers: [
     // 本地配置服务
@@ -74,7 +79,11 @@ import { VllmRequestDispatcher } from './request-dispatchers/vllm-request.dispat
     UnifiedModelService,
 
     // 客户端切换服务
-    ClientSwitchService
+    ClientSwitchService,
+
+    // Tunnel 推理事件监听器
+    TunnelInferenceEventListenerService,
+
   ],
   exports: [
     // 本地配置服务
@@ -109,7 +118,10 @@ import { VllmRequestDispatcher } from './request-dispatchers/vllm-request.dispat
     UnifiedModelService,
 
     // 客户端切换服务
-    ClientSwitchService
+    ClientSwitchService,
+
+    // Tunnel 推理事件监听器
+    TunnelInferenceEventListenerService
   ]
 })
 export class ModelInferenceClientModule {}

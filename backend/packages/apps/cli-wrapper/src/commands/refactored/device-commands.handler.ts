@@ -4,12 +4,8 @@ import {
   IStorageManager,
   CommandResult,
   RegisterOptions,
-  RegistrationInfo,
-  MessageType,
   BoxType
 } from '../../abstractions/cli.interfaces';
-import { ErrorHandlerService } from '@saito/common';
-import { DeviceCredentials } from '@saito/models';
 
 /**
  * 设备命令处理器 
@@ -19,14 +15,15 @@ export class DeviceCommandsHandler {
   constructor(
     private readonly serviceAccess: IDirectServiceAccess,
     private readonly ui: IUserInterface,
-    private readonly storage: IStorageManager,
-    private readonly errorHandler: ErrorHandlerService = new ErrorHandlerService()
+    private readonly storage: IStorageManager
   ) {}
 
   /**
    * 处理设备注册命令
    */
   async handleRegister(options: RegisterOptions): Promise<CommandResult> {
+    this.ui.info('Device Registration');
+
     const spinner = this.ui.showSpinner('Registering device...');
     spinner.start();
 
@@ -57,9 +54,6 @@ export class DeviceCommandsHandler {
       const registrationResult = await this.performRegistration(registrationData);
       
       if (registrationResult.success) {
-        // 4. 保存注册信息
-        await this.saveRegistrationInfo(registrationData, registrationResult.data);
-
         spinner.succeed('Device registered successfully');
         this.showRegistrationSuccess(registrationResult.data);
 
@@ -77,7 +71,7 @@ export class DeviceCommandsHandler {
     } catch (error) {
       spinner.fail('Registration error');
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      this.ui.error(`Registration failed: ${errorMessage}`);
+      this.ui.error(`Registration failed: ${JSON.stringify(errorMessage)}`);
       
       return {
         success: false,
@@ -221,7 +215,7 @@ export class DeviceCommandsHandler {
     data.code = options.code || await this.ui.input('Enter registration code:');
     data.gateway_address = options.gatewayAddress || await this.ui.input('Enter gateway address:', 'http://localhost:8716');
     data.reward_address = options.rewardAddress || await this.ui.input('Enter reward address:');
-    data.key = options.key || await this.ui.input('Enter authentication key:');
+    data.base_path = options.basePath || await this.ui.input('Enter base path (optional):', '');
 
     return data;
   }
@@ -231,21 +225,61 @@ export class DeviceCommandsHandler {
    */
   private async performUnregistration(): Promise<CommandResult> {
     try {
-      const deviceService = await this.serviceAccess.getDeviceStatusService();
+      // 调用本地 API 接口进行注销
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
 
-      // 这里应该调用设备服务的注销方法
-      // 目前假设有相应的方法
-      const result = { success: true, message: 'Device unregistered successfully' };
+      const response = await fetch('http://localhost:8716/api/v1/device-status/unregister', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' })) as { error?: string };
+        return {
+          success: false,
+          error: errorData.error || `HTTP ${response.status}: ${response.statusText}`,
+          code: 'UNREGISTRATION_ERROR',
+          timestamp: new Date().toISOString()
+        };
+      }
+
+      const result = await response.json();
 
       return {
-        success: result.success,
+        success: true,
         data: result,
         timestamp: new Date().toISOString()
       };
-    } catch (error) {
+    } catch (error: any) {
+      // 检查是否是连接错误（后台服务未运行）
+      if (error.name === 'AbortError') {
+        return {
+          success: false,
+          error: 'Request timeout. Backend API server may be slow or unresponsive.',
+          code: 'TIMEOUT_ERROR',
+          timestamp: new Date().toISOString()
+        };
+      }
+
+      if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.cause?.code === 'ECONNREFUSED') {
+        return {
+          success: false,
+          error: 'Backend API server is not running. Please start the backend server first using: ./sightai start',
+          code: 'CONNECTION_ERROR',
+          timestamp: new Date().toISOString()
+        };
+      }
+
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unregistration error',
+        error: error.message || 'Unregistration error',
         code: 'UNREGISTRATION_ERROR',
         timestamp: new Date().toISOString()
       };
@@ -292,61 +326,88 @@ export class DeviceCommandsHandler {
   }
 
   /**
-   * 执行注册
+   * 执行注册 - 调用本地 API 接口
    */
   private async performRegistration(data: any): Promise<CommandResult> {
     try {
-      const deviceService = await this.serviceAccess.getDeviceStatusService();
-
-      // 构建设备凭据
-      const credentials: typeof DeviceCredentials._type = {
+      // 构建请求数据
+      const requestData = {
+        code: data.code,
         gateway_address: data.gateway_address,
         reward_address: data.reward_address,
-        key: data.key,
-        code: data.code
+        basePath: data.base_path
       };
 
-      // 执行注册
-      const result = await deviceService.register(credentials);
+      // 调用本地 API 接口
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
+
+      const response = await fetch('http://localhost:8716/api/v1/device-status/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+      console.log(response)
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' })) as { error?: string };
+        return {
+          success: false,
+          error: errorData.error || `HTTP ${response.status}: ${response.statusText}`,
+          code: 'REGISTRATION_ERROR',
+          timestamp: new Date().toISOString()
+        };
+      }
+
+      const result = await response.json() as { deviceId?: string; message?: string };
 
       return {
-        success: result.success,
+        success: true,
         data: {
           deviceInfo: {
-            gatewayAddress: credentials.gateway_address,
-            rewardAddress: credentials.reward_address,
-            registeredAt: new Date().toISOString()
+            gatewayAddress: requestData.gateway_address,
+            rewardAddress: requestData.reward_address,
+            registeredAt: new Date().toISOString(),
+            deviceId: result.deviceId || 'unknown'
           },
-          message: result.message
+          message: result.message || 'Registration successful'
         },
-        error: result.success ? undefined : result.message,
         timestamp: new Date().toISOString()
       };
-    } catch (error) {
+    } catch (error: any) {
+      // 检查是否是连接错误（后台服务未运行）
+      if (error.name === 'AbortError') {
+        return {
+          success: false,
+          error: 'Request timeout. Backend API server may be slow or unresponsive.',
+          code: 'TIMEOUT_ERROR',
+          timestamp: new Date().toISOString()
+        };
+      }
+
+      if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.cause?.code === 'ECONNREFUSED') {
+        return {
+          success: false,
+          error: 'Backend API server is not running. Please start the backend server first using: ./sightai start',
+          code: 'CONNECTION_ERROR',
+          timestamp: new Date().toISOString()
+        };
+      }
+
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Registration error',
+        error: error.message || 'Registration error',
         code: 'REGISTRATION_ERROR',
         timestamp: new Date().toISOString()
       };
     }
   }
 
-  /**
-   * 保存注册信息
-   */
-  private async saveRegistrationInfo(registrationData: any, responseData: any): Promise<void> {
-    const registrationInfo: RegistrationInfo = {
-      deviceId: responseData.deviceInfo?.deviceId || 'unknown',
-      deviceName: registrationData.deviceName || 'SightAI Device',
-      gatewayAddress: registrationData.gateway_address,
-      rewardAddress: registrationData.reward_address,
-      isRegistered: true,
-      timestamp: new Date().toISOString()
-    };
 
-    await this.storage.saveRegistration(registrationInfo);
-  }
 
   /**
    * 显示注册成功信息

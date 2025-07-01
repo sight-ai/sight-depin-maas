@@ -12,7 +12,6 @@ import {
   DeviceConfig,
   RegistrationResult
 } from '../device-status.interface';
-import { UnifiedModelService } from '@saito/model-inference-client';
 
 /**
  * 自动注册服务
@@ -38,9 +37,8 @@ export class AutoRegistrationService implements OnModuleInit {
     private readonly systemService: TDeviceSystem,
 
     @Inject(DEVICE_GATEWAY_SERVICE)
-    private readonly gatewayService: TDeviceGateway,
+    private readonly gatewayService: TDeviceGateway
 
-    private readonly unifiedModelService: UnifiedModelService
   ) {}
 
   /**
@@ -68,7 +66,7 @@ export class AutoRegistrationService implements OnModuleInit {
 
       // 检查是否有存储的注册信息
       const config = this.configService.getCurrentConfig();
-      
+      console.log(config, 'getCurrentConfig')
       if (!this.hasValidRegistrationInfo(config)) {
         this.logger.debug('No valid registration information found, skipping auto registration');
         return false;
@@ -80,14 +78,11 @@ export class AutoRegistrationService implements OnModuleInit {
         this.logger.log('Found stored registration info, attempting to register with gateway...');
       }
 
-      // 获取本地模型信息
-      const localModels = await this.getLocalModels();
-
       // 获取系统信息
       const systemInfo = await this.getSystemInfo();
 
       // 尝试向网关注册
-      const result = await this.registerWithGateway(config, localModels, systemInfo);
+      const result = await this.registerWithGateway(config, [], systemInfo);
       if (result.success) {
         this.logger.log(`Auto registration successful: ${result.node_id || result.name}`);
         
@@ -120,52 +115,10 @@ export class AutoRegistrationService implements OnModuleInit {
   private hasValidRegistrationInfo(config: DeviceConfig): boolean {
     return !!(
       config.gatewayAddress &&
-      config.key &&
       config.code &&
       config.rewardAddress &&
       config.deviceName
     );
-  }
-
-  /**
-   * 获取本地模型信息 - 使用模型框架服务获取统一格式
-   */
-  private async getLocalModels(): Promise<any[]> {
-    try {
-      this.logger.debug('Getting local models from model framework service...');
-
-      // 尝试获取当前可用的服务
-      const modelList = await this.unifiedModelService.listModels();
-      const currentFramework = this.unifiedModelService.getCurrentFramework();
-
-      if (modelList && modelList.models) {
-        this.logger.debug(`Using ${currentFramework} framework to get models`);
-
-        // 转换为网关期望的格式
-        const formattedModels = modelList.models.map((model: any) => ({
-          name: model.name,
-          size: model.size || 'unknown',
-          digest: model.digest || '',
-          modified_at: model.modified_at
-        }));
-
-        this.logger.debug(`Found ${formattedModels.length} models from ${currentFramework}`);
-        return formattedModels;
-      } else {
-        this.logger.warn('No model framework service available, falling back to system service');
-        return await this.systemService.getLocalModels();
-      }
-    } catch (error) {
-      this.logger.warn('Failed to get models from framework service, falling back to system service:', error);
-
-      // 回退到系统服务
-      try {
-        return await this.systemService.getLocalModels();
-      } catch (fallbackError) {
-        this.logger.error('Failed to get models from system service as well:', fallbackError);
-        return [];
-      }
-    }
   }
 
   /**

@@ -11,7 +11,6 @@ export interface RegisterOptions {
   code?: string;
   gatewayAddress?: string;
   rewardAddress?: string;
-  key?: string;
   basePath?: string;
 }
 
@@ -30,13 +29,12 @@ export class DeviceCommands {
       // 如果提供了所有必需的参数，直接使用；否则进入交互模式
       let credentials: any;
 
-      if (options?.code && options?.gatewayAddress && options?.rewardAddress && options?.key) {
+      if (options?.code && options?.gatewayAddress && options?.rewardAddress) {
         // 使用命令行参数
         credentials = {
           code: options.code.trim(),
           gateway_address: options.gatewayAddress.trim(),
           reward_address: options.rewardAddress.trim(),
-          key: options.key.trim(),
           basePath: options.basePath
         };
 
@@ -106,21 +104,6 @@ export class DeviceCommands {
           });
         }
 
-        if (!options?.key) {
-          questions.push({
-            type: 'password',
-            name: 'key',
-            message: 'Authentication Key:',
-            mask: '*',
-            validate: (input: string) => {
-              if (!input.trim()) {
-                return 'Authentication key is required';
-              }
-              return true;
-            }
-          });
-        }
-
         if (!options?.basePath) {
           questions.push({
             type: 'input',
@@ -142,7 +125,6 @@ export class DeviceCommands {
           code: (options?.code || answers.code).trim(),
           gateway_address: (options?.gatewayAddress || answers.gatewayAddress).trim(),
           reward_address: (options?.rewardAddress || answers.rewardAddress).trim(),
-          key: (options?.key || answers.key).trim(),
           basePath: basePath?.trim()
         };
 
@@ -156,16 +138,17 @@ export class DeviceCommands {
       spinner.start();
 
       try {
-        const result = await AppServices.register(credentials);
+        // 直接调用本地 API 接口进行注册
+        const result = await DeviceCommands.performDirectRegistration(credentials);
         spinner.stop();
-        // console.log(result)
+
         if (result.success) {
           UIUtils.success('Device registered successfully!');
 
-          if (result.node_id || result.name) {
+          if (result.deviceId || result.deviceName) {
             const info: Record<string, string> = {};
-            if (result.node_id) info['Node ID'] = result.node_id;
-            if (result.name) info['Device Name'] = result.name;
+            if (result.deviceId) info['Device ID'] = result.deviceId;
+            if (result.deviceName) info['Device Name'] = result.deviceName;
 
             console.log('');
             TableUtils.showKeyValueTable(info);
@@ -173,7 +156,10 @@ export class DeviceCommands {
 
           UIUtils.info('Heartbeat started automatically');
         } else {
-          UIUtils.error(`Registration failed: ${result.error}`);
+          const errorMessage = typeof result.error === 'string'
+            ? result.error
+            : JSON.stringify(result.error) || 'Unknown registration error';
+          UIUtils.error(`Registration failed: ${errorMessage}`);
         }
       } catch (error) {
         spinner.stop();
@@ -181,6 +167,79 @@ export class DeviceCommands {
       }
     } catch (error) {
       UIUtils.error(`Input error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * 直接调用本地 API 进行设备注册
+   */
+  private static async performDirectRegistration(credentials: any): Promise<any> {
+    try {
+      // 构建请求数据
+      const requestData = {
+        code: credentials.code,
+        gateway_address: credentials.gateway_address,
+        reward_address: credentials.reward_address,
+        basePath: credentials.basePath
+      };
+
+      // 调用本地 API 接口
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
+
+      const response = await fetch('http://localhost:8716/api/v1/device-status/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+        signal: controller.signal
+      });
+      console.log(response)
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' })) as { error?: string };
+        return {
+          success: false,
+          error: errorData.error || `HTTP ${response.status}: ${response.statusText}`
+        };
+      }
+
+      const result = await response.json() as {
+        success?: boolean;
+        deviceId?: string;
+        deviceName?: string;
+        message?: string;
+        error?: string;
+      };
+
+      return {
+        success: result.success || true,
+        deviceId: result.deviceId,
+        deviceName: result.deviceName,
+        message: result.message || 'Registration successful'
+      };
+    } catch (error: any) {
+      // 检查是否是连接错误（后台服务未运行）
+      if (error.name === 'AbortError') {
+        return {
+          success: false,
+          error: 'Request timeout. Backend API server may be slow or unresponsive.'
+        };
+      }
+
+      if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.cause?.code === 'ECONNREFUSED') {
+        return {
+          success: false,
+          error: 'Backend API server is not running. Please start the backend server first using: ./sightai start'
+        };
+      }
+
+      return {
+        success: false,
+        error: error.message || 'Registration error'
+      };
     }
   }
 

@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Socket } from 'socket.io-client';
 import { TunnelService, TunnelMessageListener } from './tunnel.interface';
 import { TunnelMessage } from '@saito/models';
@@ -7,6 +8,16 @@ import { UnknownMessageTypeError } from './errors/unknown-message-type.error';
 import { MessageGateway } from './message-gateway/message-gateway.interface';
 import { ConnectionError, DeviceRegistrationError, MessageSendError } from './errors/connection.error';
 import { GLOBAL_PEER_ID_PROVIDER } from './tunnel.module';
+import {
+  TUNNEL_EVENTS,
+  TunnelConnectionEstablishedEvent,
+  TunnelConnectionLostEvent,
+  TunnelDeviceRegisteredEvent,
+  TunnelMessageReceivedEvent,
+  TunnelMessageSentEvent,
+  TunnelMessageFailedEvent,
+  TunnelErrorEvent
+} from './events';
 
 /**
  * 隧道服务实现
@@ -37,8 +48,9 @@ export class TunnelServiceImpl implements TunnelService {
     private readonly handlerRegistry: MessageHandlerRegistry,
     @Inject('MessageGateway') private readonly messageGateway: MessageGateway,
     @Inject('PEER_ID') private peerId: string,
+    private readonly eventEmitter: EventEmitter2,
   ) {
-    // 初始化socket为空对象，实际连接在createSocket中建立
+    // 初始化socket为空对象，实际连接在createConnection中建立
     this.socket = {} as Socket;
     this.setupMessageGatewayCallbacks();
   }
@@ -57,15 +69,33 @@ export class TunnelServiceImpl implements TunnelService {
       return;
     }
 
-    // 使用注入的peerId
-    if (message.to === this.peerId) {
-      this.logger.log(`✅ 消息目标匹配，处理入站消息`);
-      await this.handleIncomeMessage(message, listener);
-    } else if (message.from === this.peerId) {
-      this.logger.log(`📤 消息来源匹配，处理出站消息`);
-      await this.handleOutcomeMessage(message, listener);
-    } else {
-      this.logger.warn(`❌ 忽略与设备ID不匹配的消息 - 当前设备: ${this.peerId}, 消息路径: ${message.from} -> ${message.to}`);
+    try {
+      // 发射消息接收事件
+      this.eventEmitter.emit(
+        TUNNEL_EVENTS.MESSAGE_RECEIVED,
+        new TunnelMessageReceivedEvent(message)
+      );
+
+      // 使用注入的peerId
+      if (message.to === this.peerId) {
+        this.logger.log(`✅ 消息目标匹配，处理入站消息`);
+        await this.handleIncomeMessage(message, listener);
+      } else if (message.from === this.peerId) {
+        this.logger.log(`📤 消息来源匹配，处理出站消息`);
+        await this.handleOutcomeMessage(message, listener);
+      } else {
+        this.logger.warn(`❌ 忽略与设备ID不匹配的消息 - 当前设备: ${this.peerId}, 消息路径: ${message.from} -> ${message.to}`);
+      }
+    } catch (error) {
+      this.logger.error(`消息处理失败: ${error instanceof Error ? error.message : '未知错误'}`);
+
+      // 发射消息处理失败事件
+      this.eventEmitter.emit(
+        TUNNEL_EVENTS.MESSAGE_FAILED,
+        new TunnelMessageFailedEvent(message, error instanceof Error ? error : new Error('未知错误'))
+      );
+
+      throw error;
     }
   }
 
@@ -75,22 +105,55 @@ export class TunnelServiceImpl implements TunnelService {
   async sendMessage(message: TunnelMessage): Promise<void> {
     try {
       await this.messageGateway.sendMessage(message);
+
+      // 发射消息发送成功事件
+      this.eventEmitter.emit(
+        TUNNEL_EVENTS.MESSAGE_SENT,
+        new TunnelMessageSentEvent(message)
+      );
     } catch (error) {
       this.logger.error(`发送消息失败: ${error instanceof Error ? error.message : '未知错误'}`);
+
+      // 发射消息发送失败事件
+      this.eventEmitter.emit(
+        TUNNEL_EVENTS.MESSAGE_FAILED,
+        new TunnelMessageFailedEvent(message, error instanceof Error ? error : new Error('发送消息失败'))
+      );
+
       throw new MessageSendError('发送消息失败', message);
     }
   }
 
   /**
-   * 创建Socket连接
+   * 创建Socket连接 createConnection
    */
-  async createSocket(gatewayAddress: string, key: string, code?: string, basePath?: string): Promise<void> {
+  async createConnection(gatewayAddress: string, code?: string, basePath?: string): Promise<void> {
     try {
-      await this.messageGateway.connect(gatewayAddress, key, code, basePath);
+      this.logger.log(`🔗 正在建立Socket连接到: ${gatewayAddress}`);
+      // 建立连接
+      await this.messageGateway.connect(gatewayAddress, code, basePath);
       this.gatewayUrl = gatewayAddress;
       this.socket = {} as Socket; // 保持兼容性
+      this.logger.log(`✅ Socket连接建立成功`);
+
+      // 发射连接建立事件
+      this.eventEmitter.emit(
+        TUNNEL_EVENTS.CONNECTION_ESTABLISHED,
+        new TunnelConnectionEstablishedEvent(this.peerId || 'unknown', gatewayAddress)
+      );
     } catch (error) {
       this.logger.error(`创建Socket连接失败: ${error instanceof Error ? error.message : '未知错误'}`);
+
+      // 发射错误事件
+      this.eventEmitter.emit(
+        TUNNEL_EVENTS.ERROR,
+        new TunnelErrorEvent(
+          error instanceof Error ? error : new Error('创建Socket连接失败'),
+          'createConnection',
+          this.peerId
+        )
+      );
+
       throw new ConnectionError('创建Socket连接失败', error as Error);
     }
   }
@@ -98,7 +161,7 @@ export class TunnelServiceImpl implements TunnelService {
   /**
    * 连接Socket
    */
-  async connectSocket(node_id: string): Promise<void> {
+  async connect(node_id: string): Promise<void> {
     try {
       this.node_id = node_id;
       this.peerId = node_id;
@@ -106,10 +169,27 @@ export class TunnelServiceImpl implements TunnelService {
       // 更新全局PEER_ID提供者
       GLOBAL_PEER_ID_PROVIDER.setPeerId(node_id);
 
-      await this.messageGateway.registerDevice(node_id);
+      // await this.messageGateway.registerDevice(node_id);
       this.logger.log(`发送设备注册请求，ID: ${node_id}`);
+
+      // 发射设备注册事件
+      this.eventEmitter.emit(
+        TUNNEL_EVENTS.DEVICE_REGISTERED,
+        new TunnelDeviceRegisteredEvent(node_id, node_id)
+      );
     } catch (error) {
       this.logger.error(`设备注册失败: ${error instanceof Error ? error.message : '未知错误'}`);
+
+      // 发射错误事件
+      this.eventEmitter.emit(
+        TUNNEL_EVENTS.ERROR,
+        new TunnelErrorEvent(
+          error instanceof Error ? error : new Error('设备注册失败'),
+          'connect',
+          node_id
+        )
+      );
+
       throw new DeviceRegistrationError(node_id, error instanceof Error ? error.message : '未知错误');
     }
   }
@@ -117,10 +197,16 @@ export class TunnelServiceImpl implements TunnelService {
   /**
    * 断开Socket连接
    */
-  async disconnectSocket(): Promise<void> {
+  async disconnect(): Promise<void> {
     try {
       await this.messageGateway.disconnect();
       this.logger.log('Socket连接已断开');
+
+      // 发射连接断开事件
+      this.eventEmitter.emit(
+        TUNNEL_EVENTS.CONNECTION_LOST,
+        new TunnelConnectionLostEvent(this.peerId, 'Manual disconnect')
+      );
 
       // 清理状态
       this.connectedDevices.clear();
@@ -130,6 +216,17 @@ export class TunnelServiceImpl implements TunnelService {
       this.listeners = [];
     } catch (error) {
       this.logger.error(`断开连接失败: ${error instanceof Error ? error.message : '未知错误'}`);
+
+      // 发射错误事件
+      this.eventEmitter.emit(
+        TUNNEL_EVENTS.ERROR,
+        new TunnelErrorEvent(
+          error instanceof Error ? error : new Error('断开连接失败'),
+          'disconnect',
+          this.peerId
+        )
+      );
+
       throw error;
     }
   }
@@ -146,6 +243,29 @@ export class TunnelServiceImpl implements TunnelService {
    */
   async isDeviceConnected(deviceId: string): Promise<boolean> {
     return this.connectedDevices.has(deviceId);
+  }
+
+  /**
+   * 检查Socket连接状态
+   */
+  isConnected(): boolean {
+    return this.messageGateway.isConnected();
+  }
+
+  /**
+   * 等待连接建立
+   */
+  async waitForConnection(timeoutMs: number = 10000): Promise<boolean> {
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeoutMs) {
+      if (this.isConnected()) {
+        return true;
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    return false;
   }
 
   /**
@@ -248,3 +368,4 @@ export class TunnelServiceImpl implements TunnelService {
     this.listeners = remaining;
   }
 }
+
