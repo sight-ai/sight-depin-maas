@@ -71,6 +71,26 @@ export class ProcessManagerService implements IProcessManager {
   }
 
   /**
+   * 获取api-server的dist路径
+   */
+  private static getApiServerDistPath(): string {
+    if ((process as any).pkg) {
+      // 打包环境：使用 snapshot 路径
+      return '/snapshot/backend/dist/packages/apps/api-server';
+    } else {
+      // 开发环境：使用相对路径
+      return path.resolve(__dirname, '../../../api-server');
+    }
+  }
+
+  /**
+   * 获取api-server main.js文件路径
+   */
+  private static getApiServerMainPath(): string {
+    return path.join(this.getApiServerDistPath(), 'main.js');
+  }
+
+  /**
    * 保存进程ID到文件
    */
   static savePid(pid: number): void {
@@ -182,19 +202,33 @@ export class ProcessManagerService implements IProcessManager {
         };
       }
 
-      // 获取当前执行文件的路径
-      const currentExecutable = process.argv[0]; // node 或打包后的可执行文件
-      const currentScript = process.argv[1]; // 当前脚本路径
+      // 获取 api-server 的 main.js 路径
+      const apiServerMainPath = this.getApiServerMainPath();
+
+      // 检查 api-server main.js 是否存在
+      if (!fs.existsSync(apiServerMainPath)) {
+        return {
+          success: false,
+          error: `API server main file not found: ${apiServerMainPath}`
+        };
+      }
 
       // 创建日志文件
       const logFile = this.getLogFilePath();
       const logStream = fs.openSync(logFile, 'a');
 
-      // 创建后台进程，将输出重定向到日志文件
-      const child = spawn(currentExecutable, [currentScript, 'start'], {
+      // 在打包环境和开发环境中都使用 node 直接执行 api-server main.js
+      const spawnCommand = 'node';
+      const spawnArgs = [apiServerMainPath];
+
+      // 在打包环境中，不能使用 snapshot 路径作为 cwd
+      const workingDir = (process as any).pkg ? process.cwd() : this.getApiServerDistPath();
+
+      const child = spawn(spawnCommand, spawnArgs, {
         detached: true,
         stdio: ['ignore', logStream, logStream],
-        env: process.env // 传递当前进程的环境变量
+        env: process.env, // 传递当前进程的环境变量
+        cwd: workingDir
       });
 
       // 分离子进程，让它独立运行

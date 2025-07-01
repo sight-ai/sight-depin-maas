@@ -6,10 +6,8 @@ import { DeviceCommands } from './commands/device';
 import { ModelCommands } from './commands/models';
 import { VllmCommands } from './commands/vllm';
 import { OllamaCommands } from './commands/ollama';
-import { LibP2PCommands } from './commands/libp2p';
 import { AppServices } from './services/app-services';
 import { ProcessManagerService } from './services/process-manager';
-import { LibP2PProcessManagerService } from './services/libp2p-process-manager';
 import { UIUtils } from './utils/ui';
 import inquirer from 'inquirer';
 import * as dotenv from 'dotenv';
@@ -104,13 +102,6 @@ async function startInteractiveCli(): Promise<void> {
             { name: '📊 Ollama process status', value: 'ollama-status' },
             { name: '🔧 Configure Ollama', value: 'ollama-configure' },
             { name: '📋 List Ollama models', value: 'ollama-models' },
-            new inquirer.Separator(),
-            { name: '🌐 Start LibP2P service', value: 'libp2p-start' },
-            { name: '🛑 Stop LibP2P service', value: 'libp2p-stop' },
-            { name: '🔄 Restart LibP2P service', value: 'libp2p-restart' },
-            { name: '📊 LibP2P process status', value: 'libp2p-status' },
-            { name: '📋 View LibP2P logs', value: 'libp2p-logs' },
-            { name: '🔧 LibP2P configuration', value: 'libp2p-config' },
             new inquirer.Separator(),
             { name: '🚀 Start backend server', value: 'start-server' },
             { name: '� Stop backend server', value: 'stop-server' },
@@ -251,60 +242,17 @@ async function startInteractiveCli(): Promise<void> {
         case 'ollama-models':
           await OllamaCommands.listModels();
           break;
-        case 'libp2p-start':
-          await LibP2PCommands.startService();
-          break;
-        case 'libp2p-stop':
-          await LibP2PCommands.stopService();
-          break;
-        case 'libp2p-restart':
-          await LibP2PCommands.restartService();
-          break;
-        case 'libp2p-status':
-          await LibP2PCommands.getProcessStatus();
-          break;
-        case 'libp2p-logs':
-          await LibP2PCommands.viewLogs();
-          break;
-        case 'libp2p-config':
-          await LibP2PCommands.showConfiguration();
-          break;
         case 'start-server':
           UIUtils.info('Starting backend server in background...');
           const startResult = ProcessManagerService.startDaemonProcess();
           if (startResult.success) {
             UIUtils.success('Backend server started in background');
             UIUtils.info(`Process ID: ${startResult.pid}`);
-
-            // 等待后台服务启动完成，然后启动 LibP2P
-            UIUtils.info('Waiting for backend server to initialize...');
-            await new Promise(resolve => setTimeout(resolve, 3000));
-
-            UIUtils.info('Starting LibP2P service...');
-            const libp2pResult = LibP2PProcessManagerService.startDaemonProcess();
-            if (libp2pResult.success) {
-              UIUtils.success('LibP2P service started successfully');
-              UIUtils.info(`LibP2P Process ID: ${libp2pResult.pid}`);
-            } else {
-              UIUtils.warning(`LibP2P service failed to start: ${libp2pResult.error}`);
-              UIUtils.info('You can start LibP2P manually using: sight libp2p start');
-            }
           } else {
             UIUtils.error(`Failed to start server: ${startResult.error}`);
           }
           break;
         case 'stop-server':
-          UIUtils.info('Stopping services...');
-
-          // 先停止 LibP2P 服务
-          const libp2pStopResult = LibP2PProcessManagerService.stopDaemonProcess();
-          if (libp2pStopResult.success) {
-            UIUtils.success('LibP2P service stopped successfully');
-          } else if (!libp2pStopResult.error?.includes('not running')) {
-            UIUtils.warning(`LibP2P stop warning: ${libp2pStopResult.error}`);
-          }
-
-          // 然后停止后台服务器
           UIUtils.info('Stopping backend server...');
           const stopResult = ProcessManagerService.stopDaemonProcess();
           if (stopResult.success) {
@@ -315,7 +263,6 @@ async function startInteractiveCli(): Promise<void> {
           break;
         case 'server-status':
           const serverStatus = ProcessManagerService.getServerStatus();
-          const libp2pServerStatus = LibP2PProcessManagerService.getServerStatus();
 
           UIUtils.showSection('Service Status');
 
@@ -325,19 +272,6 @@ async function startInteractiveCli(): Promise<void> {
             console.log(`  Status: ✅ Running`);
             console.log(`  Process ID: ${serverStatus.pid}`);
             console.log(`  Started: ${serverStatus.startTime}`);
-          } else {
-            console.log(`  Status: ❌ Not running`);
-          }
-
-          console.log('');
-
-          // LibP2P 服务状态
-          console.log('🌐 LibP2P Service:');
-          if (libp2pServerStatus.running) {
-            console.log(`  Status: ✅ Running`);
-            console.log(`  Process ID: ${libp2pServerStatus.pid}`);
-            console.log(`  Started: ${libp2pServerStatus.startTime ? new Date(libp2pServerStatus.startTime).toLocaleString() : 'Unknown'}`);
-            console.log(`  Project Path: ${libp2pServerStatus.projectPath || 'Unknown'}`);
           } else {
             console.log(`  Status: ❌ Not running`);
           }
@@ -378,7 +312,6 @@ async function startInteractiveCli(): Promise<void> {
           // 检查所有服务状态
           const newHealth = await AppServices.checkServicesHealth();
           const backendStatus = ProcessManagerService.getServerStatus();
-          const libp2pRefreshStatus = LibP2PProcessManagerService.getServerStatus();
 
           console.log('📊 Service Status:');
           console.log('');
@@ -388,13 +321,6 @@ async function startInteractiveCli(): Promise<void> {
             UIUtils.success('✅ Backend services are available');
           } else {
             UIUtils.error('❌ Backend services are not available');
-          }
-
-          // LibP2P 服务状态
-          if (libp2pRefreshStatus.running) {
-            UIUtils.success('✅ LibP2P service is running');
-          } else {
-            UIUtils.warning('⚠️  LibP2P service is not running');
           }
 
           // 框架服务状态
@@ -458,22 +384,6 @@ program
           UIUtils.success('Backend server started in background');
           UIUtils.info(`Process ID: ${result.pid}`);
           UIUtils.info('You can now use other commands while the server runs in background');
-
-          // 给服务器一些时间启动
-          await new Promise(resolve => setTimeout(resolve, 3000));
-
-          // 启动 LibP2P 服务
-          UIUtils.info('Starting LibP2P service...');
-          const libp2pResult = LibP2PProcessManagerService.startDaemonProcess();
-          if (libp2pResult.success) {
-            UIUtils.success('LibP2P service started successfully');
-            UIUtils.info(`LibP2P Process ID: ${libp2pResult.pid}`);
-            UIUtils.info('All services are now running in background');
-          } else {
-            UIUtils.warning(`LibP2P service failed to start: ${libp2pResult.error}`);
-            UIUtils.info('Backend server is running, but LibP2P failed to start');
-            UIUtils.info('You can start LibP2P manually using: sight libp2p start');
-          }
         } else {
           UIUtils.error(`Failed to start background server: ${result.error}`);
           process.exit(1);
@@ -494,29 +404,14 @@ program
  */
 program
   .command('stop')
-  .description('Stop the Sight AI backend server and LibP2P service')
+  .description('Stop backend server')
   .action(async () => {
     try {
-      UIUtils.showSection('Stopping Services');
+      UIUtils.showSection('Stopping Backend Server');
 
-      // 先停止 LibP2P 服务
-      console.log('🔄 Stopping LibP2P service...');
-      const libp2pResult = LibP2PProcessManagerService.stopDaemonProcess();
-
-      // 显示 LibP2P 停止结果
-      if (libp2pResult.success) {
-        UIUtils.success('LibP2P service stopped successfully');
-      } else if (libp2pResult.error?.includes('not running')) {
-        UIUtils.info('LibP2P service was not running');
-      } else {
-        UIUtils.warning(`LibP2P stop warning: ${libp2pResult.error}`);
-      }
-
-      // 然后停止后台服务器
       console.log('🔄 Stopping backend server...');
       const result = ProcessManagerService.stopDaemonProcess();
 
-      // 显示后台服务器停止结果
       if (result.success) {
         UIUtils.success('Backend server stopped successfully');
       } else {
@@ -524,7 +419,7 @@ program
         process.exit(1);
       }
     } catch (error) {
-      UIUtils.error(`Failed to stop services: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      UIUtils.error(`Failed to stop server: ${error instanceof Error ? error.message : 'Unknown error'}`);
       process.exit(1);
     }
   });
@@ -534,13 +429,12 @@ program
  */
 program
   .command('server-status')
-  .description('Check backend server and LibP2P service status')
+  .description('Check backend server status')
   .action(async () => {
     try {
-      UIUtils.showSection('Service Status');
+      UIUtils.showSection('Backend Server Status');
 
       const status = ProcessManagerService.getServerStatus();
-      const libp2pStatus = LibP2PProcessManagerService.getServerStatus();
 
       // 后台服务器状态
       console.log('🖥️  Backend Server:');
@@ -552,20 +446,6 @@ program
       } else {
         console.log(`  Status: ❌ Not running`);
         console.log(`  Use "sight start --daemon" to start the server in background`);
-      }
-
-      console.log('');
-
-      // LibP2P 服务状态
-      console.log('🌐 LibP2P Service:');
-      if (libp2pStatus.running) {
-        console.log(`  Status: ✅ Running`);
-        console.log(`  Process ID: ${libp2pStatus.pid}`);
-        console.log(`  Started: ${libp2pStatus.startTime ? new Date(libp2pStatus.startTime).toLocaleString() : 'Unknown'}`);
-        console.log(`  Project Path: ${libp2pStatus.projectPath || 'Unknown'}`);
-      } else {
-        console.log(`  Status: ❌ Not running`);
-        console.log(`  Use "sight libp2p start" to start the LibP2P service`);
       }
     } catch (error) {
       UIUtils.error(`Failed to check service status: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -720,25 +600,15 @@ program
   .action(async () => {
     try {
       await DeviceCommands.unregister();
-      UIUtils.showSection('Stopping Services');
+      UIUtils.showSection('Stopping Backend Server');
 
-      const spinner = UIUtils.createSpinner('Stopping services...');
+      const spinner = UIUtils.createSpinner('Stopping backend server...');
       spinner.start();
 
-      // 先停止 LibP2P 服务
-      const libp2pResult = LibP2PProcessManagerService.stopDaemonProcess();
-
-      // 然后停止后台服务器
       const result = ProcessManagerService.stopDaemonProcess();
       spinner.stop();
 
       // 显示结果
-      if (libp2pResult.success) {
-        UIUtils.success('LibP2P service stopped successfully');
-      } else if (!libp2pResult.error?.includes('not running')) {
-        UIUtils.warning(`LibP2P stop warning: ${libp2pResult.error}`);
-      }
-
       if (result.success) {
         UIUtils.success('Backend server stopped successfully');
       } else {
@@ -1181,103 +1051,7 @@ vllmCommand
     }
   });
 
-/**
- * LibP2P管理命令组
- */
-const libp2pCommand = program
-  .command('libp2p')
-  .description('LibP2P service management commands');
 
-libp2pCommand
-  .command('start')
-  .description('Start LibP2P service')
-  .action(async () => {
-    try {
-      await LibP2PCommands.startService();
-    } catch (error) {
-      UIUtils.error(`LibP2P start error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      process.exit(1);
-    } finally {
-      await AppServices.closeApp();
-    }
-  });
-
-libp2pCommand
-  .command('stop')
-  .description('Stop LibP2P service')
-  .action(async () => {
-    try {
-      await LibP2PCommands.stopService();
-    } catch (error) {
-      UIUtils.error(`LibP2P stop error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      process.exit(1);
-    } finally {
-      await AppServices.closeApp();
-    }
-  });
-
-libp2pCommand
-  .command('restart')
-  .description('Restart LibP2P service')
-  .action(async () => {
-    try {
-      await LibP2PCommands.restartService();
-    } catch (error) {
-      UIUtils.error(`LibP2P restart error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      process.exit(1);
-    } finally {
-      await AppServices.closeApp();
-    }
-  });
-
-libp2pCommand
-  .command('status')
-  .description('Show LibP2P process status')
-  .action(async () => {
-    try {
-      await LibP2PCommands.getProcessStatus();
-    } catch (error) {
-      UIUtils.error(`LibP2P status error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      process.exit(1);
-    } finally {
-      await AppServices.closeApp();
-    }
-  });
-
-libp2pCommand
-  .command('logs')
-  .description('View LibP2P server logs')
-  .option('-n, --lines <number>', 'Number of lines to show', '30')
-  .option('-c, --clear', 'Clear log file')
-  .action(async (options) => {
-    try {
-      if (options.clear) {
-        await LibP2PCommands.clearLogs();
-      } else {
-        const lines = parseInt(options.lines, 10) || 30;
-        await LibP2PCommands.viewLogs(lines);
-      }
-    } catch (error) {
-      UIUtils.error(`LibP2P logs error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      process.exit(1);
-    } finally {
-      await AppServices.closeApp();
-    }
-  });
-
-libp2pCommand
-  .command('config')
-  .description('Show LibP2P configuration')
-  .action(async () => {
-    try {
-      await LibP2PCommands.showConfiguration();
-    } catch (error) {
-      UIUtils.error(`LibP2P config error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      process.exit(1);
-    } finally {
-      await AppServices.closeApp();
-    }
-  });
 
 /**
  * 框架管理命令组

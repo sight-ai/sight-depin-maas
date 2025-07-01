@@ -3,10 +3,11 @@
   "version": "0.0.1",
   "description": "",
   "author": "",
+  "bin": "dist/main.js",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "nest build",
+    "build": "nest build &&  npx @yao-pkg/pkg --compress GZip .",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -96,5 +97,24 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "pkg": {
+    "scripts": [
+      "dist/**/*.js"
+    ],
+    "assets": [
+      ".env",
+      "dist/**/*",
+      "lib/**/*",
+            "node_modules/**/*"
+    ],
+    "targets": [
+      "node22-mac-arm64"
+    ],
+    "outputPath": "dist-pkg",
+    "options": [
+      "--compress",
+      "GZip"
+    ]
   }
 }

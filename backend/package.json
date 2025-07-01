@@ -18,7 +18,9 @@
     "@chainsafe/libp2p-noise": "^16.1.4",
     "@chainsafe/libp2p-yamux": "^7.0.4",
     "@inquirer/prompts": "^3.3.2",
+    "@libp2p/autonat": "^2.0.37",
     "@libp2p/bootstrap": "^11.0.43",
+    "@libp2p/circuit-relay-v2": "^3.2.20",
     "@libp2p/crypto": "^5.1.7",
     "@libp2p/identify": "^3.0.37",
     "@libp2p/interface": "^2.10.5",
@@ -175,11 +177,10 @@
     "assets": [
       "dist/**/*",
       ".env",
-      "libp2p/**/*",
       "node_modules/.pnpm/classic-level@3.0.0/node_modules/classic-level/prebuilds/**/*"
     ],
     "targets": [
-      "node20-mac-arm64"
+      "node22-mac-arm64"
     ],
     "outputPath": "dist-pkg",
     "options": [
