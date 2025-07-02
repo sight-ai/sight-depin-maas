@@ -262,13 +262,18 @@ async function startInteractiveCli(): Promise<void> {
           }
           break;
         case 'server-status':
-          const status = ProcessManagerService.getServerStatus();
-          if (status.running) {
-            UIUtils.success('Backend server is running');
-            console.log(`  Process ID: ${status.pid}`);
-            console.log(`  Started: ${status.startTime}`);
+          const serverStatus = ProcessManagerService.getServerStatus();
+
+          UIUtils.showSection('Service Status');
+
+          // 后台服务器状态
+          console.log('🖥️  Backend Server:');
+          if (serverStatus.running) {
+            console.log(`  Status: ✅ Running`);
+            console.log(`  Process ID: ${serverStatus.pid}`);
+            console.log(`  Started: ${serverStatus.startTime}`);
           } else {
-            UIUtils.warning('Backend server is not running');
+            console.log(`  Status: ❌ Not running`);
           }
           break;
         case 'view-logs':
@@ -303,17 +308,29 @@ async function startInteractiveCli(): Promise<void> {
         case 'refresh':
           UIUtils.clear();
           UIUtils.showTitle();
+
+          // 检查所有服务状态
           const newHealth = await AppServices.checkServicesHealth();
+          const backendStatus = ProcessManagerService.getServerStatus();
+
+          console.log('📊 Service Status:');
+          console.log('');
+
+          // 后台服务状态
           if (newHealth.backend) {
-            UIUtils.success('Backend services are available');
+            UIUtils.success('✅ Backend services are available');
           } else {
-            UIUtils.error('Backend services are not available');
+            UIUtils.error('❌ Backend services are not available');
           }
+
+          // 框架服务状态
           if (newHealth.framework) {
-            UIUtils.success(`${newHealth.frameworkType || 'Model inference'} service is available`);
+            UIUtils.success(`✅ ${newHealth.frameworkType || 'Model inference'} service is available`);
           } else {
-            UIUtils.warning(`${newHealth.frameworkType || 'Model inference'} service is not available`);
+            UIUtils.warning(`⚠️  ${newHealth.frameworkType || 'Model inference'} service is not available`);
           }
+
+          console.log('');
           break;
         case 'exit':
           UIUtils.info('Goodbye!');
@@ -367,9 +384,6 @@ program
           UIUtils.success('Backend server started in background');
           UIUtils.info(`Process ID: ${result.pid}`);
           UIUtils.info('You can now use other commands while the server runs in background');
-
-          // 给服务器一些时间启动
-          await new Promise(resolve => setTimeout(resolve, 1500));
         } else {
           UIUtils.error(`Failed to start background server: ${result.error}`);
           process.exit(1);
@@ -390,21 +404,18 @@ program
  */
 program
   .command('stop')
-  .description('Stop the Sight AI backend server')
+  .description('Stop backend server')
   .action(async () => {
     try {
       UIUtils.showSection('Stopping Backend Server');
 
-      const spinner = UIUtils.createSpinner('Stopping server...');
-      spinner.start();
-
+      console.log('🔄 Stopping backend server...');
       const result = ProcessManagerService.stopDaemonProcess();
-      spinner.stop();
 
       if (result.success) {
         UIUtils.success('Backend server stopped successfully');
       } else {
-        UIUtils.error(`Failed to stop server: ${result.error}`);
+        UIUtils.error(`Failed to stop backend server: ${result.error}`);
         process.exit(1);
       }
     } catch (error) {
@@ -425,18 +436,19 @@ program
 
       const status = ProcessManagerService.getServerStatus();
 
+      // 后台服务器状态
+      console.log('🖥️  Backend Server:');
       if (status.running) {
-        UIUtils.success('Backend server is running');
-        console.log('');
+        console.log(`  Status: ✅ Running`);
         console.log(`  Process ID: ${status.pid}`);
         console.log(`  Started: ${status.startTime}`);
         console.log(`  Executable: ${status.executable}`);
       } else {
-        UIUtils.warning('Backend server is not running');
-        UIUtils.info('Use "sight start --daemon" to start the server in background');
+        console.log(`  Status: ❌ Not running`);
+        console.log(`  Use "sight start --daemon" to start the server in background`);
       }
     } catch (error) {
-      UIUtils.error(`Failed to check server status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      UIUtils.error(`Failed to check service status: ${error instanceof Error ? error.message : 'Unknown error'}`);
       process.exit(1);
     }
   });
@@ -590,12 +602,13 @@ program
       await DeviceCommands.unregister();
       UIUtils.showSection('Stopping Backend Server');
 
-      const spinner = UIUtils.createSpinner('Stopping server...');
+      const spinner = UIUtils.createSpinner('Stopping backend server...');
       spinner.start();
 
       const result = ProcessManagerService.stopDaemonProcess();
       spinner.stop();
 
+      // 显示结果
       if (result.success) {
         UIUtils.success('Backend server stopped successfully');
       } else {
@@ -1037,6 +1050,8 @@ vllmCommand
       await AppServices.closeApp();
     }
   });
+
+
 
 /**
  * 框架管理命令组
