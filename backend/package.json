@@ -52,6 +52,7 @@
     "level": "^10.0.0",
     "lodash": "^4.17.21",
     "memoizee": "^0.4.15",
+    "nats": "^2.29.3",
     "nestjs-pino": "^3.5.0",
     "nestjs-zod": "^3.0.0",
     "node-nvidia-smi": "^1.0.0",
