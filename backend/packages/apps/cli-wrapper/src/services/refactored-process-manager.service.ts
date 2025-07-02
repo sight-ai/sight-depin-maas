@@ -370,7 +370,21 @@ export class RefactoredProcessManagerService implements IProcessManager {
       const logFile = this.getLogFilePath();
       const logStream = fs.openSync(logFile, 'a');
 
-      const child = spawn(currentExecutable, [currentScript, 'start'], {
+      // 在打包环境中，需要使用当前可执行文件而不是 node
+      let spawnCommand: string;
+      let spawnArgs: string[];
+
+      if ((process as any).pkg) {
+        // 打包环境：使用当前可执行文件
+        spawnCommand = process.execPath; // 当前可执行文件的完整路径
+        spawnArgs = ['start'];
+      } else {
+        // 开发环境：使用 node
+        spawnCommand = currentExecutable;
+        spawnArgs = [currentScript, 'start'];
+      }
+
+      const child = spawn(spawnCommand, spawnArgs, {
         detached: true,
         stdio: ['ignore', logStream, logStream],
         env: process.env
