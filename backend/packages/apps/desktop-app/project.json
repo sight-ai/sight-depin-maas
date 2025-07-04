@@ -1,0 +1,168 @@
+{
+  "name": "desktop-app",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/apps/desktop-app/src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "@nx/webpack:webpack",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "compiler": "tsc",
+        "outputPath": "dist/packages/apps/desktop-app",
+        "index": "packages/apps/desktop-app/src/renderer/index.html",
+        "baseHref": "./",
+        "main": "packages/apps/desktop-app/src/renderer/main.tsx",
+        "polyfills": "packages/apps/desktop-app/src/renderer/polyfills.ts",
+        "tsConfig": "packages/apps/desktop-app/tsconfig.app.json",
+        "assets": [
+          "packages/apps/desktop-app/src/renderer/favicon.ico",
+          "packages/apps/desktop-app/src/renderer/assets"
+        ],
+        "styles": ["packages/apps/desktop-app/src/renderer/styles.css"],
+        "scripts": [],
+        "webpackConfig": "packages/apps/desktop-app/webpack.config.js"
+      },
+      "configurations": {
+        "development": {
+          "extractLicenses": false,
+          "optimization": false,
+          "sourceMap": true,
+          "vendorChunk": true
+        },
+        "production": {
+          "fileReplacements": [
+            {
+              "replace": "packages/apps/desktop-app/src/renderer/environments/environment.ts",
+              "with": "packages/apps/desktop-app/src/renderer/environments/environment.prod.ts"
+            }
+          ],
+          "optimization": true,
+          "outputHashing": "all",
+          "sourceMap": false,
+          "namedChunks": false,
+          "extractLicenses": true,
+          "vendorChunk": false
+        }
+      }
+    },
+    "build-electron": {
+      "executor": "@nx/webpack:webpack",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "compiler": "tsc",
+        "outputPath": "dist/packages/apps/desktop-app/electron",
+        "main": "packages/apps/desktop-app/src/main/main.ts",
+        "tsConfig": "packages/apps/desktop-app/tsconfig.electron.json",
+        "webpackConfig": "packages/apps/desktop-app/webpack.electron.config.js",
+        "target": "node",
+        "externalDependencies": "all"
+      }
+    },
+    "serve": {
+      "executor": "@nx/webpack:dev-server",
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "desktop-app:build",
+        "hmr": true,
+        "port": 4200
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "desktop-app:build:development"
+        },
+        "production": {
+          "buildTarget": "desktop-app:build:production",
+          "hmr": false
+        }
+      }
+    },
+    "electron": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx build-electron desktop-app",
+          "pnpm electron dist/packages/apps/desktop-app/electron/main.js"
+        ],
+        "parallel": false
+      }
+    },
+    "electron-dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "concurrently 'nx serve desktop-app' 'wait-on http://localhost:4200 && nx build-electron desktop-app && pnpm electron dist/packages/apps/desktop-app/electron/main.js --dev'"
+        ],
+        "parallel": false
+      }
+    },
+    "build-production": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx build api-server",
+          "node packages/apps/desktop-app/scripts/copy-backend.js",
+          "echo '🔧 开始构建Go libp2p服务...'",
+          "cd packages/apps/desktop-app/libp2p-node-service && go build -o sight-libp2p-node .",
+          "echo '📦 复制Go二进制文件到资源目录...'",
+          "mkdir -p packages/apps/desktop-app/resources/libp2p",
+          "cp packages/apps/desktop-app/libp2p-node-service/sight-libp2p-node packages/apps/desktop-app/resources/libp2p/",
+          "cp packages/apps/desktop-app/libp2p-node-service/.env packages/apps/desktop-app/resources/libp2p/ 2>/dev/null || echo 'No .env file found, using defaults'",
+          "echo '✅ Go libp2p服务构建完成！'",
+          "nx build desktop-app --configuration=production",
+          "nx build-electron desktop-app"
+        ],
+        "parallel": false
+      }
+    },
+    "electron-production": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx build-production desktop-app",
+          "pnpm electron dist/packages/apps/desktop-app/electron/main.js"
+        ],
+        "parallel": false
+      }
+    },
+    "package": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx build-production desktop-app",
+          "pnpm electron-builder --config packages/apps/desktop-app/electron-builder.config.js"
+        ],
+        "parallel": false
+      }
+    },
+    "package-mac": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx build-production desktop-app",
+          "echo '// Entry point for electron-builder' > dist/packages/apps/desktop-app/index.js",
+          "echo 'require(\"./electron/main.js\");' >> dist/packages/apps/desktop-app/index.js",
+          "echo '{\"name\":\"sightai-desktop\",\"version\":\"1.0.0\",\"description\":\"SightAI Desktop Application\",\"main\":\"index.js\",\"author\":\"SightAI\",\"license\":\"MIT\",\"private\":true}' > dist/packages/apps/desktop-app/package.json",
+          "pnpm electron-builder --mac --config packages/apps/desktop-app/electron-builder.config.js"
+        ],
+        "parallel": false
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": ["packages/apps/desktop-app/**/*.{ts,tsx,js,jsx}"]
+      }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "packages/apps/desktop-app/jest.config.ts"
+      }
+    }
+  },
+  "tags": ["type:app", "platform:desktop"]
+}
