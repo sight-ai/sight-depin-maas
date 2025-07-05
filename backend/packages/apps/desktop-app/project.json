@@ -145,6 +145,19 @@
         "parallel": false
       }
     },
+    "package-windows": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx build-production desktop-app",
+          "echo '// Entry point for electron-builder' > dist/packages/apps/desktop-app/index.js",
+          "echo 'require(\"./electron/main.js\");' >> dist/packages/apps/desktop-app/index.js",
+          "echo '{\"name\":\"sightai-desktop\",\"version\":\"1.0.0\",\"description\":\"SightAI Desktop Application\",\"main\":\"index.js\",\"author\":\"SightAI\",\"license\":\"MIT\",\"private\":true}' > dist/packages/apps/desktop-app/package.json",
+          "pnpm electron-builder --win --config packages/apps/desktop-app/electron-builder.config.js"
+        ],
+        "parallel": false
+      }
+    },
     "lint": {
       "executor": "@nx/eslint:lint",
       "outputs": ["{options.outputFile}"],

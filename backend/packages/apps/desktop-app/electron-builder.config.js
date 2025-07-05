@@ -72,10 +72,39 @@ module.exports = {
     }
   },
   
-  // Windows 配置（备用）
+  // Windows 配置
   win: {
-    target: 'nsis',
-    icon: 'packages/apps/desktop-app/resources/icon-512.png'
+    target: [
+      {
+        target: 'zip',
+        arch: ['x64']
+      }
+    ],
+    icon: 'packages/apps/desktop-app/resources/icon-512.png',
+    verifyUpdateCodeSignature: false
+  },
+
+  // NSIS 安装程序配置
+  nsis: {
+    oneClick: false,
+    allowToChangeInstallationDirectory: true,
+    createDesktopShortcut: true,
+    createStartMenuShortcut: true,
+    shortcutName: 'SightAI Desktop',
+    include: null,
+    script: null,
+    deleteAppDataOnUninstall: false,
+    runAfterFinish: true,
+    menuCategory: false,
+    allowElevation: true,
+    installerIcon: 'packages/apps/desktop-app/resources/icon-512.png',
+    uninstallerIcon: 'packages/apps/desktop-app/resources/icon-512.png',
+    installerHeaderIcon: 'packages/apps/desktop-app/resources/icon-512.png',
+    installerSidebar: null,
+    uninstallerSidebar: null,
+    warningsAsErrors: false,
+    perMachine: false,
+    unicode: true
   },
 
   // Linux 配置（备用）
@@ -93,7 +122,10 @@ module.exports = {
   
   // 其他配置
   artifactName: '${productName}-${version}-${arch}.${ext}',
-  
+
+  // 跳过原生模块重建（避免交叉编译问题）
+  npmRebuild: false,
+
   // 构建前后脚本
   beforeBuild: null,
   afterSign: null
