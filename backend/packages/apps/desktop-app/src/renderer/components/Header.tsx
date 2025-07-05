@@ -19,11 +19,11 @@ export const Header: React.FC<HeaderProps> = ({
   backendStatus,
 }) => {
   const navItems = [
-    { id: 'dashboard' as Page, label: '仪表板', icon: '📊' },
-    { id: 'device' as Page, label: '设备注册', icon: '📱' },
-    { id: 'model' as Page, label: '模型报告', icon: '🤖' },
-    { id: 'logs' as Page, label: '日志查看', icon: '📋' },
-    { id: 'settings' as Page, label: '设置', icon: '⚙️' },
+    { id: 'dashboard' as Page, label: 'Dashboard', icon: '📊' },
+    { id: 'device' as Page, label: 'Device Registration', icon: '📱' },
+    { id: 'model' as Page, label: 'Model Reporting', icon: '🤖' },
+    { id: 'logs' as Page, label: 'Log Viewer', icon: '📋' },
+    { id: 'settings' as Page, label: 'Settings', icon: '⚙️' },
   ];
 
   return (
@@ -33,7 +33,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className={`status-indicator ${backendStatus.isRunning ? 'running' : 'stopped'}`}>
           <span className="status-dot"></span>
           <span className="status-text">
-            后端服务 {backendStatus.isRunning ? '运行中' : '已停止'}
+            Backend Service {backendStatus.isRunning ? 'Running' : 'Stopped'}
           </span>
         </div>
       </div>

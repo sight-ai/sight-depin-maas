@@ -103,13 +103,9 @@
         "commands": [
           "nx build api-server",
           "node packages/apps/desktop-app/scripts/copy-backend.js",
-          "echo '🔧 开始构建Go libp2p服务...'",
-          "cd packages/apps/desktop-app/libp2p-node-service && go build -o sight-libp2p-node .",
-          "echo '📦 复制Go二进制文件到资源目录...'",
-          "mkdir -p packages/apps/desktop-app/resources/libp2p",
-          "cp packages/apps/desktop-app/libp2p-node-service/sight-libp2p-node packages/apps/desktop-app/resources/libp2p/",
-          "cp packages/apps/desktop-app/libp2p-node-service/.env packages/apps/desktop-app/resources/libp2p/ 2>/dev/null || echo 'No .env file found, using defaults'",
-          "echo '✅ Go libp2p服务构建完成！'",
+          "echo '🔧 开始跨平台构建Go libp2p服务...'",
+          "node packages/apps/desktop-app/scripts/build-libp2p-cross-platform.js",
+          "echo '✅ Go libp2p服务跨平台构建完成！'",
           "nx build desktop-app --configuration=production",
           "nx build-electron desktop-app"
         ],

@@ -9,10 +9,27 @@ interface ElectronAPI {
     isRunning: boolean;
     port: number;
   }>;
-  restartBackend(): Promise<void>;
   onBackendStatusChange(callback: (status: { isRunning: boolean; port: number }) => void): void;
   setAutoStart(enabled: boolean): Promise<{ success: boolean; error?: string }>;
   getAutoStart(): Promise<boolean>;
+  readDeviceConfig(): Promise<{
+    success: boolean;
+    data?: {
+      deviceId: string;
+      deviceName: string;
+      gatewayAddress: string;
+      rewardAddress: string;
+      code: string;
+    };
+    error?: string;
+  }>;
+  clipboard: {
+    writeText: (text: string) => void;
+    readText: () => string;
+    writeHTML: (markup: string) => void;
+    readHTML: () => string;
+    clear: () => void;
+  };
 }
 
 declare global {

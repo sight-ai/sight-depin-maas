@@ -18,6 +18,7 @@ module.exports = composePlugins(withNx(), (config) => {
   // 外部依赖
   config.externals = {
     electron: 'commonjs electron',
+    canvas: 'commonjs canvas',
   };
 
   // 输出配置

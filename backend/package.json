@@ -2,6 +2,7 @@
   "name": "@saito-miner/sightai",
   "version": "0.0.0",
   "license": "UNLICENSED",
+  "main": "electron/main.js",
   "scripts": {
     "postinstall": "patch-package",
     "build:optimized": "node scripts/optimized-build.js",
@@ -50,6 +51,7 @@
     "body-parser": "^2.2.0",
     "boxen": "^5.1.2",
     "bs58": "^6.0.0",
+    "canvas": "^3.1.2",
     "chalk": "^4.1.2",
     "chokidar": "^4.0.3",
     "class-transformer": "^0.5.1",

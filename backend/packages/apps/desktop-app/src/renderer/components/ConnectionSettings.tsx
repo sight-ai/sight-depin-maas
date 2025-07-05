@@ -1,96 +1,107 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
-import { Switch } from './ui/switch';
 import { Separator } from './ui/separator';
-import { 
-  Wifi, 
-  Server, 
-  Shield, 
-  CheckCircle, 
+import {
+  Server,
+  CheckCircle,
   AlertCircle,
-  Settings,
-  Globe,
-  Lock
+  Loader2,
+  User
 } from 'lucide-react';
 
-interface ConnectionStatus {
-  gateway: 'connected' | 'disconnected' | 'connecting';
-  lastConnected: string;
+interface RegistrationStatus {
+  status: 'registered' | 'unregistered' | 'pending';
   deviceId: string;
-  registrationStatus: 'registered' | 'unregistered' | 'pending';
+  deviceName: string;
+  message: string;
+}
+
+interface DeviceConfig {
+  deviceId: string;
+  deviceName: string;
+  gatewayAddress: string;
+  rewardAddress: string;
+  code: string;
 }
 
 export const ConnectionSettings: React.FC = () => {
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({
-    gateway: 'disconnected',
-    lastConnected: '',
+  const [registrationStatus, setRegistrationStatus] = useState<RegistrationStatus>({
+    status: 'unregistered',
     deviceId: '',
-    registrationStatus: 'unregistered'
+    deviceName: '',
+    message: ''
   });
 
-  const [gatewayUrl, setGatewayUrl] = useState('http://localhost:8718');
-  const [apiKey, setApiKey] = useState('');
-  const [autoReconnect, setAutoReconnect] = useState(true);
-  const [useProxy, setUseProxy] = useState(false);
-  const [proxyUrl, setProxyUrl] = useState('');
+  const [deviceConfig, setDeviceConfig] = useState<DeviceConfig | null>(null);
+  const [gatewayAddress, setGatewayAddress] = useState('https://sightai.io/api/model');
   const [rewardAddress, setRewardAddress] = useState('');
-  const [deviceName, setDeviceName] = useState('');
   const [registrationCode, setRegistrationCode] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  // 获取当前连接状态
-  const fetchConnectionStatus = async () => {
+  // Load device config from file
+  const loadDeviceConfig = async () => {
+    try {
+      if (window.electronAPI) {
+        const result = await window.electronAPI.readDeviceConfig();
+        if (result.success && result.data) {
+          setDeviceConfig(result.data);
+          setGatewayAddress(result.data.gatewayAddress);
+          setRewardAddress(result.data.rewardAddress);
+          setRegistrationCode(result.data.code);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading device config:', error);
+    }
+  };
+
+  // Get current registration status
+  const fetchRegistrationStatus = async () => {
     try {
       const response = await fetch('http://localhost:8716/api/v1/device-status/gateway-status');
       const data = await response.json();
 
-      if (data.success) {
-        setConnectionStatus(prev => ({
-          ...prev,
-          gateway: data.connected ? 'connected' : 'disconnected',
-          lastConnected: data.lastConnected || '',
-          deviceId: data.deviceId || '',
-          registrationStatus: data.registered ? 'registered' : 'unregistered'
-        }));
+      if (data.isRegistered) {
+        // Device is registered, use config data for display
+        setRegistrationStatus({
+          status: 'registered',
+          deviceId: deviceConfig?.deviceId || '',
+          deviceName: deviceConfig?.deviceName || '',
+          message: 'Device is registered and connected'
+        });
+      } else {
+        setRegistrationStatus({
+          status: 'unregistered',
+          deviceId: '',
+          deviceName: '',
+          message: 'Device is not registered'
+        });
       }
     } catch (error) {
-      console.error('Error fetching connection status:', error);
+      console.error('Error fetching registration status:', error);
+      setRegistrationStatus({
+        status: 'unregistered',
+        deviceId: '',
+        deviceName: '',
+        message: 'Failed to get status'
+      });
     }
-  };
-
-  // 获取网关地址
-  const fetchGatewayAddress = async () => {
-    try {
-      const response = await fetch('http://localhost:8716/api/v1/device-status/gateway-address');
-      const data = await response.json();
-
-      if (data.success && data.gatewayAddress) {
-        setGatewayUrl(data.gatewayAddress);
-      }
-    } catch (error) {
-      console.error('Error fetching gateway address:', error);
-    }
-  };
-
-  const handleConnectGateway = async () => {
-    setConnectionStatus(prev => ({ ...prev, gateway: 'connecting' }));
-
-    try {
-      // 这里可以添加连接网关的逻辑
-      // 目前只是刷新状态
-      await fetchConnectionStatus();
-    } catch (error) {
-      console.error('Error connecting to gateway:', error);
-      setConnectionStatus(prev => ({ ...prev, gateway: 'disconnected' }));
-    }
-  };
-
-  const handleDisconnectGateway = () => {
-    setConnectionStatus(prev => ({ ...prev, gateway: 'disconnected' }));
   };
 
   const handleRegisterDevice = async () => {
-    setConnectionStatus(prev => ({ ...prev, registrationStatus: 'pending' }));
+    if (!gatewayAddress || !rewardAddress || !registrationCode) {
+      setRegistrationStatus({
+        status: 'unregistered',
+        deviceId: '',
+        deviceName: '',
+        message: 'Please fill in all required fields'
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    setRegistrationStatus(prev => ({ ...prev, status: 'pending', message: 'Registering device...' }));
 
     try {
       const response = await fetch('http://localhost:8716/api/v1/device-status/register', {
@@ -99,9 +110,8 @@ export const ConnectionSettings: React.FC = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          gateway_address: gatewayUrl,
+          gateway_address: gatewayAddress,
           reward_address: rewardAddress,
-          device_name: deviceName,
           code: registrationCode,
         }),
       });
@@ -109,45 +119,65 @@ export const ConnectionSettings: React.FC = () => {
       const data = await response.json();
 
       if (data.success) {
-        setConnectionStatus(prev => ({
-          ...prev,
-          registrationStatus: 'registered',
-          deviceId: data.deviceId || prev.deviceId
-        }));
-        // 刷新连接状态
-        await fetchConnectionStatus();
+        setRegistrationStatus({
+          status: 'registered',
+          deviceId: data.deviceId || '',
+          deviceName: data.deviceName || '',
+          message: 'Device registration successful'
+        });
+        // Refresh registration status and reload config
+        await loadDeviceConfig();
+        await fetchRegistrationStatus();
       } else {
-        setConnectionStatus(prev => ({ ...prev, registrationStatus: 'unregistered' }));
-        console.error('Registration failed:', data.error);
+        setRegistrationStatus({
+          status: 'unregistered',
+          deviceId: '',
+          deviceName: '',
+          message: data.error || 'Registration failed'
+        });
       }
     } catch (error) {
       console.error('Error registering device:', error);
-      setConnectionStatus(prev => ({ ...prev, registrationStatus: 'unregistered' }));
+      setRegistrationStatus({
+        status: 'unregistered',
+        deviceId: '',
+        deviceName: '',
+        message: 'Network error, please try again'
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    // 初始化时获取连接状态和网关地址
-    fetchConnectionStatus();
-    fetchGatewayAddress();
+    // Initialize by loading device config first, then registration status
+    const initializeData = async () => {
+      await loadDeviceConfig();
+      await fetchRegistrationStatus();
+    };
+    initializeData();
 
-    // 定期更新连接状态
+    // Periodically update registration status
     const interval = setInterval(() => {
-      fetchConnectionStatus();
-    }, 30000); // 每30秒更新一次
+      fetchRegistrationStatus();
+    }, 30000); // Update every 30 seconds
 
     return () => clearInterval(interval);
   }, []);
 
+  // Update registration status when device config changes
+  useEffect(() => {
+    if (deviceConfig) {
+      fetchRegistrationStatus();
+    }
+  }, [deviceConfig]);
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'connected':
       case 'registered':
         return 'text-green-600';
-      case 'connecting':
       case 'pending':
         return 'text-yellow-600';
-      case 'disconnected':
       case 'unregistered':
         return 'text-red-600';
       default:
@@ -157,13 +187,10 @@ export const ConnectionSettings: React.FC = () => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'connected':
       case 'registered':
         return <CheckCircle className="h-4 w-4" />;
-      case 'connecting':
       case 'pending':
-        return <Settings className="h-4 w-4 animate-spin" />;
-      case 'disconnected':
+        return <Loader2 className="h-4 w-4 animate-spin" />;
       case 'unregistered':
         return <AlertCircle className="h-4 w-4" />;
       default:
@@ -173,196 +200,113 @@ export const ConnectionSettings: React.FC = () => {
 
   return (
     <div className="space-y-6 min-h-0">
-      {/* 连接状态概览 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">网关连接</CardTitle>
-            <Wifi className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold flex items-center gap-2 ${getStatusColor(connectionStatus.gateway)}`}>
-              {getStatusIcon(connectionStatus.gateway)}
-              {connectionStatus.gateway === 'connected' ? '已连接' :
-               connectionStatus.gateway === 'connecting' ? '连接中' : '未连接'}
+      {/* Device Registration Status Overview */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Device Registration Status</CardTitle>
+          <Server className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className={`text-2xl font-bold flex items-center gap-2 ${getStatusColor(registrationStatus.status)}`}>
+            {getStatusIcon(registrationStatus.status)}
+            {registrationStatus.status === 'registered' ? 'Registered' :
+             registrationStatus.status === 'pending' ? 'Registering' : 'Not Registered'}
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            {registrationStatus.message}
+          </p>
+          {registrationStatus.deviceId && (
+            <div className="mt-2 space-y-1">
+              <p className="text-xs text-muted-foreground">
+                Device ID: {registrationStatus.deviceId}
+              </p>
+              {registrationStatus.deviceName && (
+                <p className="text-xs text-muted-foreground">
+                  Device Name: {registrationStatus.deviceName}
+                </p>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground">
-              最后连接: {connectionStatus.lastConnected}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">设备注册</CardTitle>
-            <Server className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold flex items-center gap-2 ${getStatusColor(connectionStatus.registrationStatus)}`}>
-              {getStatusIcon(connectionStatus.registrationStatus)}
-              {connectionStatus.registrationStatus === 'registered' ? '已注册' :
-               connectionStatus.registrationStatus === 'pending' ? '注册中' : '未注册'}
+          )}
+          {deviceConfig && (
+            <div className="mt-2 space-y-1">
+              <p className="text-xs text-muted-foreground">
+                Gateway: {deviceConfig.gatewayAddress}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Reward Address: {deviceConfig.rewardAddress}
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              设备ID: {connectionStatus.deviceId}
-            </p>
-          </CardContent>
-        </Card>
+          )}
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">安全状态</CardTitle>
-            <Shield className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600 flex items-center gap-2">
-              <Lock className="h-5 w-5" />
-              安全
-            </div>
-            <p className="text-xs text-muted-foreground">
-              TLS 加密连接
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 网关设置 */}
+      {/* Device Registration Form */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Globe className="h-5 w-5" />
-            网关设置
+            <User className="h-5 w-5" />
+            Device Registration
           </CardTitle>
-          <CardDescription>配置网关连接参数</CardDescription>
+          <CardDescription>Register device to gateway to start using services</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">网关地址</label>
+              <label className="text-sm font-medium">Registration Code *</label>
               <input
-                type="url"
-                value={gatewayUrl}
-                onChange={(e) => setGatewayUrl(e.target.value)}
+                type="text"
+                value={registrationCode}
+                onChange={(e) => setRegistrationCode(e.target.value)}
                 className="w-full px-3 py-2 border border-input rounded-md text-sm"
-                placeholder="https://gateway.sightai.com"
+                placeholder="Enter one-time registration code"
+                disabled={isLoading}
               />
             </div>
+
             <div className="space-y-2">
-              <label className="text-sm font-medium">API 密钥</label>
+              <label className="text-sm font-medium">Gateway Address *</label>
               <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
+                type="url"
+                value={gatewayAddress}
+                onChange={(e) => setGatewayAddress(e.target.value)}
                 className="w-full px-3 py-2 border border-input rounded-md text-sm"
-                placeholder="输入 API 密钥"
+                placeholder="https://gateway.sightai.com"
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Reward Address *</label>
+              <input
+                type="text"
+                value={rewardAddress}
+                onChange={(e) => setRewardAddress(e.target.value)}
+                className="w-full px-3 py-2 border border-input rounded-md text-sm"
+                placeholder="Enter reward receiving address"
+                disabled={isLoading}
               />
             </div>
           </div>
 
           <Separator />
 
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <div className="text-sm font-medium">自动重连</div>
-              <div className="text-sm text-muted-foreground">
-                连接断开时自动尝试重新连接
-              </div>
-            </div>
-            <Switch
-              checked={autoReconnect}
-              onCheckedChange={setAutoReconnect}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <div className="text-sm font-medium">使用代理</div>
-              <div className="text-sm text-muted-foreground">
-                通过代理服务器连接网关
-              </div>
-            </div>
-            <Switch
-              checked={useProxy}
-              onCheckedChange={setUseProxy}
-            />
-          </div>
-
-          {useProxy && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">代理地址</label>
-              <input
-                type="url"
-                value={proxyUrl}
-                onChange={(e) => setProxyUrl(e.target.value)}
-                className="w-full px-3 py-2 border border-input rounded-md text-sm"
-                placeholder="http://proxy.example.com:8080"
-              />
-            </div>
-          )}
-
           <div className="flex gap-2 pt-4">
-            {connectionStatus.gateway === 'connected' ? (
-              <Button 
-                onClick={handleDisconnectGateway}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <Wifi className="h-4 w-4" />
-                断开连接
-              </Button>
-            ) : (
-              <Button 
-                onClick={handleConnectGateway}
-                disabled={connectionStatus.gateway === 'connecting'}
-                className="flex items-center gap-2"
-              >
-                <Wifi className="h-4 w-4" />
-                {connectionStatus.gateway === 'connecting' ? '连接中...' : '连接网关'}
-              </Button>
-            )}
-            <Button 
+            <Button
               onClick={handleRegisterDevice}
-              disabled={connectionStatus.registrationStatus === 'pending'}
-              variant="outline"
+              disabled={isLoading || registrationStatus.status === 'pending'}
               className="flex items-center gap-2"
             >
-              <Server className="h-4 w-4" />
-              {connectionStatus.registrationStatus === 'pending' ? '注册中...' : '注册设备'}
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Server className="h-4 w-4" />
+              )}
+              {isLoading ? 'Registering...' : 'Register Device'}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* 连接测试 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>连接测试</CardTitle>
-          <CardDescription>测试网关连接和设备通信</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 border rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span className="font-medium">网络连通性</span>
-                </div>
-                <p className="text-sm text-muted-foreground">延迟: 45ms</p>
-              </div>
-              <div className="p-4 border rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span className="font-medium">API 认证</span>
-                </div>
-                <p className="text-sm text-muted-foreground">认证成功</p>
-              </div>
-            </div>
-            <Button variant="outline" className="w-full">
-              运行连接测试
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

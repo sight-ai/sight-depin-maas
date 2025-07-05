@@ -33,29 +33,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ backendStatus }) => {
   return (
     <div className="dashboard">
       <div className="dashboard-header">
-        <h2>系统概览</h2>
+        <h2>System Overview</h2>
       </div>
       
       <div className="dashboard-grid">
         <div className="dashboard-card">
-          <h3>后端服务状态</h3>
+          <h3>Backend Service Status</h3>
           <div className="service-status">
             <div className={`status-badge ${backendStatus.isRunning ? 'running' : 'stopped'}`}>
-              {backendStatus.isRunning ? '✅ 运行中' : '❌ 已停止'}
+              {backendStatus.isRunning ? '✅ Running' : '❌ Stopped'}
             </div>
-            <p>端口: {backendStatus.port}</p>
+            <p>Port: {backendStatus.port}</p>
             {backendStatus.isRunning && (
               <p>
-                <a 
+                <a
                   href={`http://localhost:${backendStatus.port}`}
                   onClick={(e) => {
                     e.preventDefault();
                     if (window.electronAPI) {
-                      // 这里可以添加打开外部浏览器的逻辑
+                      // Logic to open external browser can be added here
                     }
                   }}
                 >
-                  访问 API 文档
+                  Access API Documentation
                 </a>
               </p>
             )}
@@ -63,10 +63,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ backendStatus }) => {
         </div>
 
         <div className="dashboard-card">
-          <h3>系统信息</h3>
+          <h3>System Information</h3>
           {systemInfo && (
             <div className="system-info">
-              <p><strong>平台:</strong> {systemInfo.platform}</p>
+              <p><strong>Platform:</strong> {systemInfo.platform}</p>
               <p><strong>Node.js:</strong> {systemInfo.versions.node}</p>
               <p><strong>Chrome:</strong> {systemInfo.versions.chrome}</p>
               <p><strong>Electron:</strong> {systemInfo.versions.electron}</p>
@@ -75,31 +75,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ backendStatus }) => {
         </div>
 
         <div className="dashboard-card">
-          <h3>快速操作</h3>
-          <div className="quick-actions">
-            <button className="action-button primary">
-              📱 注册新设备
-            </button>
-            <button className="action-button secondary">
-              📊 查看模型报告
-            </button>
-            <button className="action-button secondary">
-              📋 查看日志
-            </button>
-          </div>
-        </div>
-
-        <div className="dashboard-card">
-          <h3>最近活动</h3>
+          <h3>Recent Activity</h3>
           <div className="activity-list">
             <div className="activity-item">
-              <span className="activity-time">刚刚</span>
-              <span className="activity-text">应用程序启动</span>
-            </div>
-            <div className="activity-item">
-              <span className="activity-time">刚刚</span>
+              <span className="activity-time">Just now</span>
               <span className="activity-text">
-                后端服务 {backendStatus.isRunning ? '启动成功' : '启动失败'}
+                Backend service {backendStatus.isRunning ? 'started successfully' : 'failed to start'}
               </span>
             </div>
           </div>

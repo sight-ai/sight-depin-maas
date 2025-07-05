@@ -11,8 +11,12 @@ module.exports = {
 
   // 文件配置
   files: [
-    'dist/packages/apps/desktop-app/**/*',
-    '!dist/packages/apps/desktop-app/release/**/*'
+    {
+      from: 'dist/packages/apps/desktop-app',
+      to: '.',
+      filter: ['**/*', '!release/**/*']
+    },
+    'package.json'
   ],
   
   // 额外资源

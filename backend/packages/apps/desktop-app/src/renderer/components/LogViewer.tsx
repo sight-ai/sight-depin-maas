@@ -16,7 +16,7 @@ export const LogViewer: React.FC = () => {
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // 模拟日志数据
+    // Mock log data
     const mockLogs: LogEntry[] = [
       {
         id: '1',
@@ -107,34 +107,34 @@ export const LogViewer: React.FC = () => {
   return (
     <div className="log-viewer">
       <div className="page-header">
-        <h2>日志查看器</h2>
-        <p>实时查看应用程序和系统日志</p>
+        <h2>Log Viewer</h2>
+        <p>Real-time view of application and system logs</p>
       </div>
 
       <div className="log-controls">
         <div className="control-group">
-          <label htmlFor="log-filter">过滤级别:</label>
+          <label htmlFor="log-filter">Filter Level:</label>
           <select
             id="log-filter"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           >
-            <option value="all">全部</option>
-            <option value="info">信息</option>
-            <option value="warn">警告</option>
-            <option value="error">错误</option>
-            <option value="debug">调试</option>
+            <option value="all">All</option>
+            <option value="info">Info</option>
+            <option value="warn">Warning</option>
+            <option value="error">Error</option>
+            <option value="debug">Debug</option>
           </select>
         </div>
 
         <div className="control-group">
-          <label htmlFor="log-search">搜索:</label>
+          <label htmlFor="log-search">Search:</label>
           <input
             id="log-search"
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="搜索日志内容..."
+            placeholder="Search log content..."
           />
         </div>
 
@@ -145,16 +145,16 @@ export const LogViewer: React.FC = () => {
               checked={autoScroll}
               onChange={(e) => setAutoScroll(e.target.checked)}
             />
-            自动滚动
+            Auto Scroll
           </label>
         </div>
 
         <div className="control-actions">
           <button onClick={clearLogs} className="btn-secondary">
-            清空日志
+            Clear Logs
           </button>
           <button onClick={exportLogs} className="btn-secondary">
-            导出日志
+            Export Logs
           </button>
         </div>
       </div>
@@ -177,8 +177,8 @@ export const LogViewer: React.FC = () => {
       </div>
 
       <div className="log-stats">
-        <span>总计: {logs.length} 条日志</span>
-        <span>显示: {filteredLogs.length} 条日志</span>
+        <span>Total: {logs.length} logs</span>
+        <span>Showing: {filteredLogs.length} logs</span>
       </div>
     </div>
   );

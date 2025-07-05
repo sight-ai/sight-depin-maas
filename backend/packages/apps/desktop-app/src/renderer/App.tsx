@@ -19,14 +19,14 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('system');
 
   useEffect(() => {
-    // 检查后端状态
+    // Check backend status
     const checkBackendStatus = async () => {
       try {
         if (window.electronAPI) {
           const status = await window.electronAPI.getBackendStatus();
           setBackendStatus(status);
 
-          // 如果后端服务已启动，结束初始化状态
+          // End initialization state if backend service is started
           if (status.isRunning && isInitializing) {
             setIsInitializing(false);
           }
@@ -36,10 +36,10 @@ const App: React.FC = () => {
       }
     };
 
-    // 初始检查
+    // Initial check
     checkBackendStatus();
 
-    // 监听后端状态变化事件
+    // Listen for backend status change events
     if (window.electronAPI) {
       window.electronAPI.onBackendStatusChange((status) => {
         setBackendStatus(status);
@@ -49,38 +49,25 @@ const App: React.FC = () => {
       });
     }
 
-    // 定期检查后端状态作为备用
+    // Regular backend status check as backup
     const interval = setInterval(checkBackendStatus, 5000);
 
     return () => clearInterval(interval);
   }, [isInitializing]);
 
-  const handleRestartBackend = async () => {
-    try {
-      if (window.electronAPI) {
-        await window.electronAPI.restartBackend();
-        // 等待一段时间后重新检查状态
-        setTimeout(async () => {
-          const status = await window.electronAPI.getBackendStatus();
-          setBackendStatus(status);
-        }, 3000);
-      }
-    } catch (error) {
-      console.error('Failed to restart backend:', error);
-    }
-  };
 
-  // 如果正在初始化，显示加载屏幕
+
+  // Show loading screen if initializing
   if (isInitializing) {
     return (
       <div className="app loading-screen">
         <div className="loading-container">
           <div className="loading-spinner"></div>
-          <h2>SightAI Desktop 正在启动</h2>
-          <p>正在启动后端服务，请稍候...</p>
+          <h2>SightAI Desktop Starting</h2>
+          <p>Starting backend service, please wait...</p>
           <div className="loading-status">
             <div className={`status-indicator ${backendStatus.isRunning ? 'success' : 'loading'}`}>
-              {backendStatus.isRunning ? '✅ 后端服务已就绪' : '⏳ 正在启动后端服务...'}
+              {backendStatus.isRunning ? '✅ Backend service ready' : '⏳ Starting backend service...'}
             </div>
           </div>
         </div>
@@ -91,15 +78,15 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'system':
-        return <SystemManagement backendStatus={backendStatus} onRestartBackend={handleRestartBackend} />;
+        return <SystemManagement backendStatus={backendStatus} />;
       case 'model':
         return <ModelReporting />;
       case 'connection':
         return <ConnectionSettings />;
       case 'settings':
-        return <Settings onRestartBackend={handleRestartBackend} />;
+        return <Settings />;
       default:
-        return <SystemManagement backendStatus={backendStatus} onRestartBackend={handleRestartBackend} />;
+        return <SystemManagement backendStatus={backendStatus} />;
     }
   };
 
@@ -120,9 +107,9 @@ const App: React.FC = () => {
               <div>
                 <h1 className="text-2xl font-bold text-foreground">SightAI Desktop</h1>
                 <p className="text-sm text-muted-foreground">
-                  后端服务状态: {backendStatus.isRunning ?
-                    <span className="text-green-600">运行中 (端口: {backendStatus.port})</span> :
-                    <span className="text-red-600">已停止</span>
+                  Backend Service Status: {backendStatus.isRunning ?
+                    <span className="text-green-600">Running (Port: {backendStatus.port})</span> :
+                    <span className="text-red-600">Stopped</span>
                   }
                 </p>
               </div>

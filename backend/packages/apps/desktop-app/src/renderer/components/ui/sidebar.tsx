@@ -18,22 +18,22 @@ interface NavItem {
 const navItems: NavItem[] = [
   {
     id: 'system',
-    label: '系统管理',
+    label: 'System Management',
     icon: <Monitor className="h-5 w-5" />,
   },
   {
     id: 'model',
-    label: '模型管理',
+    label: 'Model Management',
     icon: <Brain className="h-5 w-5" />,
   },
   {
     id: 'connection',
-    label: '连接设置',
+    label: 'Connection Settings',
     icon: <Wifi className="h-5 w-5" />,
   },
   {
     id: 'settings',
-    label: '系统设置',
+    label: 'System Settings',
     icon: <SettingsIcon className="h-5 w-5" />,
   },
 ];
@@ -51,7 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Logo/Brand */}
       <div className="p-6 border-b border-border">
         <h2 className="text-xl font-bold text-foreground">SightAI</h2>
-        <p className="text-sm text-muted-foreground">桌面管理工具</p>
+        <p className="text-sm text-muted-foreground">Desktop Management Tool</p>
       </div>
 
       {/* Navigation */}
@@ -77,8 +77,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Footer */}
       <div className="p-4 border-t border-border">
         <div className="text-xs text-muted-foreground">
-          <p>版本 1.0.0</p>
-          <p>© 2024 SightAI</p>
+          <p>Version 1.0.0</p>
+          <p>© 2025 SightAI</p>
         </div>
       </div>
     </div>
