@@ -29,7 +29,6 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="header">
       <div className="header-brand">
-        <h1>SightAI Desktop</h1>
         <div className={`status-indicator ${backendStatus.isRunning ? 'running' : 'stopped'}`}>
           <span className="status-dot"></span>
           <span className="status-text">

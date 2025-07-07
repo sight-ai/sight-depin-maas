@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/ui/sidebar';
 import { GlobalStatusView } from './components/GlobalStatusView';
+import { TaskModule } from './components/TaskModule';
 import { ConnectionSettings } from './components/ConnectionSettings';
 import { ModelReporting } from './components/ModelReporting';
 import { Settings } from './components/Settings';
@@ -79,6 +80,8 @@ const App: React.FC = () => {
     switch (activeTab) {
       case 'system':
         return <GlobalStatusView backendStatus={backendStatus} />;
+      case 'tasks':
+        return <TaskModule backendStatus={backendStatus} />;
       case 'model':
         return <ModelReporting />;
       case 'connection':
@@ -105,7 +108,6 @@ const App: React.FC = () => {
           <header className="border-b bg-card px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-foreground">SightAI Desktop</h1>
                 <p className="text-sm text-muted-foreground">
                   Backend Service Status: {backendStatus.isRunning ?
                     <span className="text-green-600">Running (Port: {backendStatus.port})</span> :

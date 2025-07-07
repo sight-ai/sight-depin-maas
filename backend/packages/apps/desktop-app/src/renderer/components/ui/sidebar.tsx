@@ -1,7 +1,7 @@
 import React from 'react';
 import { cn } from '../../lib/utils';
 import { Button } from './button';
-import { Monitor, Brain, Wifi, Settings as SettingsIcon } from 'lucide-react';
+import { Monitor, Brain, Wifi, Settings as SettingsIcon, Activity } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -20,6 +20,11 @@ const navItems: NavItem[] = [
     id: 'system',
     label: 'System Management',
     icon: <Monitor className="h-5 w-5" />,
+  },
+  {
+    id: 'tasks',
+    label: 'Task Module',
+    icon: <Activity className="h-5 w-5" />,
   },
   {
     id: 'model',
