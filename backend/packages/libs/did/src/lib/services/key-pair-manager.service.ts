@@ -131,7 +131,8 @@ export class KeyPairManager {
 
   /**
    * 获取或生成密钥对
-   * 如果设备已有密钥对则使用现有的，否则生成新的
+   * 如果本地已有密钥对文件则使用现有的，否则生成新的
+   * 注意：不再检查deviceId匹配，只要文件存在就使用
    */
   async getOrGenerateKeyPair(): Promise<Uint8Array> {
     // 如果已缓存，直接返回
@@ -144,39 +145,39 @@ export class KeyPairManager {
       const existingConfig = await this.loadKeyPairConfig();
       const currentDeviceId = this.generateDeviceId();
 
-      if (existingConfig && existingConfig.deviceId === currentDeviceId) {
-        // 设备ID匹配，使用现有密钥对
-        this.logger.log(`Using existing key pair for device: ${currentDeviceId}`);
-        
-        // 更新最后使用时间
+      if (existingConfig) {
+        // 有现有配置文件，直接使用
+        this.logger.log(`Using existing key pair from file (deviceId in file: ${existingConfig.deviceId})`);
+
+        // 更新最后使用时间，但保持其他字段不变
         existingConfig.lastUsed = new Date().toISOString();
         await this.saveKeyPairConfig(existingConfig);
-        
+
         // 解码种子
         const seed = Uint8Array.from(existingConfig.seed);
         this.cachedKeyPair = seed;
         this.cachedDeviceId = currentDeviceId;
-        
+
         return this.cachedKeyPair;
       } else {
-        // 设备ID不匹配或没有现有配置，生成新密钥对
-        this.logger.log(`Generating new key pair for device: ${currentDeviceId}`);
-        
+        // 没有现有配置文件，生成新密钥对
+        this.logger.log(`No existing key pair found, generating new key pair for device: ${currentDeviceId}`);
+
         const seed = this.generateSeed();
         const now = new Date().toISOString();
-        
+
         const newConfig: KeyPairConfig = {
           seed: Array.from(seed),
           deviceId: currentDeviceId,
           createdAt: now,
           lastUsed: now
         };
-        
+
         await this.saveKeyPairConfig(newConfig);
-        
+
         this.cachedKeyPair = seed;
         this.cachedDeviceId = currentDeviceId;
-        
+
         return this.cachedKeyPair;
       }
     } catch (error) {
@@ -187,12 +188,13 @@ export class KeyPairManager {
 
   /**
    * 获取当前设备ID
+   * 返回配置文件中的deviceId，如果没有则生成新的
    */
   async getDeviceId(): Promise<string> {
     if (this.cachedDeviceId) {
       return this.cachedDeviceId;
     }
-    
+
     // 确保密钥对已初始化
     await this.getOrGenerateKeyPair();
     return this.cachedDeviceId!;

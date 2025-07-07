@@ -23,3 +23,30 @@ nx run-many --target=build --all
 
 
 npm run build:production
+
+
+### run with cli(assume the file is called sightai)
+```
+// start with logger
+./sightai start
+
+// start in background
+./sight start -d
+
+// specificy a transport mode when starting (default is libp2p)
+./sightai start -d --transport libp2p
+./sightai start -d --transport socket
+
+// check transport status
+./sightai transport status
+
+// check all the transport modes
+./sightai transport list
+
+// switch transport mode while running
+./sightai transport switch socket
+./sightai transport switch libp2p
+
+// stop the server
+./sightai stop
+```

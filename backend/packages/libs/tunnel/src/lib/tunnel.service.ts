@@ -1,11 +1,15 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Socket } from 'socket.io-client';
 import { TunnelService, TunnelMessageListener } from './tunnel.interface';
 import { TunnelMessage } from '@saito/models';
 import { MessageHandlerRegistry } from './message-handler/message-handler.registry';
 import { UnknownMessageTypeError } from './errors/unknown-message-type.error';
-import { MessageGateway } from './message-gateway/message-gateway.interface';
+import {
+  ITransportGateway,
+  ISocketTransportGateway,
+  getTransportGatewayType
+} from './message-gateway/message-gateway.interface';
 import { ConnectionError, DeviceRegistrationError, MessageSendError } from './errors/connection.error';
 import { GLOBAL_PEER_ID_PROVIDER } from './tunnel.module';
 import {
@@ -20,9 +24,8 @@ import {
 } from './events';
 
 /**
- * 隧道服务实现
- * 负责建立和管理与网关的WebSocket连接，处理消息传递
- *
+ * 统一的隧道服务实现
+ * 支持Socket和Libp2p两种传输方式，根据MessageGateway的类型自动适配
  */
 @Injectable()
 export class TunnelServiceImpl implements TunnelService {
@@ -46,7 +49,7 @@ export class TunnelServiceImpl implements TunnelService {
 
   constructor(
     private readonly handlerRegistry: MessageHandlerRegistry,
-    @Inject('MessageGateway') private readonly messageGateway: MessageGateway,
+    @Inject('MessageGateway') private readonly messageGateway: ITransportGateway,
     @Inject('PEER_ID') private peerId: string,
     private readonly eventEmitter: EventEmitter2,
   ) {
@@ -125,16 +128,26 @@ export class TunnelServiceImpl implements TunnelService {
   }
 
   /**
-   * 创建Socket连接 createConnection
+   * 创建连接 - 支持Socket和Libp2p
    */
   async createConnection(gatewayAddress: string, code?: string, basePath?: string): Promise<void> {
     try {
-      this.logger.log(`🔗 正在建立Socket连接到: ${gatewayAddress}`);
-      // 建立连接
-      await this.messageGateway.connect(gatewayAddress, code, basePath);
+      this.logger.log(`🔗 正在建立连接到: ${gatewayAddress}`);
+
+      // 使用统一的类型判断函数
+      const transportType = getTransportGatewayType(this.messageGateway);
+      if (transportType === 'socket') {
+        // Socket实现需要实际建立连接
+        const socketGateway = this.messageGateway as ISocketTransportGateway;
+        await socketGateway.connect(gatewayAddress, code, basePath);
+        this.logger.log(`✅ Socket连接建立成功`);
+      } else {
+        // Libp2p实现不需要实际连接，只记录状态
+        this.logger.log(`✅ Libp2p模式，连接状态已更新`);
+      }
+
       this.gatewayUrl = gatewayAddress;
       this.socket = {} as Socket; // 保持兼容性
-      this.logger.log(`✅ Socket连接建立成功`);
 
       // 发射连接建立事件
       this.eventEmitter.emit(
@@ -142,19 +155,19 @@ export class TunnelServiceImpl implements TunnelService {
         new TunnelConnectionEstablishedEvent(this.peerId || 'unknown', gatewayAddress)
       );
     } catch (error) {
-      this.logger.error(`创建Socket连接失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      this.logger.error(`连接失败: ${error instanceof Error ? error.message : '未知错误'}`);
 
       // 发射错误事件
       this.eventEmitter.emit(
         TUNNEL_EVENTS.ERROR,
         new TunnelErrorEvent(
-          error instanceof Error ? error : new Error('创建Socket连接失败'),
+          error instanceof Error ? error : new Error('连接失败'),
           'createConnection',
           this.peerId
         )
       );
 
-      throw new ConnectionError('创建Socket连接失败', error as Error);
+      throw new ConnectionError('连接失败', error as Error);
     }
   }
 
@@ -199,8 +212,17 @@ export class TunnelServiceImpl implements TunnelService {
    */
   async disconnect(): Promise<void> {
     try {
-      await this.messageGateway.disconnect();
-      this.logger.log('Socket连接已断开');
+      // 使用统一的类型判断函数
+      const transportType = getTransportGatewayType(this.messageGateway);
+      if (transportType === 'socket') {
+        // Socket实现需要实际断开连接
+        const socketGateway = this.messageGateway as ISocketTransportGateway;
+        await socketGateway.disconnect();
+        this.logger.log('Socket连接已断开');
+      } else {
+        // Libp2p实现不需要实际断开，只记录状态
+        this.logger.log('Libp2p模式，连接状态已更新');
+      }
 
       // 发射连接断开事件
       this.eventEmitter.emit(
@@ -246,10 +268,18 @@ export class TunnelServiceImpl implements TunnelService {
   }
 
   /**
-   * 检查Socket连接状态
+   * 检查连接状态 - 支持Socket和Libp2p
    */
   isConnected(): boolean {
-    return this.messageGateway.isConnected();
+    // 使用统一的类型判断函数
+    const transportType = getTransportGatewayType(this.messageGateway);
+    if (transportType === 'socket') {
+      const socketGateway = this.messageGateway as ISocketTransportGateway;
+      return socketGateway.isConnected();
+    } else {
+      // Libp2p实现通过getConnectionStatus检查
+      return this.messageGateway.getConnectionStatus().connected;
+    }
   }
 
   /**
@@ -293,17 +323,25 @@ export class TunnelServiceImpl implements TunnelService {
       });
     });
 
-    this.messageGateway.onConnectionChange((connected: boolean) => {
-      if (connected) {
-        this.logger.log('与网关连接已建立');
-      } else {
-        this.logger.warn('与网关连接已断开');
-      }
-    });
+    // 使用统一的类型判断函数
+    const transportType = getTransportGatewayType(this.messageGateway);
+    if (transportType === 'socket') {
+      const socketGateway = this.messageGateway as ISocketTransportGateway;
+      socketGateway.onConnectionChange((connected: boolean) => {
+        if (connected) {
+          this.logger.log('与网关连接已建立');
+        } else {
+          this.logger.warn('与网关连接已断开');
+        }
+      });
+    }
 
-    this.messageGateway.onError((error: Error) => {
-      this.logger.error(`MessageGateway错误: ${error.message}`);
-    });
+    // onError是可选方法，需要检查是否存在
+    if (this.messageGateway.onError) {
+      this.messageGateway.onError((error: Error) => {
+        this.logger.error(`MessageGateway错误: ${error.message}`);
+      });
+    }
   }
 
   /**

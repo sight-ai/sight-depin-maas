@@ -1,13 +1,13 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
-import { EventEmitterModule } from '@nestjs/event-emitter';
-import { MessageGatewayProvider } from './message-gateway/message-gateway.service';
+import { EventEmitterModule, EventEmitter2 } from '@nestjs/event-emitter';
+import { SocketMessageGatewayService } from './message-gateway/message-gateway.service';
 import { MessageHandlerRegistry } from './message-handler/message-handler.registry';
 import { TunnelMessageService } from './services/tunnel-message.service';
-// 移除对 ModelInferenceClientModule 的依赖以解决循环依赖
-// import { ModelInferenceClientModule } from '@saito/model-inference-client';
-// 移除对 DeviceStatusModule 的依赖以解决循环依赖
-// import { DeviceStatusModule } from '@saito/device-status';
+import { ITransportGateway } from './message-gateway/message-gateway.interface';
+import { TunnelServiceImpl } from './tunnel.service';
+import { TransportConfigService } from './config/transport-config.service';
+import { TransportSwitcherService } from './config/transport-switcher.service';
 
 // 定义本地接口标识符，避免循环依赖
 export const TUNNEL_SERVICE = Symbol('TUNNEL_SERVICE');
@@ -46,7 +46,6 @@ import { OutcomeDeviceHeartbeatReportHandler } from './message-handler/outcome/o
 import { OutcomeDeviceModelReportHandler } from './message-handler/outcome/outcome-model-report.handler';
 import { OutcomePingHandler } from './message-handler/outcome/outcome-ping.handler';
 import { OutcomePongHandler } from './message-handler/outcome/outcome-pong.handler';
-import { TunnelServiceLibp2pImpl } from './tunnel-libp2p.service';
 
 /**
  * 动态PEER_ID提供者
@@ -69,58 +68,53 @@ export class DynamicPeerIdProvider {
  */
 export const GLOBAL_PEER_ID_PROVIDER = new DynamicPeerIdProvider();
 
+/**
+ * Transport Gateway工厂Provider
+ */
+export const TransportGatewayProvider = {
+  provide: 'MessageGateway',
+  useFactory: (configService: TransportConfigService): ITransportGateway => {
+    const transportType = configService.getCurrentTransportType();
+    if (transportType === 'libp2p') {
+      return new MessageGatewayLibp2pService();
+    } else {
+      // 默认使用Socket实现
+      return new SocketMessageGatewayService();
+    }
+  },
+  inject: [TransportConfigService],
+};
+
+/**
+ * Tunnel Service Provider
+ */
+export const TunnelServiceProvider = {
+  provide: 'TunnelService',
+  useFactory: (
+    handlerRegistry: MessageHandlerRegistry,
+    messageGateway: ITransportGateway,
+    peerId: string,
+    eventEmitter: EventEmitter2
+  ) => {
+    // 统一的实现，根据MessageGateway类型自动适配
+    return new TunnelServiceImpl(handlerRegistry, messageGateway, peerId, eventEmitter);
+  },
+  inject: [MessageHandlerRegistry, 'MessageGateway', 'PEER_ID', EventEmitter2],
+};
+
 @Module({
   imports: [ DiscoveryModule, EventEmitterModule],
   providers: [
-    {
-      provide: 'TunnelService',
-      useClass: TunnelServiceLibp2pImpl,
-    },
-    // {
-    //   provide: 'KEY_PAIR',
-    //   useFactory: async (keyPairManager: KeyPairManager) => {
-    //     return await keyPairManager.getOrGenerateKeyPair();
-    //   },
-    //   inject: [KeyPairManager],
-    // },
-    // {
-    //   provide: 'MessageGateway',
-    //   useFactory: () => {
-    //     const commType = process.env['COMMUNICATION_TYPE'];
-    //     if (commType === 'libp2p') {
-    //       return new MessageGatewayLibp2pService();
-    //     } else {
-    //       return new MessageGatewayService();
-    //     }
-    //   },
-    // },
-    // {
-    //   provide: 'TunnelService',
-    //   useFactory: (
-    //     handlerRegistry: MessageHandlerRegistry,
-    //     messageGateway: MessageGateway,
-    //     peerId: string,
-    //     eventEmitter: EventEmitter2,
-    //   ) => {
-    //     const commType = process.env['COMMUNICATION_TYPE'];
-    //     if (commType === 'libp2p') {
-    //       return new TunnelServiceLibp2pImpl(handlerRegistry, messageGateway, peerId, eventEmitter);
-    //     } else {
-    //       return new TunnelServiceImpl(handlerRegistry, messageGateway, peerId, eventEmitter);
-    //     }
-    //   },
-    //   inject: [
-    //     MessageHandlerRegistry,
-    //     MessageGatewayLibp2pService,
-    //     'PEER_ID',
-    //     EventEmitter2,
-    //   ]
-    // },
-    MessageGatewayProvider,
+    // 配置管理服务
+    TransportConfigService,
+    TransportSwitcherService,
+
+    // 核心服务
+    TunnelServiceProvider,
+    TransportGatewayProvider,
     MessageHandlerRegistry,
     TunnelMessageService,
     MessageGatewayLibp2pProvider,
-    TunnelServiceLibp2pImpl,
     MessageGatewayLibp2pService,
 
     // Income Message Handlers
@@ -167,12 +161,15 @@ export const GLOBAL_PEER_ID_PROVIDER = new DynamicPeerIdProvider();
   ],
   exports: [
     'TunnelService',
-    MessageGatewayProvider,
+    TransportGatewayProvider,
     MessageHandlerRegistry,
     TunnelMessageService,
     MessageGatewayLibp2pProvider,
     MessageGatewayLibp2pService,
-    // TunnelServiceLibp2pImpl,
+
+    // 配置管理服务
+    TransportConfigService,
+    TransportSwitcherService,
   ],
 })
 export class TunnelModule {}

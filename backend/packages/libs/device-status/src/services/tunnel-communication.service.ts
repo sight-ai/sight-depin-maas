@@ -50,7 +50,7 @@ export class TunnelCommunicationService {
       // 检查连接状态，如果未连接则建立连接
       if (!this.tunnelService.isConnected()) {
         this.logger.log(`🔗 WebSocket未连接，正在建立连接...`);
-        await this.tunnelService.createSocket(
+        await this.tunnelService.createConnection(
           registrationData.gateway_address,
           registrationData.code,
           registrationData.basePath || ''
@@ -97,7 +97,7 @@ export class TunnelCommunicationService {
       if (error instanceof Error && error.message && error.message.includes('连接')) {
         this.logger.log(`🔄 检测到连接错误，尝试重新连接...`);
         try {
-          await this.tunnelService.createSocket(
+          await this.tunnelService.createConnection(
             registrationData.gateway_address,
             registrationData.code,
             registrationData.basePath || ''
