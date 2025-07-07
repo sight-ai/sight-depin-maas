@@ -53,7 +53,6 @@ export class TunnelServiceImpl implements TunnelService {
     @Inject('PEER_ID') private peerId: string,
     private readonly eventEmitter: EventEmitter2,
   ) {
-    // 初始化socket为空对象，实际连接在createConnection中建立
     this.socket = {} as Socket;
     this.setupMessageGatewayCallbacks();
   }
