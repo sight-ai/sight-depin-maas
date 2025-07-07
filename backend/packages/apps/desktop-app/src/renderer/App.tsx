@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/ui/sidebar';
-import { SystemManagement } from './components/SystemManagement';
+import { GlobalStatusView } from './components/GlobalStatusView';
 import { ConnectionSettings } from './components/ConnectionSettings';
 import { ModelReporting } from './components/ModelReporting';
 import { Settings } from './components/Settings';
@@ -78,7 +78,7 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'system':
-        return <SystemManagement backendStatus={backendStatus} />;
+        return <GlobalStatusView backendStatus={backendStatus} />;
       case 'model':
         return <ModelReporting />;
       case 'connection':
@@ -86,7 +86,7 @@ const App: React.FC = () => {
       case 'settings':
         return <Settings />;
       default:
-        return <SystemManagement backendStatus={backendStatus} />;
+        return <GlobalStatusView backendStatus={backendStatus} />;
     }
   };
 
