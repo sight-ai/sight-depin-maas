@@ -29,7 +29,8 @@
           "extractLicenses": false,
           "optimization": false,
           "sourceMap": true,
-          "vendorChunk": true
+          "vendorChunk": true,
+          "baseHref": "/"
         },
         "production": {
           "fileReplacements": [
@@ -92,7 +93,20 @@
       "executor": "nx:run-commands",
       "options": {
         "commands": [
-          "concurrently 'nx serve desktop-app' 'wait-on http://localhost:4200 && nx build-electron desktop-app && pnpm electron dist/packages/apps/desktop-app/electron/main.js --dev'"
+          "echo '🚀 启动 Electron 开发环境...'",
+          "echo '📋 检查必要的构建文件...'",
+          "nx build api-server",
+          "echo '🔧 启动开发服务器和 Electron...'",
+          "concurrently --kill-others --success first 'nx serve desktop-app' 'wait-on http://localhost:4200 && sleep 2 && nx build-electron desktop-app && pnpm electron dist/packages/apps/desktop-app/electron/main.js --dev'"
+        ],
+        "parallel": false
+      }
+    },
+    "electron-dev-fast": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "concurrently --kill-others --success first 'nx serve desktop-app' 'wait-on http://localhost:4200 && sleep 2 && nx build-electron desktop-app && pnpm electron dist/packages/apps/desktop-app/electron/main.js --dev'"
         ],
         "parallel": false
       }

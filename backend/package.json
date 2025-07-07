@@ -12,12 +12,7 @@
     "analyze:deps": "node scripts/analyze-dependencies.js",
     "clean:all": "rm -rf dist dist-pkg node_modules/.cache",
     "fix": "eslint --fix ./packages/**/*.ts",
-    "desktop:dev": "nx electron-dev desktop-app",
-    "desktop:build": "nx build desktop-app && nx build-electron desktop-app",
-    "desktop:build-prod": "nx build-production desktop-app",
-    "desktop:start": "nx electron desktop-app",
-    "desktop:start-prod": "nx electron-production desktop-app",
-    "desktop:serve": "nx serve desktop-app"
+    "desktop:dev": "nx electron-dev desktop-app"
   },
   "private": true,
   "dependencies": {

@@ -55,15 +55,24 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
   // Get system status
   const fetchSystemStats = async () => {
     try {
-      const response = await fetch('http://localhost:8716/api/v1/miner/deviceStatus');
-      const data = await response.json();
+      // First get device config to obtain deviceId
+      if (window.electronAPI) {
+        const deviceConfigResult = await window.electronAPI.readDeviceConfig();
+        if (deviceConfigResult.success && deviceConfigResult.data?.deviceId) {
+          const deviceId = deviceConfigResult.data.deviceId;
+          const response = await fetch(`http://localhost:8716/api/v1/miner/deviceStatus?deviceId=${encodeURIComponent(deviceId)}`);
+          const data = await response.json();
 
-      if (data.success) {
-        // Update system status (adjust according to actual API response)
-        setSystemStats(prev => ({
-          ...prev,
-          networkStatus: data.status === 'online' ? 'connected' : 'disconnected'
-        }));
+          if (data && data.status) {
+            // Update system status (adjust according to actual API response)
+            setSystemStats(prev => ({
+              ...prev,
+              networkStatus: data.status === 'connected' ? 'connected' : 'disconnected'
+            }));
+          }
+        } else {
+          console.warn('Device not configured, skipping device status fetch');
+        }
       }
     } catch (error) {
       console.error('Error fetching system stats:', error);
