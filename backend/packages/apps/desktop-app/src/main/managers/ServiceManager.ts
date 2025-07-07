@@ -21,19 +21,21 @@ export class ServiceManager {
     port: 8716,
     isRunning: false,
   };
-  
+
   private libp2pService: Libp2pService = {
     instance: null,
     port: 4010,
     isRunning: false,
   };
-  
+
   private isDev: boolean;
   private logger: LogManager;
+  private startTime: number;
 
   constructor(logger: LogManager, isDev: boolean = false) {
     this.logger = logger;
     this.isDev = isDev;
+    this.startTime = Date.now();
   }
 
   public async startAllServices(): Promise<void> {
@@ -505,5 +507,25 @@ export class ServiceManager {
     }
 
     return LibP2PService;
+  }
+
+  // 公共方法供IPC使用
+  public getStartTime(): number {
+    return this.startTime;
+  }
+
+  public async restartBackendService(): Promise<void> {
+    this.logger.log('Restarting backend service...');
+    this.stopBackendService();
+    await new Promise(resolve => setTimeout(resolve, 2000)); // 等待2秒确保服务完全停止
+    await this.startBackendService();
+  }
+
+  public async startBackendServicePublic(): Promise<void> {
+    return this.startBackendService();
+  }
+
+  public stopBackendServicePublic(): void {
+    return this.stopBackendService();
   }
 }

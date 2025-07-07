@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import { join } from 'path';
-import { existsSync, appendFileSync, mkdirSync } from 'fs';
+import { existsSync, appendFileSync, mkdirSync, readFileSync } from 'fs';
+import { homedir } from 'os';
 
 export class LogManager {
   private logFile: string = '';
@@ -45,5 +46,70 @@ export class LogManager {
 
   public getLogFile(): string {
     return this.logFile;
+  }
+
+  public async getLogs(options?: {
+    lines?: number;
+    level?: 'error' | 'warn' | 'info' | 'debug';
+    service?: 'backend' | 'libp2p' | 'all';
+  }): Promise<string[]> {
+    const logs: string[] = [];
+    const maxLines = options?.lines || 100;
+    const levelFilter = options?.level?.toUpperCase();
+    const serviceFilter = options?.service || 'all';
+
+    try {
+      // 读取应用日志
+      if (serviceFilter === 'all' || serviceFilter === 'backend') {
+        if (existsSync(this.logFile)) {
+          const content = readFileSync(this.logFile, 'utf-8');
+          const lines = content.split('\n').filter(line => line.trim());
+
+          let filteredLines = lines;
+          if (levelFilter) {
+            filteredLines = lines.filter(line => line.includes(`[${levelFilter}]`));
+          }
+
+          logs.push(...filteredLines.slice(-maxLines));
+        }
+      }
+
+      // 读取backend服务日志
+      if (serviceFilter === 'all' || serviceFilter === 'backend') {
+        const backendLogPath = join(homedir(), '.sightai', 'logs', 'backend.log');
+        if (existsSync(backendLogPath)) {
+          const content = readFileSync(backendLogPath, 'utf-8');
+          const lines = content.split('\n').filter(line => line.trim());
+
+          let filteredLines = lines;
+          if (levelFilter) {
+            filteredLines = lines.filter(line => line.toLowerCase().includes(levelFilter.toLowerCase()));
+          }
+
+          logs.push(...filteredLines.slice(-maxLines));
+        }
+      }
+
+      // 读取libp2p服务日志
+      if (serviceFilter === 'all' || serviceFilter === 'libp2p') {
+        const libp2pLogPath = join(homedir(), '.sightai', 'logs', 'libp2p.log');
+        if (existsSync(libp2pLogPath)) {
+          const content = readFileSync(libp2pLogPath, 'utf-8');
+          const lines = content.split('\n').filter(line => line.trim());
+
+          let filteredLines = lines;
+          if (levelFilter) {
+            filteredLines = lines.filter(line => line.toLowerCase().includes(levelFilter.toLowerCase()));
+          }
+
+          logs.push(...filteredLines.slice(-maxLines));
+        }
+      }
+
+      return logs.slice(-maxLines);
+    } catch (error) {
+      this.log(`Failed to read logs: ${error}`, 'ERROR');
+      return [`Error reading logs: ${error instanceof Error ? error.message : 'Unknown error'}`];
+    }
   }
 }
