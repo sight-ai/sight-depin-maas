@@ -66,56 +66,21 @@
   }
 
   /* Custom Title Bar Styles for Cyberpunk Theme */
-  .titlebar {
+  /* Cyber Header with drag support */
+  .cyber-header {
     -webkit-app-region: drag;
-    background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
-    border-bottom: 1px solid rgba(0, 255, 255, 0.2);
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 10px;
-    position: relative;
+    user-select: none;
   }
 
-  .titlebar::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
-    opacity: 0.5;
-  }
-
-  .titlebar-controls {
+  /* Ensure interactive elements in header are not draggable */
+  .cyber-header button,
+  .cyber-header input,
+  .cyber-header select,
+  .cyber-header a {
     -webkit-app-region: no-drag;
-    display: flex;
-    align-items: center;
-    gap: 8px;
   }
 
-  .titlebar-button {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    border: 1px solid rgba(0, 255, 255, 0.3);
-    background: rgba(0, 255, 255, 0.1);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    position: relative;
-  }
 
-  .titlebar-button:hover {
-    background: rgba(0, 255, 255, 0.3);
-    box-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
-  }
-
-  .titlebar-button.close {
-    border-color: rgba(255, 0, 100, 0.5);
-    background: rgba(255, 0, 100, 0.1);
-  }
 
   .titlebar-button.close:hover {
     background: rgba(255, 0, 100, 0.3);

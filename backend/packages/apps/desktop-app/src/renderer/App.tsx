@@ -144,8 +144,8 @@ const App: React.FC = () => {
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col">
-          {/* Cyberpunk Header */}
-          <header className="border-b border-cyan-500/20 bg-card/50 backdrop-blur-sm px-6 py-4 relative">
+          {/* Cyberpunk Header with drag support */}
+          <header className="cyber-header border-b border-cyan-500/20 bg-card/50 backdrop-blur-sm px-6 py-4 relative">
             <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 to-magenta-500/5" />
             <div className="relative z-10 flex items-center justify-between">
               <div className="flex items-center space-x-4">

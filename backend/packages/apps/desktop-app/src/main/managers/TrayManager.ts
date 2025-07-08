@@ -24,10 +24,10 @@ export class TrayManager {
 
     if (this.isDev) {
       // 开发模式：从源代码目录读取
-      iconPath = join(__dirname, '../../resources/icon.png');
+      iconPath = join(__dirname, '../../resources/logo.png');
     } else {
       // 生产模式：从应用资源目录读取
-      iconPath = join(process.resourcesPath, 'icon.png');
+      iconPath = join(process.resourcesPath, 'logo.png');
     }
 
     this.logger.log(`Tray icon path: ${iconPath}`);

@@ -39,6 +39,10 @@ export class WindowManager {
       } : undefined,
       backgroundColor: '#0a0a0f',
       show: false, // 先不显示，等加载完成后再显示
+      // 添加窗口拖动支持
+      frame: true, // 保持窗口框架以支持拖动
+      movable: true, // 允许窗口移动
+      resizable: true, // 允许窗口调整大小
     });
 
     this.logger.log('BrowserWindow created');
