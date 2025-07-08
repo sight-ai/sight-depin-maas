@@ -190,29 +190,36 @@ export class OllamaProcessManagerService {
    */
   async getOllamaStatus(): Promise<OllamaProcessStatus> {
     try {
-      const pid = await this.getOllamaPid();
-      const isRunning = pid ? await this.isProcessRunning(pid) : false;
+      // 首先检查服务是否通过HTTP可访问（更可靠的检测方法）
+      const isServiceRunning = await this.checkOllamaService();
 
-      if (!isRunning) {
+      if (!isServiceRunning) {
         return { isRunning: false };
       }
 
-      // 获取进程信息
-      const processInfo = await this.getProcessInfo(pid!);
-      
+      // 尝试获取PID（如果是通过此服务启动的）
+      const pid = await this.getOllamaPid();
+
       // 获取Ollama版本
       const version = await this.getOllamaVersion();
 
-      return {
+      const result: OllamaProcessStatus = {
         isRunning: true,
-        pid: pid!,
         port: 11434, // Ollama默认端口
         config: undefined, // Ollama不需要配置
-        startTime: processInfo.startTime,
-        memoryUsage: processInfo.memoryUsage,
-        cpuUsage: processInfo.cpuUsage,
         version
       };
+
+      // 如果有PID，获取进程信息
+      if (pid && await this.isProcessRunning(pid)) {
+        const processInfo = await this.getProcessInfo(pid);
+        result.pid = pid;
+        result.startTime = processInfo.startTime;
+        result.memoryUsage = processInfo.memoryUsage;
+        result.cpuUsage = processInfo.cpuUsage;
+      }
+
+      return result;
 
     } catch (error) {
       this.logger.error('Failed to get Ollama status:', error);
@@ -288,6 +295,22 @@ export class OllamaProcessManagerService {
     }
     
     throw new Error(`Process ${pid} did not stop within ${timeout}ms`);
+  }
+
+  /**
+   * 检查Ollama服务是否可访问（通过HTTP）
+   */
+  private async checkOllamaService(): Promise<boolean> {
+    try {
+      const ollamaUrl = process.env.OLLAMA_API_URL || 'http://127.0.0.1:11434';
+      const response = await fetch(`${ollamaUrl}/api/tags`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000) // 5秒超时
+      });
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
   }
 
   /**

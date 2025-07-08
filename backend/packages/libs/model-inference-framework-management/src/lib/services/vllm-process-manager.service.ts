@@ -4,6 +4,7 @@ import { promisify } from 'util';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import { VllmConfigService } from './vllm-config.service';
 
 const execAsync = promisify(exec);
 
@@ -13,6 +14,15 @@ export interface VllmProcessConfig {
   maxModelLen: number;
   port: number;
   host: string;
+  // 新增的显存控制参数
+  maxNumSeqs?: number;
+  maxNumBatchedTokens?: number;
+  enforceEager?: boolean;
+  swapSpace?: number;
+  tensorParallelSize?: number;
+  pipelineParallelSize?: number;
+  blockSize?: number;
+  quantization?: 'awq' | 'gptq' | 'squeezellm' | 'fp8' | 'int8' | null;
 }
 
 export interface VllmProcessStatus {
@@ -33,6 +43,8 @@ export class VllmProcessManagerService {
   private readonly pidFile = path.join(os.tmpdir(), 'vllm-service.pid');
   private readonly logFile = path.join(os.tmpdir(), 'vllm-service.log');
 
+  constructor(private readonly vllmConfigService: VllmConfigService) {}
+
   /**
    * 启动vLLM服务
    */
@@ -46,10 +58,12 @@ export class VllmProcessManagerService {
         };
       }
 
-      this.logger.log('Starting vLLM service with configuration:', config);
+      // 合并用户配置和保存的配置
+      const mergedConfig = this.mergeWithSavedConfig(config);
+      this.logger.log('Starting vLLM service with merged configuration:', mergedConfig);
 
       // 构建启动命令
-      const args = this.buildVllmArgs(config);
+      const args = this.buildVllmArgs(mergedConfig);
       
       // 启动vLLM进程
       this.vllmProcess = spawn('python', ['-m', 'vllm.entrypoints.openai.api_server', ...args], {
@@ -58,7 +72,7 @@ export class VllmProcessManagerService {
         env: {
           ...process.env,
           CUDA_VISIBLE_DEVICES: process.env['CUDA_VISIBLE_DEVICES'] || '0',
-          VLLM_GPU_MEMORY_UTILIZATION: config.gpuMemoryUtilization.toString(),
+          VLLM_GPU_MEMORY_UTILIZATION: mergedConfig.gpuMemoryUtilization.toString(),
         }
       });
 
@@ -73,7 +87,7 @@ export class VllmProcessManagerService {
       this.setupLogging();
       
       // 保存当前配置
-      this.currentConfig = config;
+      this.currentConfig = mergedConfig;
 
       // 等待服务启动
       await this.waitForServiceReady(config.port, 30000); // 30秒超时
@@ -200,25 +214,32 @@ export class VllmProcessManagerService {
    */
   async getVllmStatus(): Promise<VllmProcessStatus> {
     try {
-      const pid = await this.getVllmPid();
-      const isRunning = pid ? await this.isProcessRunning(pid) : false;
+      // 首先检查服务是否通过HTTP可访问（更可靠的检测方法）
+      const isServiceRunning = await this.checkVllmService();
 
-      if (!isRunning) {
+      if (!isServiceRunning) {
         return { isRunning: false };
       }
 
-      // 获取进程信息
-      const processInfo = await this.getProcessInfo(pid!);
+      // 尝试获取PID（如果是通过此服务启动的）
+      const pid = await this.getVllmPid();
 
-      return {
+      const result: VllmProcessStatus = {
         isRunning: true,
-        pid: pid!,
         port: this.currentConfig?.port || 8000,
-        config: this.currentConfig || undefined,
-        startTime: processInfo.startTime,
-        memoryUsage: processInfo.memoryUsage,
-        cpuUsage: processInfo.cpuUsage
+        config: this.currentConfig || undefined
       };
+
+      // 如果有PID，获取进程信息
+      if (pid && await this.isProcessRunning(pid)) {
+        const processInfo = await this.getProcessInfo(pid);
+        result.pid = pid;
+        result.startTime = processInfo.startTime;
+        result.memoryUsage = processInfo.memoryUsage;
+        result.cpuUsage = processInfo.cpuUsage;
+      }
+
+      return result;
 
     } catch (error) {
       this.logger.error('Failed to get vLLM status:', error);
@@ -238,7 +259,63 @@ export class VllmProcessManagerService {
       '--host', config.host
     ];
 
+    // 添加可选的显存控制参数
+    if (config.maxNumSeqs !== undefined) {
+      args.push('--max-num-seqs', config.maxNumSeqs.toString());
+    }
+
+    if (config.maxNumBatchedTokens !== undefined) {
+      args.push('--max-num-batched-tokens', config.maxNumBatchedTokens.toString());
+    }
+
+    if (config.enforceEager === true) {
+      args.push('--enforce-eager');
+    }
+
+    if (config.swapSpace !== undefined && config.swapSpace > 0) {
+      args.push('--swap-space', config.swapSpace.toString());
+    }
+
+    if (config.tensorParallelSize !== undefined && config.tensorParallelSize > 1) {
+      args.push('--tensor-parallel-size', config.tensorParallelSize.toString());
+    }
+
+    if (config.pipelineParallelSize !== undefined && config.pipelineParallelSize > 1) {
+      args.push('--pipeline-parallel-size', config.pipelineParallelSize.toString());
+    }
+
+    if (config.blockSize !== undefined) {
+      args.push('--block-size', config.blockSize.toString());
+    }
+
+    if (config.quantization) {
+      args.push('--quantization', config.quantization);
+    }
+
     return args;
+  }
+
+  /**
+   * 从配置服务获取默认配置并合并用户配置
+   */
+  private mergeWithSavedConfig(userConfig: Partial<VllmProcessConfig>): VllmProcessConfig {
+    const savedConfig = this.vllmConfigService.getFullConfig();
+
+    return {
+      model: userConfig.model || savedConfig.model || 'microsoft/DialoGPT-medium',
+      gpuMemoryUtilization: userConfig.gpuMemoryUtilization || savedConfig.gpuMemoryUtilization || 0.9,
+      maxModelLen: userConfig.maxModelLen || savedConfig.maxModelLen || 4096,
+      port: userConfig.port || savedConfig.port || 8000,
+      host: userConfig.host || savedConfig.host || '0.0.0.0',
+      maxNumSeqs: userConfig.maxNumSeqs || savedConfig.maxNumSeqs,
+      maxNumBatchedTokens: userConfig.maxNumBatchedTokens || savedConfig.maxNumBatchedTokens,
+      enforceEager: userConfig.enforceEager !== undefined ? userConfig.enforceEager : savedConfig.enforceEager,
+      swapSpace: userConfig.swapSpace || savedConfig.swapSpace,
+      tensorParallelSize: userConfig.tensorParallelSize || savedConfig.tensorParallelSize,
+      pipelineParallelSize: userConfig.pipelineParallelSize || savedConfig.pipelineParallelSize,
+      blockSize: userConfig.blockSize || savedConfig.blockSize,
+      quantization: userConfig.quantization || savedConfig.quantization
+    };
   }
 
   /**
@@ -298,6 +375,34 @@ export class VllmProcessManagerService {
     }
     
     throw new Error(`Process ${pid} did not stop within ${timeout}ms`);
+  }
+
+  /**
+   * 检查vLLM服务是否可访问（通过HTTP）
+   */
+  private async checkVllmService(): Promise<boolean> {
+    try {
+      // 尝试多个常见端口
+      const ports = [8000, 8001, 8080];
+      const vllmHost = process.env.VLLM_HOST || '127.0.0.1';
+
+      for (const port of ports) {
+        try {
+          const response = await fetch(`http://${vllmHost}:${port}/v1/models`, {
+            method: 'GET',
+            signal: AbortSignal.timeout(3000) // 3秒超时
+          });
+          if (response.ok) {
+            return true;
+          }
+        } catch (error) {
+          // 继续尝试下一个端口
+        }
+      }
+      return false;
+    } catch (error) {
+      return false;
+    }
   }
 
   /**

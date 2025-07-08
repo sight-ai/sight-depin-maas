@@ -3,11 +3,11 @@ import { createZodDto } from 'nestjs-zod';
 import { Response } from 'express';
 import { z } from 'zod';
 import { ModelReportingService } from "@saito/model-reporting";
-import { UnifiedModelService, ClientSwitchService } from "@saito/model-inference-client";
-import { FrameworkSwitchService } from "@saito/model-inference-framework-management";
-import { VllmProcessManagerService, OllamaProcessManagerService } from "@saito/model-inference-framework-management";
+import { UnifiedModelService } from "@saito/model-inference-client";
+import { VllmProcessManagerService, OllamaProcessManagerService, VllmConfigService, VllmErrorHandlerService } from "@saito/model-inference-framework-management";
 import type { VllmProcessConfig } from "@saito/model-inference-framework-management";
 import { DeviceStatusService, TunnelCommunicationService } from "@saito/device-status";
+import { SystemInfoService } from "@saito/common";
 
 // Define DTOs for the new endpoints
 const ModelReportRequestSchema = z.object({
@@ -16,13 +16,29 @@ const ModelReportRequestSchema = z.object({
 
 const VllmConfigUpdateSchema = z.object({
   gpuMemoryUtilization: z.number().min(0.1).max(1.0).optional(),
-  maxModelLen: z.number().int().positive().optional()
+  maxModelLen: z.number().int().positive().optional(),
+  maxNumSeqs: z.number().int().positive().optional(),
+  maxNumBatchedTokens: z.number().int().positive().optional(),
+  enforceEager: z.boolean().optional(),
+  swapSpace: z.number().nonnegative().optional(),
+  tensorParallelSize: z.number().int().positive().optional(),
+  pipelineParallelSize: z.number().int().positive().optional(),
+  blockSize: z.number().int().positive().optional(),
+  quantization: z.enum(['awq', 'gptq', 'squeezellm', 'fp8', 'int8']).nullable().optional()
 });
 
 const VllmStartSchema = z.object({
   model: z.string().optional(),
   gpuMemoryUtilization: z.number().min(0.1).max(1.0).optional(),
   maxModelLen: z.number().int().positive().optional(),
+  maxNumSeqs: z.number().int().positive().optional(),
+  maxNumBatchedTokens: z.number().int().positive().optional(),
+  enforceEager: z.boolean().optional(),
+  swapSpace: z.number().nonnegative().optional(),
+  tensorParallelSize: z.number().int().positive().optional(),
+  pipelineParallelSize: z.number().int().positive().optional(),
+  blockSize: z.number().int().positive().optional(),
+  quantization: z.enum(['awq', 'gptq', 'squeezellm', 'fp8', 'int8']).nullable().optional(),
   port: z.number().int().min(1).max(65535).optional(),
   host: z.string().optional()
 });
@@ -47,7 +63,10 @@ export class ModelsController {
     private readonly vllmProcessManager: VllmProcessManagerService,
     private readonly ollamaProcessManager: OllamaProcessManagerService,
     @Inject(DeviceStatusService) private readonly deviceStatusService: DeviceStatusService,
-    @Inject(TunnelCommunicationService) private readonly tunnelService: TunnelCommunicationService
+    @Inject(TunnelCommunicationService) private readonly tunnelService: TunnelCommunicationService,
+    private readonly vllmConfigService: VllmConfigService,
+    private readonly vllmErrorHandlerService: VllmErrorHandlerService,
+    private readonly systemInfoService: SystemInfoService
   ) { }
 
   @Get('/list')
@@ -70,6 +89,134 @@ export class ModelsController {
         error: error instanceof Error ? error.message : 'Unknown error',
         models: [],
         total: 0
+      });
+    }
+  }
+
+  @Get('/vllm/config/recommended')
+  async getVllmRecommendedConfig(@Res() res: Response) {
+    try {
+      const currentFramework = this.unifiedModelService.getCurrentFramework();
+
+      if (currentFramework !== 'vllm') {
+        res.status(400).json({
+          success: false,
+          error: 'Current framework is not vLLM. Please switch to vLLM first.',
+          currentFramework
+        });
+        return;
+      }
+
+      // Get recommended configuration
+      const recommendedConfig = await this.vllmConfigService.getRecommendedConfig();
+
+      res.status(200).json({
+        success: true,
+        framework: currentFramework,
+        recommendedConfig,
+        note: 'These are conservative recommended values. You may adjust based on your hardware capabilities.'
+      });
+    } catch (error) {
+      this.logger.error('Error getting vLLM recommended config:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  @Post('/vllm/config/reset')
+  async resetVllmConfig(@Res() res: Response) {
+    try {
+      const currentFramework = this.unifiedModelService.getCurrentFramework();
+
+      if (currentFramework !== 'vllm') {
+        res.status(400).json({
+          success: false,
+          error: 'Current framework is not vLLM. Please switch to vLLM first.',
+          currentFramework
+        });
+        return;
+      }
+
+      // Reset configuration to defaults
+      const success = this.vllmConfigService.resetToDefaults();
+
+      if (success) {
+        res.status(200).json({
+          success: true,
+          message: 'vLLM configuration reset to defaults successfully',
+          note: 'Configuration changes will take effect when vLLM service is restarted'
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to reset vLLM configuration'
+        });
+      }
+    } catch (error) {
+      this.logger.error('Error resetting vLLM config:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  @Get('/system-info')
+  async getSystemInfo(@Res() res: Response) {
+    try {
+      const systemInfo = await this.systemInfoService.getSystemInfo();
+
+      res.status(200).json({
+        success: true,
+        systemInfo,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      this.logger.error('Error getting system info:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  @Get('/vllm/config/recommended-by-system')
+  async getVllmRecommendedConfigBySystem(@Res() res: Response) {
+    try {
+      const currentFramework = this.unifiedModelService.getCurrentFramework();
+
+      if (currentFramework !== 'vllm') {
+        res.status(400).json({
+          success: false,
+          error: 'Current framework is not vLLM. Please switch to vLLM first.',
+          currentFramework
+        });
+        return;
+      }
+
+      // Get system info and generate recommendations
+      const systemInfo = await this.systemInfoService.getSystemInfo();
+      const recommendedConfig = this.systemInfoService.getRecommendedVllmConfig(systemInfo.gpus);
+
+      res.status(200).json({
+        success: true,
+        framework: currentFramework,
+        systemInfo: {
+          gpus: systemInfo.gpus,
+          totalMemory: systemInfo.totalMemory,
+          cudaVersion: systemInfo.cudaVersion,
+          torchVersion: systemInfo.torchVersion
+        },
+        recommendedConfig,
+        note: 'Configuration recommendations based on detected hardware. Adjust as needed for your specific use case.'
+      });
+    } catch (error) {
+      this.logger.error('Error getting system-based vLLM recommended config:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   }
@@ -141,11 +288,8 @@ export class ModelsController {
         return;
       }
 
-      // Get vLLM specific configuration from environment variables
-      const config = {
-        gpuMemoryUtilization: parseFloat(process.env['VLLM_GPU_MEMORY_UTILIZATION'] || '0.9'),
-        maxModelLen: parseInt(process.env['VLLM_MAX_MODEL_LEN'] || '4096')
-      };
+      // Get vLLM specific configuration from config service
+      const config = this.vllmConfigService.getFullConfig();
 
       res.status(200).json({
         success: true,
@@ -175,18 +319,24 @@ export class ModelsController {
         return;
       }
 
-      // Update environment variables with new configuration
+      // Update configuration using config service
+      const success = this.vllmConfigService.setMemoryConfig(args);
+
+      if (!success) {
+        res.status(400).json({
+          success: false,
+          error: 'Failed to update vLLM configuration. Please check the provided values.'
+        });
+        return;
+      }
+
+      // Build updates list for response
       const updates: string[] = [];
-
-      if (args.gpuMemoryUtilization !== undefined) {
-        process.env['VLLM_GPU_MEMORY_UTILIZATION'] = args.gpuMemoryUtilization.toString();
-        updates.push(`GPU Memory Utilization: ${args.gpuMemoryUtilization}`);
-      }
-
-      if (args.maxModelLen !== undefined) {
-        process.env['VLLM_MAX_MODEL_LEN'] = args.maxModelLen.toString();
-        updates.push(`Max Model Length: ${args.maxModelLen}`);
-      }
+      Object.entries(args).forEach(([key, value]) => {
+        if (value !== undefined) {
+          updates.push(`${key}: ${value}`);
+        }
+      });
 
       res.status(200).json({
         success: true,
@@ -220,13 +370,23 @@ export class ModelsController {
         return;
       }
 
-      // 构建vLLM配置
+      // 构建vLLM配置，合并用户输入和保存的配置
+      const savedConfig = this.vllmConfigService.getFullConfig();
       const config: VllmProcessConfig = {
-        model: args.model || process.env['VLLM_MODEL'] || 'microsoft/DialoGPT-medium',
-        gpuMemoryUtilization: args.gpuMemoryUtilization || parseFloat(process.env['VLLM_GPU_MEMORY_UTILIZATION'] || '0.9'),
-        maxModelLen: args.maxModelLen || parseInt(process.env['VLLM_MAX_MODEL_LEN'] || '4096'),
-        port: args.port || parseInt(process.env['VLLM_PORT'] || '8000'),
-        host: args.host || process.env['VLLM_HOST'] || '0.0.0.0'
+        model: args.model || savedConfig.model || 'microsoft/DialoGPT-medium',
+        gpuMemoryUtilization: args.gpuMemoryUtilization || savedConfig.gpuMemoryUtilization || 0.9,
+        maxModelLen: args.maxModelLen || savedConfig.maxModelLen || 4096,
+        port: args.port || savedConfig.port || 8000,
+        host: args.host || savedConfig.host || '0.0.0.0',
+        // 新增的显存控制参数
+        maxNumSeqs: args.maxNumSeqs || savedConfig.maxNumSeqs,
+        maxNumBatchedTokens: args.maxNumBatchedTokens || savedConfig.maxNumBatchedTokens,
+        enforceEager: args.enforceEager !== undefined ? args.enforceEager : savedConfig.enforceEager,
+        swapSpace: args.swapSpace || savedConfig.swapSpace,
+        tensorParallelSize: args.tensorParallelSize || savedConfig.tensorParallelSize,
+        pipelineParallelSize: args.pipelineParallelSize || savedConfig.pipelineParallelSize,
+        blockSize: args.blockSize || savedConfig.blockSize,
+        quantization: args.quantization || savedConfig.quantization
       };
 
       const result = await this.vllmProcessManager.startVllmService(config);
@@ -300,12 +460,26 @@ export class ModelsController {
       // 如果提供了新配置，使用新配置重启
       let config: VllmProcessConfig | undefined = undefined;
       if (args && Object.keys(args).length > 0) {
+        // 先保存新配置
+        this.vllmConfigService.setMemoryConfig(args);
+
+        // 构建完整配置
+        const savedConfig = this.vllmConfigService.getFullConfig();
         config = {
-          model: args.model || process.env['VLLM_MODEL'] || 'microsoft/DialoGPT-medium',
-          gpuMemoryUtilization: args.gpuMemoryUtilization || parseFloat(process.env['VLLM_GPU_MEMORY_UTILIZATION'] || '0.9'),
-          maxModelLen: args.maxModelLen || parseInt(process.env['VLLM_MAX_MODEL_LEN'] || '4096'),
-          port: args.port || parseInt(process.env['VLLM_PORT'] || '8000'),
-          host: args.host || process.env['VLLM_HOST'] || '0.0.0.0'
+          model: args.model || savedConfig.model || 'microsoft/DialoGPT-medium',
+          gpuMemoryUtilization: args.gpuMemoryUtilization || savedConfig.gpuMemoryUtilization || 0.9,
+          maxModelLen: args.maxModelLen || savedConfig.maxModelLen || 4096,
+          port: args.port || savedConfig.port || 8000,
+          host: args.host || savedConfig.host || '0.0.0.0',
+          // 新增的显存控制参数
+          maxNumSeqs: args.maxNumSeqs || savedConfig.maxNumSeqs,
+          maxNumBatchedTokens: args.maxNumBatchedTokens || savedConfig.maxNumBatchedTokens,
+          enforceEager: args.enforceEager !== undefined ? args.enforceEager : savedConfig.enforceEager,
+          swapSpace: args.swapSpace || savedConfig.swapSpace,
+          tensorParallelSize: args.tensorParallelSize || savedConfig.tensorParallelSize,
+          pipelineParallelSize: args.pipelineParallelSize || savedConfig.pipelineParallelSize,
+          blockSize: args.blockSize || savedConfig.blockSize,
+          quantization: args.quantization || savedConfig.quantization
         };
       }
 
@@ -562,5 +736,97 @@ export class ModelsController {
       }
     }
     return '';
+  }
+
+  // =============================================================================
+  // vLLM 错误处理相关端点
+  // =============================================================================
+
+  /**
+   * 分析错误消息并返回用户友好的解决方案
+   */
+  @Post('/vllm/error/analyze')
+  async analyzeVllmError(@Body() body: { errorMessage: string; currentConfig?: any }, @Res() res: Response) {
+    try {
+      const { errorMessage, currentConfig = {} } = body;
+
+      if (!errorMessage) {
+        return res.status(400).json({
+          success: false,
+          message: '错误消息不能为空'
+        });
+      }
+
+      const analysis = this.vllmErrorHandlerService.analyzeErrorWithRecommendations(errorMessage, currentConfig);
+      const userFriendlyMessage = this.vllmErrorHandlerService.generateUserFriendlyMessage(analysis);
+
+      res.status(200).json({
+        success: true,
+        analysis,
+        userFriendlyMessage
+      });
+    } catch (error) {
+      this.logger.error('Failed to analyze vLLM error:', error);
+      res.status(500).json({
+        success: false,
+        message: '分析错误失败',
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  /**
+   * 验证配置风险
+   */
+  @Post('/vllm/config/validate-risks')
+  async validateVllmConfigRisks(@Body() body: any, @Res() res: Response) {
+    try {
+      const warnings = this.vllmErrorHandlerService.validateConfigurationRisks(body);
+
+      res.status(200).json({
+        success: true,
+        warnings,
+        hasRisks: warnings.length > 0
+      });
+    } catch (error) {
+      this.logger.error('Failed to validate vLLM config risks:', error);
+      res.status(500).json({
+        success: false,
+        message: '配置风险验证失败',
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  /**
+   * 获取错误类型的配置建议
+   */
+  @Post('/vllm/config/recommendations')
+  async getVllmConfigRecommendations(@Body() body: { errorType: string; currentConfig: any }, @Res() res: Response) {
+    try {
+      const { errorType, currentConfig } = body;
+
+      if (!errorType) {
+        return res.status(400).json({
+          success: false,
+          message: '错误类型不能为空'
+        });
+      }
+
+      const recommendations = this.vllmErrorHandlerService.getConfigurationRecommendations(errorType, currentConfig || {});
+
+      res.status(200).json({
+        success: true,
+        recommendations,
+        errorType
+      });
+    } catch (error) {
+      this.logger.error('Failed to get vLLM config recommendations:', error);
+      res.status(500).json({
+        success: false,
+        message: '获取配置建议失败',
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
   }
 }

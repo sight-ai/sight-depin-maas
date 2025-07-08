@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Switch } from './ui/switch';
+import { Alert, AlertDescription } from './ui/alert';
 import {
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react';
 
 interface SettingsProps {}
@@ -10,6 +13,7 @@ interface SettingsProps {}
 export const Settings: React.FC<SettingsProps> = () => {
   const [autoStart, setAutoStart] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Get current auto-start status
   useEffect(() => {
@@ -28,14 +32,35 @@ export const Settings: React.FC<SettingsProps> = () => {
 
   const handleAutoStartChange = async (checked: boolean) => {
     setIsLoading(true);
+    setMessage(null);
+
     try {
       // Set auto-start via IPC
-      await window.electronAPI?.setAutoStart(checked);
-      setAutoStart(checked);
+      const result = await window.electronAPI?.setAutoStart(checked);
+
+      if (result?.success) {
+        setAutoStart(checked);
+        setMessage({
+          type: 'success',
+          text: `Auto-start ${checked ? 'enabled' : 'disabled'} successfully`
+        });
+      } else {
+        setMessage({
+          type: 'error',
+          text: result?.error || 'Failed to update auto-start setting'
+        });
+      }
     } catch (error) {
       console.error('Error setting auto-start:', error);
+      setMessage({
+        type: 'error',
+        text: 'Failed to update auto-start setting'
+      });
     } finally {
       setIsLoading(false);
+
+      // Clear message after 3 seconds
+      setTimeout(() => setMessage(null), 3000);
     }
   };
 
@@ -64,6 +89,20 @@ export const Settings: React.FC<SettingsProps> = () => {
               disabled={isLoading}
             />
           </div>
+
+          {/* Status Message */}
+          {message && (
+            <Alert className={message.type === 'error' ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}>
+              {message.type === 'error' ? (
+                <AlertCircle className="h-4 w-4 text-red-600" />
+              ) : (
+                <CheckCircle className="h-4 w-4 text-green-600" />
+              )}
+              <AlertDescription className={message.type === 'error' ? 'text-red-800' : 'text-green-800'}>
+                {message.text}
+              </AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
 

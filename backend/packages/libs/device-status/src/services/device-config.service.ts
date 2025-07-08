@@ -87,6 +87,13 @@ export class DeviceConfigService implements TDeviceConfig {
   }
 
   /**
+   * 获取设备密钥/代码
+   */
+  getCode(): string {
+    return this.currentConfig.code || '';
+  }
+
+  /**
    * 检查是否已注册
    */
   isRegistered(): boolean {

@@ -60,7 +60,7 @@ export const VllmConfigSchema = BaseFrameworkConfigSchema.extend({
   maxNumBatchedTokens: z.number().int().positive().optional().describe('最大批处理 token 数'),
   maxPaddingLength: z.number().int().nonnegative().optional().describe('最大填充长度'),
   disableLogStats: z.boolean().optional().describe('是否禁用日志统计'),
-  quantization: z.enum(['awq', 'gptq', 'squeezellm', 'fp8']).optional().describe('量化方法'),
+  quantization: z.enum(['awq', 'gptq', 'squeezellm', 'fp8', 'int8']).nullable().optional().describe('量化方法'),
   enforceEager: z.boolean().optional().describe('是否强制使用 eager 模式'),
   maxContextLenToCapture: z.number().int().positive().optional().describe('最大捕获上下文长度')
 });

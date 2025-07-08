@@ -257,6 +257,10 @@ export class DefaultDeviceStatusService implements TDeviceStatusService, OnModul
     return this.configService.getGatewayAddress();
   }
 
+  async getKey(): Promise<string> {
+    return this.configService.getCode();
+  }
+
   async isRegistered(): Promise<boolean> {
     return this.configService.isRegistered();
   }

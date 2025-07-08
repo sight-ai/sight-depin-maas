@@ -23,6 +23,10 @@ interface ElectronAPI {
     };
     error?: string;
   }>;
+  // 服务管理 API
+  restartBackend(): Promise<{ success: boolean; error?: string }>;
+  stopBackend(): Promise<{ success: boolean; error?: string }>;
+  startBackend(): Promise<{ success: boolean; error?: string }>;
   clipboard: {
     writeText: (text: string) => void;
     readText: () => string;

@@ -71,6 +71,7 @@ export interface TDeviceConfig {
   getDeviceName(): string;
   getGatewayAddress(): string;
   getRewardAddress(): string;
+  getCode(): string;
   isRegistered(): boolean;
 }
 

@@ -215,10 +215,13 @@ export const ModelReporting: React.FC = () => {
                     <Brain className="h-8 w-8 text-muted-foreground" />
                     <div>
                       <div className="font-medium">{model.name}</div>
-                      <div className="text-sm text-muted-foreground">
+                      {
+                        model.details &&
+                         <div className="text-sm text-muted-foreground">
                         {model.details.family} • {formatFileSize(model.size)} • {model.details.parameter_size}
                         {model.details.quantization_level && ` • ${model.details.quantization_level}`}
                       </div>
+                      }
                       <div className="text-xs text-muted-foreground">
                         Modified: {new Date(model.modified_at).toLocaleString()}
                       </div>

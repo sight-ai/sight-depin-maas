@@ -86,6 +86,7 @@ export const ModelInferenceConfig: React.FC<ModelInferenceConfigProps> = ({ back
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('framework');
   const [resourceLimits, setResourceLimitsState] = useState<ResourceLimits>({});
+  const [forceSwitch, setForceSwitch] = useState<{ framework: 'ollama' | 'vllm' | null; needed: boolean }>({ framework: null, needed: false });
 
   // 加载状态
   const loadData = async () => {
@@ -114,7 +115,7 @@ export const ModelInferenceConfig: React.FC<ModelInferenceConfigProps> = ({ back
   }, [backendStatus.isRunning, backendStatus.port]);
 
   // 切换框架
-  const switchFramework = async (framework: 'ollama' | 'vllm') => {
+  const switchFramework = async (framework: 'ollama' | 'vllm', force: boolean = false) => {
     if (!backendStatus.isRunning) return;
 
     try {
@@ -128,18 +129,25 @@ export const ModelInferenceConfig: React.FC<ModelInferenceConfigProps> = ({ back
         },
         body: JSON.stringify({
           framework,
-          validateAvailability: true,
+          validateAvailability: !force, // 如果force为true，则不验证可用性
           stopOthers: true,
           restartRequired: true
         }),
       });
 
       const result = await response.json();
-      
+
       if (result.success) {
+        setForceSwitch({ framework: null, needed: false }); // 重置强制切换状态
         await loadData();
       } else {
-        setError(result.message || 'Failed to switch framework');
+        // 如果失败且包含"not available"消息，设置强制切换状态
+        if (result.message && result.message.includes('not available') && !force) {
+          setForceSwitch({ framework, needed: true });
+          setError(`${result.message} Click the button again to force switch.`);
+        } else {
+          setError(result.message || 'Failed to switch framework');
+        }
       }
     } catch (error) {
       console.error('Error switching framework:', error);
@@ -242,7 +250,12 @@ export const ModelInferenceConfig: React.FC<ModelInferenceConfigProps> = ({ back
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="framework">Framework Selection</TabsTrigger>
           <TabsTrigger value="configuration">Configuration</TabsTrigger>
-          <TabsTrigger value="resources">Resource Limits</TabsTrigger>
+          <TabsTrigger
+            value="resources"
+            disabled={appStatus?.framework?.type === 'ollama'}
+          >
+            Resource Limits
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="framework" className="space-y-4">
@@ -291,7 +304,10 @@ export const ModelInferenceConfig: React.FC<ModelInferenceConfigProps> = ({ back
                       <p><strong>Cons:</strong> Limited advanced features</p>
                     </div>
                     <Button
-                      onClick={() => switchFramework('ollama')}
+                      onClick={() => {
+                        const needsForce = forceSwitch.needed && forceSwitch.framework === 'ollama';
+                        switchFramework('ollama', needsForce);
+                      }}
                       disabled={saving || appStatus?.framework?.type === 'ollama'}
                       className="w-full"
                       variant={appStatus?.framework?.type === 'ollama' ? 'secondary' : 'default'}
@@ -321,7 +337,10 @@ export const ModelInferenceConfig: React.FC<ModelInferenceConfigProps> = ({ back
                       <p><strong>Cons:</strong> More complex configuration</p>
                     </div>
                     <Button
-                      onClick={() => switchFramework('vllm')}
+                      onClick={() => {
+                        const needsForce = forceSwitch.needed && forceSwitch.framework === 'vllm';
+                        switchFramework('vllm', needsForce);
+                      }}
                       disabled={saving || appStatus?.framework?.type === 'vllm'}
                       className="w-full"
                       variant={appStatus?.framework?.type === 'vllm' ? 'secondary' : 'default'}
@@ -406,44 +425,75 @@ export const ModelInferenceConfig: React.FC<ModelInferenceConfigProps> = ({ back
                     <h4 className="font-medium">Ollama Configuration</h4>
                     <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                       <p className="text-sm text-blue-800">
-                        <strong>Note:</strong> Ollama is currently configured with default settings.
-                        Advanced configuration options can be set through Ollama's configuration files or environment variables.
+                        <strong>Note:</strong> Ollama uses optimized default settings and doesn't require manual configuration.
+                        The system automatically manages resources and performance for the best user experience.
                       </p>
                       <ul className="mt-2 text-sm text-blue-700 list-disc list-inside space-y-1">
-                        <li>Default context length: 2048 tokens</li>
-                        <li>GPU acceleration: Automatic detection</li>
-                        <li>Memory management: Optimized for available resources</li>
+                        <li>Context length: Automatically optimized per model</li>
+                        <li>GPU acceleration: Automatic detection and utilization</li>
+                        <li>Memory management: Dynamic allocation based on available resources</li>
+                        <li>Performance: Optimized for ease of use and stability</li>
                       </ul>
                     </div>
+
+                    <Alert>
+                      <Settings className="h-4 w-4" />
+                      <AlertDescription>
+                        Ollama is designed to work out-of-the-box without manual configuration.
+                        For advanced settings, please refer to Ollama's official documentation.
+                      </AlertDescription>
+                    </Alert>
                   </div>
                 )}
 
                 {/* vLLM 特定配置 */}
                 {appStatus.framework.type === 'vllm' && (
                   <div className="space-y-4">
-                    <h4 className="font-medium">vLLM Configuration</h4>
-                    <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
-                      <p className="text-sm text-orange-800">
-                        <strong>Note:</strong> vLLM is not currently available.
-                        Please ensure vLLM is installed and running on port 8000.
+                    <h4 className="font-medium">vLLM Advanced Configuration</h4>
+                    <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                      <p className="text-sm text-green-800">
+                        <strong>Available:</strong> vLLM supports advanced configuration options for optimal performance.
+                        You can adjust GPU memory limits, batch sizes, and other parameters in the Resource Limits tab.
                       </p>
-                      <ul className="mt-2 text-sm text-orange-700 list-disc list-inside space-y-1">
-                        <li>Default port: 8000</li>
-                        <li>High-performance inference engine</li>
-                        <li>Advanced memory management and optimization</li>
+                      <ul className="mt-2 text-sm text-green-700 list-disc list-inside space-y-1">
+                        <li>GPU memory utilization control</li>
+                        <li>Batch size optimization</li>
+                        <li>Advanced memory management</li>
+                        <li>Error analysis and recommendations</li>
                       </ul>
                     </div>
+
+                    <Alert>
+                      <Settings className="h-4 w-4" />
+                      <AlertDescription>
+                        Advanced vLLM configuration options are available in the Resource Limits tab.
+                        The system provides intelligent recommendations based on your hardware.
+                      </AlertDescription>
+                    </Alert>
                   </div>
                 )}
 
-                <div className="pt-4">
-                  <Alert>
-                    <Settings className="h-4 w-4" />
-                    <AlertDescription>
-                      Configuration is currently read-only. To modify settings, please edit the configuration files directly or use the API.
-                    </AlertDescription>
-                  </Alert>
-                </div>
+                {appStatus.framework.type === 'ollama' && (
+                  <div className="pt-4">
+                    <Alert>
+                      <Settings className="h-4 w-4" />
+                      <AlertDescription>
+                        Ollama configuration is managed automatically. No manual configuration is required.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
+
+                {appStatus.framework.type === 'vllm' && (
+                  <div className="pt-4">
+                    <Alert>
+                      <Settings className="h-4 w-4" />
+                      <AlertDescription>
+                        vLLM configuration can be modified in the Resource Limits tab for optimal performance.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -470,10 +520,13 @@ export const ModelInferenceConfig: React.FC<ModelInferenceConfigProps> = ({ back
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Monitor className="h-5 w-5" />
-                Resource Limits
+                {appStatus?.framework?.type === 'ollama' ? 'Resource Usage' : 'Resource Limits'}
               </CardTitle>
               <CardDescription>
-                Configure GPU, memory, and other resource constraints for model inference
+                {appStatus?.framework?.type === 'ollama'
+                  ? 'View current resource usage (Ollama manages resources automatically)'
+                  : 'Configure GPU, memory, and other resource constraints for model inference'
+                }
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -561,30 +614,55 @@ export const ModelInferenceConfig: React.FC<ModelInferenceConfigProps> = ({ back
                 </div>
               )}
 
-              <Separator />
+              {/* 只有 vLLM 才显示配置选项 */}
+              {appStatus?.framework?.type === 'vllm' && (
+                <>
+                  <Separator />
 
-              {/* GPU 限制配置 */}
-              <ResourceLimitSection
-                title="GPU Limits"
-                description="Select which GPUs to use for model inference"
-                framework={appStatus?.framework?.type}
-                onSave={(limits) => updateResourceLimits(limits)}
-                saving={saving}
-                availableGpus={appStatus?.resourceUsage?.gpu?.map(gpu => parseInt(gpu.id)) || []}
-                currentLimits={resourceLimits}
-              />
+                  {/* GPU 限制配置 */}
+                  <ResourceLimitSection
+                    title="GPU Limits"
+                    description="Select which GPUs to use for model inference"
+                    framework={appStatus?.framework?.type}
+                    onSave={(limits) => updateResourceLimits(limits)}
+                    saving={saving}
+                    availableGpus={appStatus?.resourceUsage?.gpu?.map(gpu => parseInt(gpu.id)) || []}
+                    currentLimits={resourceLimits}
+                  />
 
-              <Separator />
+                  <Separator />
 
-              {/* 内存限制配置 */}
-              <MemoryLimitSection
-                title="Memory Limits"
-                description="Set memory usage constraints for model inference"
-                framework={appStatus?.framework?.type}
-                onSave={(limits) => updateResourceLimits(limits)}
-                saving={saving}
-                currentLimits={resourceLimits}
-              />
+                  {/* 内存限制配置 */}
+                  <MemoryLimitSection
+                    title="Memory Limits"
+                    description="Set memory usage constraints for model inference"
+                    framework={appStatus?.framework?.type}
+                    onSave={(limits) => updateResourceLimits(limits)}
+                    saving={saving}
+                    currentLimits={resourceLimits}
+                  />
+                </>
+              )}
+
+              {/* Ollama 显示只读信息 */}
+              {appStatus?.framework?.type === 'ollama' && (
+                <>
+                  <Separator />
+
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Resource Management</h4>
+                    <Alert>
+                      <Monitor className="h-4 w-4" />
+                      <AlertDescription>
+                        Ollama automatically manages system resources for optimal performance.
+                        No manual configuration is required - the system dynamically allocates
+                        GPU memory, CPU cores, and system memory based on available resources
+                        and model requirements.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -639,6 +717,38 @@ const ResourceLimitSection: React.FC<ResourceLimitSectionProps> = ({
             Please select a framework first to configure resource limits.
           </AlertDescription>
         </Alert>
+      </div>
+    );
+  }
+
+  // Ollama 不支持配置修改
+  if (framework === 'ollama') {
+    return (
+      <div className="space-y-4">
+        <h4 className="font-medium">{title}</h4>
+        <p className="text-sm text-muted-foreground">{description}</p>
+
+        <Alert>
+          <Settings className="h-4 w-4" />
+          <AlertDescription>
+            Ollama automatically manages GPU resources. Manual GPU selection is not available.
+          </AlertDescription>
+        </Alert>
+
+        {availableGpus.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-sm font-medium">Available GPUs (Auto-managed):</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {availableGpus.map(gpuId => (
+                <div key={gpuId} className="flex items-center space-x-2 p-3 border rounded-lg bg-gray-50">
+                  <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                  <Label className="flex-1">GPU {gpuId}</Label>
+                  <Badge variant="outline">Auto-managed</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -750,6 +860,34 @@ const MemoryLimitSection: React.FC<MemoryLimitSectionProps> = ({
             Please select a framework first to configure memory limits.
           </AlertDescription>
         </Alert>
+      </div>
+    );
+  }
+
+  // Ollama 不支持内存限制配置
+  if (framework === 'ollama') {
+    return (
+      <div className="space-y-4">
+        <h4 className="font-medium">{title}</h4>
+        <p className="text-sm text-muted-foreground">{description}</p>
+
+        <Alert>
+          <Settings className="h-4 w-4" />
+          <AlertDescription>
+            Ollama automatically manages memory allocation based on available system resources
+            and model requirements. Manual memory limits are not configurable.
+          </AlertDescription>
+        </Alert>
+
+        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <h5 className="font-medium text-blue-900 mb-2">Automatic Memory Management</h5>
+          <ul className="text-sm text-blue-800 list-disc list-inside space-y-1">
+            <li>Dynamic allocation based on model size</li>
+            <li>Automatic cleanup when models are unloaded</li>
+            <li>Optimized for system stability</li>
+            <li>No manual intervention required</li>
+          </ul>
+        </div>
       </div>
     );
   }

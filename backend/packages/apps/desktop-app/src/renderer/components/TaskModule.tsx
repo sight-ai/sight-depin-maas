@@ -79,6 +79,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ backendStatus }) => {
   const [taskHistory, setTaskHistory] = useState<TaskHistoryResponse | null>(null);
   const [earningsInfo, setEarningsInfo] = useState<EarningsInfo | null>(null);
   const [runningTasks, setRunningTasks] = useState<Task[]>([]);
+  const [connectTasks, setConnectTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -125,6 +126,25 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ backendStatus }) => {
     }
   };
 
+  // 获取连接任务数据
+  const fetchConnectTasks = async () => {
+    try {
+      const response = await fetch(`http://localhost:${backendStatus.port}/api/v1/miner/connect-task-list?page=1&limit=10`);
+      const data = await response.json();
+
+      if (data.success && data.data && data.data.data) {
+        setConnectTasks(data.data.data);
+      } else {
+        // 如果获取失败，设置为空数组但不显示错误（因为可能是配置问题）
+        setConnectTasks([]);
+        console.warn('Connect task list not available:', data.message);
+      }
+    } catch (error) {
+      console.warn('Error fetching connect tasks:', error);
+      setConnectTasks([]);
+    }
+  };
+
   // 获取收益数据
   const fetchEarningsInfo = async () => {
     try {
@@ -162,7 +182,8 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ backendStatus }) => {
       await Promise.all([
         fetchTaskHistory(currentPage),
         fetchEarningsInfo(),
-        fetchRunningTasks()
+        fetchRunningTasks(),
+        fetchConnectTasks()
       ]);
     } catch (error) {
       setError('Failed to load task module data');
@@ -276,8 +297,9 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ backendStatus }) => {
       )}
 
       <Tabs defaultValue="running" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="running">Running Tasks</TabsTrigger>
+          <TabsTrigger value="connect">Connect Tasks</TabsTrigger>
           <TabsTrigger value="earnings">Earnings Overview</TabsTrigger>
           <TabsTrigger value="history">Task History</TabsTrigger>
         </TabsList>
@@ -403,6 +425,63 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ backendStatus }) => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* Connect Tasks Tab */}
+        <TabsContent value="connect" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                Connection Tasks
+              </CardTitle>
+              <CardDescription>
+                Tasks related to gateway connections and network communication
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {connectTasks.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Task ID</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Updated</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {connectTasks.map((task, index) => (
+                      <TableRow key={task.id || index}>
+                        <TableCell className="font-mono text-sm">
+                          {task.id || `task-${index}`}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {task.status || 'unknown'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{task.type || 'connection'}</TableCell>
+                        <TableCell>
+                          {task.created_at ? new Date(task.created_at).toLocaleString() : 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                          {task.updated_at ? new Date(task.updated_at).toLocaleString() : 'N/A'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No connection tasks available</p>
+                  <p className="text-sm">Connection tasks will appear here when gateway is properly configured</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Earnings Tab */}
@@ -596,6 +675,48 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ backendStatus }) => {
                   <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No task history available</p>
                   <p className="text-sm">Tasks will appear here once they start running</p>
+                </div>
+              )}
+
+              {/* Pagination for Task History */}
+              {taskHistory && taskHistory.total > 0 && (
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {((currentPage - 1) * 10) + 1} to {Math.min(currentPage * 10, taskHistory.total)} of {taskHistory.total} tasks
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (currentPage > 1) {
+                          const newPage = currentPage - 1;
+                          setCurrentPage(newPage);
+                          fetchTaskHistory(newPage);
+                        }
+                      }}
+                      disabled={currentPage <= 1 || loading}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm">
+                      Page {currentPage} of {Math.ceil(taskHistory.total / 10)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (currentPage < Math.ceil(taskHistory.total / 10)) {
+                          const newPage = currentPage + 1;
+                          setCurrentPage(newPage);
+                          fetchTaskHistory(newPage);
+                        }
+                      }}
+                      disabled={currentPage >= Math.ceil(taskHistory.total / 10) || loading}
+                    >
+                      Next
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
+import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
 import {
   Activity,
@@ -11,7 +12,13 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  Cpu,
+  HardDrive,
+  Monitor,
+  Play,
+  Square,
+  RotateCcw
 } from 'lucide-react';
 
 /**
@@ -84,6 +91,23 @@ interface AppConfig {
   timestamp: string;
 }
 
+/**
+ * 系统资源接口
+ */
+interface SystemResources {
+  success: boolean;
+  data: {
+    gpus: Array<{ id: number; name: string; memory: string; utilization?: number }>;
+    totalMemory: string;
+    availableMemory: string;
+    cpuCores: number;
+    cpuUsage: number;
+    memoryUsage: number;
+    timestamp: string;
+  };
+  timestamp: string;
+}
+
 interface BackendStatus {
   isRunning: boolean;
   port: number;
@@ -100,9 +124,11 @@ export const GlobalStatusView: React.FC<GlobalStatusViewProps> = ({
   const [gatewayStatus, setGatewayStatus] = useState<GatewayStatus | null>(null);
   const [appStatus, setAppStatus] = useState<AppStatus | null>(null);
   const [appConfig, setAppConfig] = useState<AppConfig | null>(null);
+  const [systemResources, setSystemResources] = useState<SystemResources | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [startTime] = useState(new Date());
+  const [serviceOperationLoading, setServiceOperationLoading] = useState(false);
 
   // 获取分布式状态信息
   const fetchStatusData = async () => {
@@ -115,11 +141,12 @@ export const GlobalStatusView: React.FC<GlobalStatusViewProps> = ({
       const baseUrl = `http://localhost:${backendStatus.port}`;
 
       // 并行获取各个接口的数据
-      const [earningsRes, gatewayRes, appStatusRes, appConfigRes] = await Promise.allSettled([
+      const [earningsRes, gatewayRes, appStatusRes, appConfigRes, systemResourcesRes] = await Promise.allSettled([
         fetch(`${baseUrl}/api/v1/miner/summary`),
         fetch(`${baseUrl}/api/v1/device-status/gateway-status`),
         fetch(`${baseUrl}/api/app/status`),
-        fetch(`${baseUrl}/api/app/config`)
+        fetch(`${baseUrl}/api/app/config`),
+        fetch(`${baseUrl}/api/app/system-resources`)
       ]);
 
       // 处理收益数据
@@ -144,6 +171,12 @@ export const GlobalStatusView: React.FC<GlobalStatusViewProps> = ({
       if (appConfigRes.status === 'fulfilled' && appConfigRes.value.ok) {
         const config = await appConfigRes.value.json();
         setAppConfig(config);
+      }
+
+      // 处理系统资源
+      if (systemResourcesRes.status === 'fulfilled' && systemResourcesRes.value.ok) {
+        const resources = await systemResourcesRes.value.json();
+        setSystemResources(resources);
       }
 
       setError(null);
@@ -179,6 +212,38 @@ export const GlobalStatusView: React.FC<GlobalStatusViewProps> = ({
       return `${hours}h ${minutes % 60}m`;
     } else {
       return `${minutes}m ${seconds % 60}s`;
+    }
+  };
+
+  // 服务管理功能
+  const handleServiceOperation = async (operation: 'start' | 'stop' | 'restart') => {
+    setServiceOperationLoading(true);
+    try {
+      let result;
+      switch (operation) {
+        case 'start':
+          result = await window.electronAPI.startBackend();
+          break;
+        case 'stop':
+          result = await window.electronAPI.stopBackend();
+          break;
+        case 'restart':
+          result = await window.electronAPI.restartBackend();
+          break;
+      }
+
+      if (result.success) {
+        // 操作成功后刷新状态
+        setTimeout(() => {
+          fetchStatusData();
+        }, 2000);
+      } else {
+        setError(`Failed to ${operation} backend service: ${result.error}`);
+      }
+    } catch (error) {
+      setError(`Error during ${operation} operation: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setServiceOperationLoading(false);
     }
   };
 
@@ -324,6 +389,86 @@ export const GlobalStatusView: React.FC<GlobalStatusViewProps> = ({
 
       </div>
 
+      {/* System Resources */}
+      {systemResources && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Monitor className="h-5 w-5" />
+              System Resources
+            </CardTitle>
+            <CardDescription>Real-time system resource usage</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Cpu className="h-4 w-4" />
+                  <span className="text-sm">CPU Usage</span>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-semibold">
+                    {(systemResources.data.cpuUsage * 100).toFixed(1)}%
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {systemResources.data.cpuCores} cores
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <HardDrive className="h-4 w-4" />
+                  <span className="text-sm">Memory Usage</span>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-semibold">
+                    {systemResources.data.memoryUsage.toFixed(1)}%
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {systemResources.data.totalMemory} total
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Monitor className="h-4 w-4" />
+                  <span className="text-sm">GPU Status</span>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-semibold">
+                    {systemResources.data.gpus.length}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {systemResources.data.gpus.length > 0 ? 'Available' : 'None detected'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {systemResources.data.gpus.length > 0 && (
+              <div className="mt-4 pt-4 border-t">
+                <div className="text-sm font-medium mb-2">GPU Details</div>
+                <div className="space-y-2">
+                  {systemResources.data.gpus.map((gpu, index) => (
+                    <div key={index} className="flex justify-between items-center text-sm">
+                      <span>{gpu.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">{gpu.memory}</span>
+                        {gpu.utilization !== undefined && (
+                          <span className="font-medium">{gpu.utilization}%</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Service Status */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
@@ -358,6 +503,40 @@ export const GlobalStatusView: React.FC<GlobalStatusViewProps> = ({
                 <Badge variant={backendStatus.isRunning ? 'default' : 'destructive'}>
                   {backendStatus.isRunning ? 'Running' : 'Stopped'}
                 </Badge>
+              </div>
+            </div>
+
+            {/* Service Management Buttons */}
+            <div className="flex items-center justify-between pt-2 border-t">
+              <span className="text-sm text-muted-foreground">Service Control</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleServiceOperation('start')}
+                  disabled={backendStatus.isRunning || serviceOperationLoading}
+                >
+                  <Play className="h-3 w-3 mr-1" />
+                  Start
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleServiceOperation('stop')}
+                  disabled={!backendStatus.isRunning || serviceOperationLoading}
+                >
+                  <Square className="h-3 w-3 mr-1" />
+                  Stop
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleServiceOperation('restart')}
+                  disabled={serviceOperationLoading}
+                >
+                  <RotateCcw className="h-3 w-3 mr-1" />
+                  Restart
+                </Button>
               </div>
             </div>
 

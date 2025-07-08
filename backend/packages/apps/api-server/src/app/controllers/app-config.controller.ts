@@ -1,21 +1,23 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Put, 
-  Body, 
-  HttpStatus, 
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  HttpStatus,
   HttpException,
   Logger,
-  Query
+  Query,
+  Inject
 } from '@nestjs/common';
 import { AppConfigurationService } from '../services/app-configuration.service';
-import { 
+import {
   AppConfigSchema,
   FrameworkConfigSchema,
   RequestValidators,
-  type AppConfig 
+  type AppConfig
 } from '@saito/models';
+import { ResourceManagerService } from '@saito/model-inference-framework-management';
 
 /**
  * 框架切换请求 DTO
@@ -46,7 +48,8 @@ export class AppConfigController {
   private readonly logger = new Logger(AppConfigController.name);
 
   constructor(
-    private readonly appConfigService: AppConfigurationService
+    private readonly appConfigService: AppConfigurationService,
+    @Inject(ResourceManagerService) private readonly resourceManagerService: ResourceManagerService
   ) {}
 
   /**
@@ -57,7 +60,7 @@ export class AppConfigController {
   async getAppConfig() {
     try {
       const config = await this.appConfigService.getAppConfig();
-      
+
       return {
         success: true,
         data: config,
@@ -74,6 +77,69 @@ export class AppConfigController {
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
+  }
+
+  /**
+   * 获取系统资源信息
+   * GET /api/app/system-resources
+   */
+  @Get('system-resources')
+  async getSystemResources() {
+    try {
+      const resources = await this.resourceManagerService.getSystemResources();
+
+      // 获取实时使用率信息
+      const os = require('os');
+      const cpuUsage = await this.getCpuUsage();
+      const memoryUsage = this.getMemoryUsage();
+
+      return {
+        success: true,
+        data: {
+          ...resources,
+          cpuUsage: cpuUsage,
+          memoryUsage: memoryUsage,
+          timestamp: new Date().toISOString()
+        },
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      this.logger.error('Failed to get system resources:', error);
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to get system resources',
+          error: error instanceof Error ? error.message : 'Unknown error'
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /**
+   * 获取CPU使用率
+   */
+  private async getCpuUsage(): Promise<number> {
+    return new Promise((resolve) => {
+      const startUsage = process.cpuUsage();
+      setTimeout(() => {
+        const endUsage = process.cpuUsage(startUsage);
+        const totalUsage = endUsage.user + endUsage.system;
+        const percentage = (totalUsage / 1000000) / 100; // 转换为百分比
+        resolve(Math.min(percentage, 100));
+      }, 100);
+    });
+  }
+
+  /**
+   * 获取内存使用率
+   */
+  private getMemoryUsage(): number {
+    const os = require('os');
+    const totalMemory = os.totalmem();
+    const freeMemory = os.freemem();
+    const usedMemory = totalMemory - freeMemory;
+    return (usedMemory / totalMemory) * 100;
   }
 
   /**
