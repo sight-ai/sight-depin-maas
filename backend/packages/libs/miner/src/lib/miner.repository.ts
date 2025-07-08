@@ -439,6 +439,7 @@ export class MinerRepository {
     deviceId: string,
     isRegistered: boolean
   ) {
+    isRegistered = false
     const offset = (page - 1) * limit;
     const source = isRegistered ? 'gateway' : 'local';
 

@@ -1,4 +1,5 @@
 import { ModelOfMiner } from "@saito/models";
+import { RegistrationStatus } from './registration-storage';
 
 // Service Tokens
 export const DEVICE_STATUS_SERVICE = Symbol('DEVICE_STATUS_SERVICE');
@@ -73,6 +74,13 @@ export interface TDeviceConfig {
   getRewardAddress(): string;
   getCode(): string;
   isRegistered(): boolean;
+  updateRegistrationStatus(status: RegistrationStatus, error?: string): boolean;
+  getRegistrationStatus(): RegistrationStatus;
+  getRegistrationStatusInfo(): {
+    status: RegistrationStatus;
+    error?: string;
+    lastAttempt?: string;
+  };
 }
 
 export interface TDeviceDatabase {

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { RegistrationStorage } from "../registration-storage";
-import { 
-  TDeviceConfig, 
+import { RegistrationStorage, RegistrationStatus } from "../registration-storage";
+import {
+  TDeviceConfig,
   DeviceConfig,
   DEVICE_CONFIG_SERVICE
 } from "../device-status.interface";
@@ -171,6 +171,36 @@ export class DeviceConfigService implements TDeviceConfig {
       this.logger.error('Failed to save config to storage:', error);
       throw error;
     }
+  }
+
+  /**
+   * 更新注册状态
+   */
+  updateRegistrationStatus(status: RegistrationStatus, error?: string): boolean {
+    return this.storage.updateRegistrationStatus(status, error);
+  }
+
+  /**
+   * 获取注册状态
+   */
+  getRegistrationStatus(): RegistrationStatus {
+    return this.storage.getRegistrationStatus();
+  }
+
+  /**
+   * 获取详细的注册状态信息
+   */
+  getRegistrationStatusInfo(): {
+    status: RegistrationStatus;
+    error?: string;
+    lastAttempt?: string;
+  } {
+    const info = this.storage.loadRegistrationInfo();
+    return {
+      status: info?.registrationStatus || RegistrationStatus.NOT_STARTED,
+      error: info?.registrationError,
+      lastAttempt: info?.lastRegistrationAttempt
+    };
   }
 
   /**

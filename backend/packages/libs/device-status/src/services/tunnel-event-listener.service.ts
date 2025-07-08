@@ -19,6 +19,7 @@ import {
   DEVICE_SYSTEM_SERVICE
 } from '../device-status.interface';
 import { DeviceStatusManagerService } from './device-status-manager.service';
+import { RegistrationStatus } from '../registration-storage';
 
 /**
  * Tunnel 事件监听器服务
@@ -83,14 +84,25 @@ export class TunnelEventListenerService {
   @OnEvent(TUNNEL_EVENTS.DEVICE_REGISTERED)
   async handleDeviceRegistered(event: TunnelDeviceRegisteredEvent): Promise<void> {
     this.logger.log(`✅ 设备注册成功: ${event.deviceId} (PeerID: ${event.peerId})`);
-    
+
     try {
       // 更新设备状态
       await this.deviceStatusManager.updateDeviceStatus('online', 'Device registered successfully');
-      
+
+      // 更新注册状态为成功
+      if (this.configService && typeof this.configService.updateRegistrationStatus === 'function') {
+        this.configService.updateRegistrationStatus(
+          RegistrationStatus.SUCCESS,
+          undefined
+        );
+        this.logger.log('✅ 注册状态已更新为SUCCESS');
+      } else {
+        this.logger.warn('⚠️ 无法更新注册状态：configService不可用');
+      }
+
       // 可以在这里触发注册后的初始化操作
       // 例如：发送模型报告、开始定时心跳等
-      
+
     } catch (error) {
       this.logger.error('处理设备注册事件失败:', error);
     }

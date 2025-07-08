@@ -52,8 +52,10 @@ export class DeviceStatusController {
           }
         );
 
-        if (tunnelResult) {
+        if (tunnelResult.success) {
           this.logger.log(`✅ 设备注册成功 via WebSocket: ${deviceId}`);
+        } else {
+          this.logger.warn(`❌ WebSocket注册失败: ${tunnelResult.error}`);
         }
       } catch (tunnelError) {
         this.logger.warn('❌ Failed to send registration via tunnel:', tunnelError);

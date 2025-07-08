@@ -90,8 +90,8 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ backendStatus }) => {
     try {
       const response = await fetch(`http://localhost:${backendStatus.port}/api/v1/miner/history?page=${page}&limit=10`);
       const data = await response.json();
+      console.log(data)
       setTaskHistory(data);
-
       // 从历史数据中过滤出正在运行的任务
       if (data.tasks) {
         const running = data.tasks.filter((task: Task) => task.status === 'running' || task.status === 'pending');

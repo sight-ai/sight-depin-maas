@@ -18,8 +18,8 @@ export class WindowManager {
     this.logger.log(`Preload script path: ${preloadPath}`);
 
     this.mainWindow = new BrowserWindow({
-      width: 1200,
-      height: 800,
+      width: 1800,
+      height: 1000,
       minWidth: 800,
       minHeight: 600,
       webPreferences: {
@@ -31,7 +31,13 @@ export class WindowManager {
         spellcheck: true,
         allowRunningInsecureContent: false,
       },
-      titleBarStyle: 'default',
+      titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+      titleBarOverlay: process.platform !== 'darwin' ? {
+        color: '#0a0a0f',
+        symbolColor: '#00ffff',
+        height: 30
+      } : undefined,
+      backgroundColor: '#0a0a0f',
       show: false, // 先不显示，等加载完成后再显示
     });
 

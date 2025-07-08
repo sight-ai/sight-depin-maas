@@ -21,6 +21,7 @@ import {
   DEVICE_SYSTEM_SERVICE,
   DeviceStatusService
 } from "./device-status.interface";
+import { RegistrationStatus } from './registration-storage';
 
 /**
  * 优化的设备状态服务
@@ -237,8 +238,19 @@ export class DefaultDeviceStatusService implements TDeviceStatusService, OnModul
   // 配置访问方法
   // ========================================
 
-  async getGatewayStatus(): Promise<{ isRegistered: boolean }> {
-    return { isRegistered: this.configService.isRegistered() };
+  async getGatewayStatus(): Promise<{
+    isRegistered: boolean;
+    status: RegistrationStatus;
+    error?: string;
+    lastAttempt?: string;
+  }> {
+    const statusInfo = this.configService.getRegistrationStatusInfo();
+    return {
+      isRegistered: this.configService.isRegistered(),
+      status: statusInfo.status,
+      error: statusInfo.error,
+      lastAttempt: statusInfo.lastAttempt
+    };
   }
 
   async getDeviceId(): Promise<string> {

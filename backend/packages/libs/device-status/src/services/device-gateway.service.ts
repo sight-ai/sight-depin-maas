@@ -12,6 +12,7 @@ import { TunnelServiceImpl } from "@saito/tunnel";
 import { DynamicConfigService } from "./dynamic-config.service";
 import { TunnelCommunicationService } from "./tunnel-communication.service";
 import { DidServiceInterface } from "@saito/did";
+import { RegistrationStatus } from "../registration-storage";
 
 /**
  * 设备网关服务
@@ -41,6 +42,9 @@ export class DeviceGatewayService implements TDeviceGateway {
   ): Promise<RegistrationResult> {
     try {
       this.logger.log(`Registering device via tunnel protocol only`);
+
+      // 设置注册状态为PENDING
+      this.deviceConfigService.updateRegistrationStatus(RegistrationStatus.PENDING);
 
       // 如果没有提供系统信息，则收集系统信息
       let deviceSystemInfo = systemInfo;
@@ -74,7 +78,7 @@ export class DeviceGatewayService implements TDeviceGateway {
       await this.tunnelService.connect(deviceId);
 
       // 通过WebSocket发送注册请求，包含DID的设备ID和DID文档
-      const tunnelSuccess = await this.tunnelCommunicationService.sendDeviceRegistration(
+      const tunnelResult = await this.tunnelCommunicationService.sendDeviceRegistration(
         deviceId,
         'gateway',
         {
@@ -92,8 +96,11 @@ export class DeviceGatewayService implements TDeviceGateway {
         }
       );
 
-      if (tunnelSuccess) {
+      if (tunnelResult.success) {
         this.logger.log(`✅ 设备注册成功 via WebSocket: ${deviceId}`);
+
+        // 更新注册状态为SUCCESS
+        this.deviceConfigService.updateRegistrationStatus(RegistrationStatus.SUCCESS);
 
         // 构建完整的配置信息
         const fullConfig: DeviceConfig = {
@@ -121,20 +128,31 @@ export class DeviceGatewayService implements TDeviceGateway {
           status: 'registered'
         };
       } else {
-        this.logger.error('❌ Device registration failed via tunnel');
+        this.logger.error('❌ Device registration failed via tunnel:', tunnelResult.error);
 
-        await this.handleRegistrationFailure('Tunnel registration failed');
+        // 更新注册状态为FAILED
+        this.deviceConfigService.updateRegistrationStatus(
+          RegistrationStatus.FAILED,
+          tunnelResult.error || 'Tunnel registration failed'
+        );
+
+        await this.handleRegistrationFailure(tunnelResult.error || 'Tunnel registration failed');
 
         return {
           success: false,
-          error: 'Tunnel registration failed'
+          error: tunnelResult.error || 'Tunnel registration failed'
         };
       }
     } catch (error) {
       this.logger.error('Failed to register with gateway:', error);
+
+      // 更新注册状态为FAILED
+      const errorMessage = error instanceof Error ? error.message : 'Gateway communication failed';
+      this.deviceConfigService.updateRegistrationStatus(RegistrationStatus.FAILED, errorMessage);
+
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Gateway communication failed'
+        error: errorMessage
       };
     }
   }

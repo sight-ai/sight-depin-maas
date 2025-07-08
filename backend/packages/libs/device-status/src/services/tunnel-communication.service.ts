@@ -21,7 +21,7 @@ export class TunnelCommunicationService {
   ) {}
 
   /**
-   * 通过tunnel发送设备注册请求
+   * 通过tunnel发送设备注册请求并等待响应
    */
   async sendDeviceRegistration(
     fromPeerId: string,
@@ -43,7 +43,7 @@ export class TunnelCommunicationService {
       }>;
       did_document?: any; // 添加DID文档字段
     }
-  ): Promise<boolean> {
+  ): Promise<{ success: boolean; error?: string; data?: any }> {
     try {
       this.logger.log(`Sending device registration from ${fromPeerId} to ${toPeerId}`);
 
@@ -79,15 +79,15 @@ export class TunnelCommunicationService {
         this.logger.log(`📄 注册请求包含DID文档: ${registrationData.did_document.id}`);
       }
 
-      // 发送设备注册消息
-      await this.tunnelMessageService.sendDeviceRegisterMessage(
+      // 发送设备注册消息并等待响应
+      const response = await this.sendDeviceRegistrationWithResponse(
         fromPeerId,
         toPeerId,
         payload
       );
 
-      this.logger.log(`Device registration sent successfully via tunnel`);
-      return true;
+      this.logger.log(`Device registration completed via tunnel`);
+      return response;
 
     } catch (error) {
       this.logger.error('Failed to send device registration via tunnel:');
@@ -117,22 +117,100 @@ export class TunnelCommunicationService {
             did_document: registrationData.did_document
           };
 
-          await this.tunnelMessageService.sendDeviceRegisterMessage(
+          const retryResponse = await this.sendDeviceRegistrationWithResponse(
             fromPeerId,
             toPeerId,
             payload
           );
 
-          this.logger.log(`✅ 重连后设备注册发送成功`);
-          return true;
+          this.logger.log(`✅ 重连后设备注册完成`);
+          return retryResponse;
         } catch (retryError) {
           this.logger.error('重连尝试失败:', retryError);
-          return false;
+          return {
+            success: false,
+            error: retryError instanceof Error ? retryError.message : 'Retry failed'
+          };
         }
       }
 
-      return false;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Registration failed'
+      };
     }
+  }
+
+  /**
+   * 发送设备注册消息并等待响应
+   */
+  private async sendDeviceRegistrationWithResponse(
+    fromPeerId: string,
+    toPeerId: string,
+    payload: DeviceRegisterRequestPayload
+  ): Promise<{ success: boolean; error?: string; data?: any }> {
+    return new Promise(async (resolve) => {
+      const timeout = setTimeout(() => {
+        this.logger.warn('Device registration response timeout');
+        resolve({ success: false, error: 'Registration timeout' });
+      }, 30000); // 30秒超时
+
+      // 设置响应监听器
+      const responseListener = (message: any) => {
+        try {
+          if (message.type === 'device_register_response' && message.fromPeerId === toPeerId) {
+            clearTimeout(timeout);
+
+            if (message.payload && message.payload.success) {
+              this.logger.log('✅ Device registration confirmed by gateway');
+              resolve({
+                success: true,
+                data: message.payload
+              });
+            } else {
+              this.logger.error('❌ Device registration rejected by gateway:', message.payload?.error);
+              resolve({
+                success: false,
+                error: message.payload?.error || 'Registration rejected'
+              });
+            }
+          }
+        } catch (error) {
+          clearTimeout(timeout);
+          this.logger.error('Error processing registration response:', error);
+          resolve({
+            success: false,
+            error: 'Failed to process response'
+          });
+        }
+      };
+
+      try {
+        // 发送注册消息
+        await this.tunnelMessageService.sendDeviceRegisterMessage(
+          fromPeerId,
+          toPeerId,
+          payload
+        );
+
+        // 注册响应监听器
+        if (this.tunnelService.on) {
+          this.tunnelService.on('message', responseListener);
+        } else {
+          // 如果没有事件监听机制，等待超时或依赖其他机制
+          clearTimeout(timeout);
+          this.logger.warn('No event listener available, waiting for timeout or external confirmation');
+          // 不要假设成功，让超时处理或其他机制来决定结果
+        }
+      } catch (error) {
+        clearTimeout(timeout);
+        this.logger.error('Failed to send registration message:', error);
+        resolve({
+          success: false,
+          error: error instanceof Error ? error.message : 'Send failed'
+        });
+      }
+    });
   }
 
   /**

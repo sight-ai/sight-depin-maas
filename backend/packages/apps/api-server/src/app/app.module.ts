@@ -11,6 +11,8 @@ import { DeviceStatusController } from "./controllers/device-status.controller";
 import { OpenAIController } from "./controllers/openai.controller";
 import { ModelsController } from "./controllers/models.controller";
 import { AppConfigController } from "./controllers/app-config.controller";
+import { DashboardController } from "./controllers/dashboard.controller";
+import { EnhancedSystemMonitorService } from "@saito/common";
 
 import {DidModule} from "@saito/did"
 
@@ -46,6 +48,7 @@ import { Libp2pController } from './controllers/tunnel-libp2p.controller';
     OpenAIController,
     ModelsController,
     AppConfigController,
+    DashboardController,
     Libp2pController
   ],
   providers: [
@@ -55,6 +58,8 @@ import { Libp2pController } from './controllers/tunnel-libp2p.controller';
     },
     // 应用配置服务
     AppConfigurationService,
+    // 系统监控服务
+    EnhancedSystemMonitorService,
     // 为推理服务提供 TunnelService
     {
       provide: TUNNEL_SERVICE_TOKEN,

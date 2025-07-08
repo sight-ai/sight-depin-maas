@@ -6,18 +6,14 @@ import {
   Body,
   HttpStatus,
   HttpException,
-  Logger,
-  Query,
-  Inject
+  Logger
 } from '@nestjs/common';
 import { AppConfigurationService } from '../services/app-configuration.service';
 import {
-  AppConfigSchema,
-  FrameworkConfigSchema,
   RequestValidators,
   type AppConfig
 } from '@saito/models';
-import { ResourceManagerService } from '@saito/model-inference-framework-management';
+import { EnhancedSystemMonitorService } from '@saito/common';
 
 /**
  * 框架切换请求 DTO
@@ -49,7 +45,7 @@ export class AppConfigController {
 
   constructor(
     private readonly appConfigService: AppConfigurationService,
-    @Inject(ResourceManagerService) private readonly resourceManagerService: ResourceManagerService
+    private readonly systemMonitorService: EnhancedSystemMonitorService
   ) {}
 
   /**
@@ -86,22 +82,31 @@ export class AppConfigController {
   @Get('system-resources')
   async getSystemResources() {
     try {
-      const resources = await this.resourceManagerService.getSystemResources();
-
-      // 获取实时使用率信息
-      const os = require('os');
-      const cpuUsage = await this.getCpuUsage();
-      const memoryUsage = this.getMemoryUsage();
+      // 使用增强的系统监控服务获取完整的系统指标
+      const systemMetrics = await this.systemMonitorService.getSystemMetrics();
 
       return {
         success: true,
         data: {
-          ...resources,
-          cpuUsage: cpuUsage,
-          memoryUsage: memoryUsage,
-          timestamp: new Date().toISOString()
+          // 保持向后兼容的字段名
+          cpuUsage: systemMetrics.cpu.usage,
+          memoryUsage: systemMetrics.memory.usage,
+          gpus: systemMetrics.gpus.map(gpu => ({
+            name: gpu.name,
+            memory: gpu.memory,
+            usage: gpu.usage,
+            temperature: gpu.temperature,
+            vendor: gpu.vendor
+          })),
+          // 新增的详细系统信息
+          cpu: systemMetrics.cpu,
+          memory: systemMetrics.memory,
+          disk: systemMetrics.disk,
+          network: systemMetrics.network,
+          os: systemMetrics.os,
+          timestamp: systemMetrics.timestamp
         },
-        timestamp: new Date().toISOString()
+        timestamp: systemMetrics.timestamp
       };
     } catch (error) {
       this.logger.error('Failed to get system resources:', error);
@@ -116,31 +121,7 @@ export class AppConfigController {
     }
   }
 
-  /**
-   * 获取CPU使用率
-   */
-  private async getCpuUsage(): Promise<number> {
-    return new Promise((resolve) => {
-      const startUsage = process.cpuUsage();
-      setTimeout(() => {
-        const endUsage = process.cpuUsage(startUsage);
-        const totalUsage = endUsage.user + endUsage.system;
-        const percentage = (totalUsage / 1000000) / 100; // 转换为百分比
-        resolve(Math.min(percentage, 100));
-      }, 100);
-    });
-  }
 
-  /**
-   * 获取内存使用率
-   */
-  private getMemoryUsage(): number {
-    const os = require('os');
-    const totalMemory = os.totalmem();
-    const freeMemory = os.freemem();
-    const usedMemory = totalMemory - freeMemory;
-    return (usedMemory / totalMemory) * 100;
-  }
 
   /**
    * 更新应用配置

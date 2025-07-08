@@ -693,6 +693,56 @@ export class ModelsController {
     }
   }
 
+  @Get('/ollama/monitoring')
+  async getOllamaMonitoring(@Res() res: Response) {
+    try {
+      const currentFramework = this.unifiedModelService.getCurrentFramework();
+
+      // 允许获取监控信息，即使不是当前框架
+      const monitoringInfo = await this.ollamaProcessManager.getOllamaMonitoringInfo();
+
+      res.status(200).json({
+        success: true,
+        framework: 'ollama',
+        currentFramework: currentFramework,
+        isActive: currentFramework === 'ollama',
+        timestamp: new Date().toISOString(),
+        monitoring: monitoringInfo
+      });
+    } catch (error) {
+      this.logger.error('Error getting Ollama monitoring info:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  @Get('/vllm/monitoring')
+  async getVllmMonitoring(@Res() res: Response) {
+    try {
+      const currentFramework = this.unifiedModelService.getCurrentFramework();
+
+      // 允许获取监控信息，即使不是当前框架
+      const monitoringInfo = await this.vllmProcessManager.getVllmMonitoringInfo();
+
+      res.status(200).json({
+        success: true,
+        framework: 'vllm',
+        currentFramework: currentFramework,
+        isActive: currentFramework === 'vllm',
+        timestamp: new Date().toISOString(),
+        monitoring: monitoringInfo
+      });
+    } catch (error) {
+      this.logger.error('Error getting vLLM monitoring info:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
   // 辅助方法
   private extractModelFamily(modelName: string): string {
     const familyPatterns = [

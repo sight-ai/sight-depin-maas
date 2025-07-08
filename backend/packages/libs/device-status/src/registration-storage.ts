@@ -4,6 +4,16 @@ import * as os from 'os';
 import { Injectable, Logger } from '@nestjs/common';
 
 /**
+ * 注册状态枚举
+ */
+export enum RegistrationStatus {
+  NOT_STARTED = 'not_started',
+  PENDING = 'pending',
+  SUCCESS = 'success',
+  FAILED = 'failed'
+}
+
+/**
  * 注册信息存储接口
  */
 export interface RegistrationInfo {
@@ -13,6 +23,9 @@ export interface RegistrationInfo {
   gatewayAddress: string;
   code: string;
   isRegistered: boolean;
+  registrationStatus?: RegistrationStatus; // 详细的注册状态
+  registrationError?: string; // 注册失败时的错误信息
+  lastRegistrationAttempt?: string; // 最后一次注册尝试时间
   timestamp?: string;
   reportedModels?: string[]; // 已上报的模型列表
   basePath?: string; // API服务器基础路径
@@ -83,6 +96,50 @@ export class RegistrationStorage {
     } catch (error) {
       this.logger.error(`Failed to save registration information: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return false;
+    }
+  }
+
+  /**
+   * 更新注册状态
+   * @param status 注册状态
+   * @param error 错误信息（可选）
+   * @returns 是否更新成功
+   */
+  updateRegistrationStatus(status: RegistrationStatus, error?: string): boolean {
+    try {
+      const existingInfo = this.loadRegistrationInfo();
+      if (!existingInfo) {
+        this.logger.warn('No existing registration info found, cannot update status');
+        return false;
+      }
+
+      const updatedInfo: RegistrationInfo = {
+        ...existingInfo,
+        registrationStatus: status,
+        registrationError: error,
+        lastRegistrationAttempt: new Date().toISOString(),
+        isRegistered: status === RegistrationStatus.SUCCESS,
+        timestamp: new Date().toISOString()
+      };
+
+      return this.saveRegistrationInfo(updatedInfo);
+    } catch (error) {
+      this.logger.error(`Failed to update registration status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return false;
+    }
+  }
+
+  /**
+   * 获取当前注册状态
+   * @returns 注册状态
+   */
+  getRegistrationStatus(): RegistrationStatus {
+    try {
+      const info = this.loadRegistrationInfo();
+      return info?.registrationStatus || RegistrationStatus.NOT_STARTED;
+    } catch (error) {
+      this.logger.error(`Failed to get registration status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return RegistrationStatus.NOT_STARTED;
     }
   }
 
