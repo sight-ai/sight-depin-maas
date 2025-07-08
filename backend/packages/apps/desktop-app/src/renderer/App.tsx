@@ -4,6 +4,7 @@ import { GlobalStatusView } from './components/GlobalStatusView';
 import { TaskModule } from './components/TaskModule';
 import { ConnectionSettings } from './components/ConnectionSettings';
 import { ModelReporting } from './components/ModelReporting';
+import { ModelInferenceConfig } from './components/ModelInferenceConfig';
 import { Settings } from './components/Settings';
 
 interface BackendStatus {
@@ -82,6 +83,8 @@ const App: React.FC = () => {
         return <GlobalStatusView backendStatus={backendStatus} />;
       case 'tasks':
         return <TaskModule backendStatus={backendStatus} />;
+      case 'inference':
+        return <ModelInferenceConfig backendStatus={backendStatus} />;
       case 'model':
         return <ModelReporting />;
       case 'connection':
