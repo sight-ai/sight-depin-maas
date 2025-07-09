@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from '../../lib/utils';
-import { Button } from './button';
-import { Monitor, Brain, Wifi, Settings as SettingsIcon, Activity, Cpu, Zap, Shield } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -12,128 +11,283 @@ interface SidebarProps {
 interface NavItem {
   id: string;
   label: string;
-  icon: React.ReactNode;
+  level: number;
+  isActive?: boolean;
 }
 
-const navItems: NavItem[] = [
-  {
-    id: 'system',
-    label: 'System Management',
-    icon: <Monitor className="h-5 w-5" />,
-  },
-  {
-    id: 'tasks',
-    label: 'Task Module',
-    icon: <Activity className="h-5 w-5" />,
-  },
-  {
-    id: 'inference',
-    label: 'Model Inference',
-    icon: <Cpu className="h-5 w-5" />,
-  },
-  {
-    id: 'model',
-    label: 'Model Management',
-    icon: <Brain className="h-5 w-5" />,
-  },
-  {
-    id: 'connection',
-    label: 'Connection Settings',
-    icon: <Wifi className="h-5 w-5" />,
-  },
-  {
-    id: 'new-settings',
-    label: 'Advanced Settings',
-    icon: <Shield className="h-5 w-5" />,
-  },
+interface NavSection {
+  id: string;
+  title: string;
+  isExpandable: boolean;
+  isExpanded: boolean;
+  items: NavItem[];
+}
+
+const mainNavItems: NavItem[] = [
+  { id: 'dashboard', label: 'Dashboard', level: 0 },
+  { id: 'device-registration', label: 'Device Registration', level: 0, isActive: true },
+  { id: 'model-configuration', label: 'Model Configuration', level: 0 },
 ];
+
+const modularConfigSection: NavSection = {
+  id: 'modular-configuration',
+  title: 'Modular Configuration',
+  isExpandable: true,
+  isExpanded: true,
+  items: [
+    { id: 'tasks', label: 'Tasks', level: 1 },
+    { id: 'earnings', label: 'Earnings', level: 1 },
+    { id: 'gateway-configuration', label: 'Gateway Configuration', level: 1 },
+    { id: 'did-management', label: 'DID Management', level: 1 },
+    { id: 'settings', label: 'Settings', level: 1 },
+  ],
+};
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onTabChange,
   className,
 }) => {
+  const [searchValue, setSearchValue] = useState('');
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    'modular-configuration': true,
+  });
+
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId],
+    }));
+  };
+
+  const handleItemClick = (itemId: string) => {
+    onTabChange(itemId);
+  };
+
   return (
     <div className={cn(
-      "flex flex-col w-64 bg-card/30 backdrop-blur-sm border-r border-cyan-500/20 relative",
+      "flex flex-col bg-white",
       className
-    )}>
-      {/* Cyberpunk side glow effect */}
-      <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-cyan-400 to-transparent opacity-60" />
+    )} style={{ width: '220px', height: '100vh' }}>
 
-      {/* Logo/Brand with cyberpunk styling */}
-      <div className="p-6 border-b border-cyan-500/20 relative">
-        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-magenta-500/10" />
-        <div className="relative z-10">
-          <div className="flex items-center space-x-2  mt-5">
-            <div className="w-8 h-8 bg-gradient-to-br from-cyan-400 to-magenta-500 rounded-lg flex items-center justify-center">
-              <Zap className="h-4 w-4 text-black" />
+      {/* Sidebar Navigation Bar */}
+      <div className="flex flex-col gap-4 px-4 pt-7 pb-1">
+
+        {/* Controls */}
+        <div className="flex justify-between items-center gap-22">
+          {/* Sidebar Control - Tab Bar Button */}
+          <div className="flex justify-center items-center gap-2 w-11 h-11">
+            <div className="w-6 h-5">
+              <img
+                src={require('../../assets/icons/sidebar-tab-button.svg')}
+                alt="Tab Bar"
+                className="w-full h-full"
+                style={{ filter: 'brightness(0) saturate(100%) invert(39%) sepia(0%) saturate(0%) hue-rotate(180deg) brightness(97%) contrast(89%)' }}
+              />
             </div>
-            <h2 className="text-xl font-bold">SIGHT.AI</h2>
           </div>
-          <p className="text-xs text-cyan-400/80 font-mono uppercase tracking-wider">
-            Neural Interface v2.0
+
+          {/* Trailing - Settings Button */}
+          <div className="flex justify-end items-center gap-4 px-0 py-3 pr-4">
+            <div className="flex gap-2.5">
+              <button className="text-base text-gray-600">
+                <img
+                  src={require('../../assets/icons/sidebar-settings-icon.svg')}
+                  alt="Settings"
+                  className="w-4 h-4"
+                  style={{ filter: 'brightness(0) saturate(100%) invert(39%) sepia(0%) saturate(0%) hue-rotate(180deg) brightness(97%) contrast(89%)' }}
+                />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Search Bar */}
+        <div className="flex justify-stretch items-stretch gap-1 bg-gray-100 rounded-lg">
+          <div className="flex items-center flex-1 gap-[-16px] p-1">
+            <div className="flex items-center flex-1 gap-2.5 px-5">
+              <input
+                type="text"
+                placeholder="Search"
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
+                className="bg-transparent border-none outline-none text-base text-gray-700 placeholder-gray-700 flex-1"
+                style={{ fontFamily: 'Roboto', fontSize: '16px', lineHeight: '1.5em', letterSpacing: '0.03125em' }}
+              />
+            </div>
+            <div className="flex justify-end items-center absolute right-64 top-[-2px]">
+              <div className="flex justify-center items-center w-12 h-12">
+                <div className="flex flex-col justify-center items-center w-10 rounded-full">
+                  <div className="flex justify-center items-center flex-1 w-full h-10">
+                    <div className="w-6 h-6">
+                      <img
+                        src={require('../../assets/icons/search-icon.svg')}
+                        alt="Search"
+                        className="w-full h-full"
+                        style={{ filter: 'brightness(0) saturate(100%) invert(29%) sepia(8%) saturate(629%) hue-rotate(201deg) brightness(95%) contrast(93%)' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Title */}
+        <div className="flex flex-col px-2 py-1">
+          <h1
+            className="text-black font-bold text-left"
+            style={{
+              fontFamily: 'SF Pro',
+              fontWeight: 700,
+              fontSize: '34px',
+              lineHeight: '1.206em',
+              letterSpacing: '0.01176em'
+            }}
+          >
+            SIGHT.AI
+          </h1>
+          <p
+            className="text-black text-left w-74 h-5.5"
+            style={{
+              fontFamily: 'Menlo',
+              fontWeight: 400,
+              fontSize: '14px',
+              lineHeight: '1.571em',
+              width: '296px',
+              height: '22px'
+            }}
+          >
+            Neutral Interface v2.0
           </p>
-          <div className="mt-2 flex items-center space-x-1">
-            <div className="w-1 h-1 bg-green-400 rounded-full animate-pulse" />
-            <span className="text-xs text-green-400 font-mono">SYSTEM ACTIVE</span>
-          </div>
+          <p
+            className="text-green-500 text-left w-74 h-5.5"
+            style={{
+              fontFamily: 'Menlo',
+              fontWeight: 400,
+              fontSize: '14px',
+              lineHeight: '1.571em',
+              color: '#2AE500',
+              width: '296px',
+              height: '22px'
+            }}
+          >
+            System Active
+          </p>
         </div>
       </div>
 
-      {/* Navigation with cyberpunk styling */}
-      <nav className="flex-1 p-4">
-        <div className="space-y-1">
-          {navItems.map((item, index) => (
-            <div key={item.id} className="relative group">
-              <Button
-                variant="ghost"
+      {/* Navigation Content */}
+      <div className="flex flex-col flex-1">
+
+        {/* Main Navigation Items */}
+        {mainNavItems.map((item) => (
+          <div key={item.id} className="flex flex-col pb-3 h-11">
+            <div className="flex justify-stretch items-stretch px-4">
+              {/* { activeTab } {item.id} */}
+              <div
                 className={cn(
-                  "w-full justify-start gap-3 h-12 text-left relative overflow-hidden transition-all duration-300 font-mono",
-                  "border border-transparent hover:border-cyan-500/30",
-                  "hover:bg-gradient-to-r hover:from-cyan-500/10 hover:to-magenta-500/10",
-                  activeTab === item.id && [
-                    "bg-gradient-to-r from-cyan-500/20 to-magenta-500/20",
-                    "border-cyan-500/50 text-cyan-400",
-                    "shadow-lg shadow-cyan-500/20"
-                  ]
+                  "flex justify-center items-center flex-1 gap-2 px-2 cursor-pointer",
+                  activeTab === item.id ? "text-blue-600" : "text-black"
                 )}
-                onClick={() => onTabChange(item.id)}
+                onClick={() => handleItemClick(item.id)}
               >
-                {/* Active indicator */}
-                {activeTab === item.id && (
-                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-magenta-500" />
-                )}
-
-                {/* Icon with glow effect */}
-                <div className={cn(
-                  "transition-all duration-300",
-                  activeTab === item.id ? "text-cyan-400" : "text-muted-foreground group-hover:text-cyan-400"
-                )}>
-                  {item.icon}
+                <div className="flex items-center gap-2.5 flex-1">
+                  <span
+                    className="text-left"
+                    style={{
+                      fontFamily: 'SF Pro',
+                      fontWeight: 590,
+                      fontSize: '15px',
+                      lineHeight: '1.294em',
+                      letterSpacing: '-0.025em',
+                      color: item.isActive ? '#096DD9' : '#000000'
+                    }}
+                  >
+                    {item.label}
+                  </span>
                 </div>
+                <div className="flex items-center gap-2 py-3">
+                  {/* Trailing space for consistency */}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
 
-                {/* Label */}
-                <span className={cn(
-                  "font-medium transition-all duration-300 text-sm",
-                  activeTab === item.id ? "text-cyan-400" : "text-foreground group-hover:text-cyan-400"
-                )}>
-                  {item.label}
+        {/* Modular Configuration Section */}
+        <div className="flex flex-col pb-3">
+          {/* Section Header */}
+          <div className="px-4 pb-0.5">
+            <div
+              className="flex justify-between items-center gap-0.5 px-2 py-2 cursor-pointer"
+              onClick={() => toggleSection('modular-configuration')}
+            >
+              <h3
+                className="text-left flex-1"
+                style={{
+                  fontFamily: 'SF Pro',
+                  fontWeight: 590,
+                  fontSize: '15px',
+                  lineHeight: '1.294em',
+                  letterSpacing: '-0.025em',
+                  color: '#000000',
+                  width: '252px'
+                }}
+              >
+                {modularConfigSection.title}
+              </h3>
+              <div className="flex justify-center items-center gap-2.5 px-0 pt-0.5 w-3.5">
+                <span
+                  className={cn(
+                    "text-center transition-transform duration-200",
+                    expandedSections['modular-configuration'] ? "rotate-90" : ""
+                  )}
+                  style={{
+                    fontFamily: 'SF Pro',
+                    fontWeight: 590,
+                    fontSize: '17px',
+                    lineHeight: '1.294em',
+                    color: '#000000'
+                  }}
+                >
+                  ▶
                 </span>
+              </div>
+            </div>
+          </div>
 
-                {/* Hover effect overlay */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              </Button>
-
-              {/* Connection line to next item */}
-              {index < navItems.length - 1 && (
-                <div className="absolute left-6 bottom-0 w-px h-1 bg-cyan-500/20" />
-              )}
+          {/* Section Items */}
+          {expandedSections['modular-configuration'] && modularConfigSection.items.map((item) => (
+            <div key={item.id} className="px-4 w-80 h-11">
+              <div
+                className="flex justify-center items-center flex-1 gap-2 px-2 pl-5 cursor-pointer"
+                onClick={() => handleItemClick(item.id)}
+              >
+                <div className="flex items-center gap-2.5 flex-1">
+                  <span
+                    className="text-left"
+                    style={{
+                      fontFamily: 'SF Pro',
+                      fontWeight: 400,
+                      fontSize: '14px',
+                      lineHeight: '1.294em',
+                      letterSpacing: '-0.025em',
+                      color: '#000000'
+                    }}
+                  >
+                    {item.label}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 py-3">
+                  {/* Trailing space for consistency */}
+                </div>
+              </div>
             </div>
           ))}
         </div>
-      </nav>
-     
+      </div>
     </div>
   );
 };

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent } from './ui/card';
-import {
-  Settings,
-  RotateCcw
-} from 'lucide-react';
+
+// Import icons using require
+const ollamaLogo = require('../assets/icons/ollama-logo.png');
+const restartIcon = require('../assets/icons/restart-icon.png');
+const settingsIcon = require('../assets/icons/settings-icon.png');
 
 interface BackendStatus {
   isRunning: boolean;
@@ -28,6 +28,7 @@ interface GPUInfo {
 interface InferenceFramework {
   id: string;
   name: string;
+  version: string;
   status: 'Running' | 'Stopped';
   modelsLoaded: number;
   memoryUsage: string;
@@ -46,476 +47,503 @@ export const CyberModelInference: React.FC<CyberModelInferenceProps> = ({ backen
     temperature: 65,
     utilization: 45
   });
-  const [frameworks, setFrameworks] = useState<InferenceFramework[]>([
-    {
-      id: 'ollama',
-      name: 'Ollama',
-      status: 'Running',
-      modelsLoaded: 3,
-      memoryUsage: '2.1 GB',
-      gpuUsage: '25%'
-    },
-    {
-      id: 'vllm',
-      name: 'vLLM',
-      status: 'Stopped',
-      modelsLoaded: 0,
-      memoryUsage: '0 GB',
-      gpuUsage: '0%'
-    }
-  ]);
 
-  // Fetch system resources for GPU info
-  const fetchSystemResources = async () => {
-    if (!backendStatus.isRunning) return;
-
-    try {
-      const response = await fetch(`http://localhost:${backendStatus.port}/api/app/system-resources`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data.gpus && data.data.gpus.length > 0) {
-          const gpu = data.data.gpus[0];
-          setGpuInfo({
-            name: gpu.name || 'Unknown GPU',
-            memory: {
-              total: gpu.memory || 0,
-              used: Math.round((gpu.memory || 0) * (gpu.usage || 0) / 100),
-              free: Math.round((gpu.memory || 0) * (1 - (gpu.usage || 0) / 100))
-            },
-            temperature: gpu.temperature || 0,
-            utilization: gpu.usage || 0
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch system resources:', error);
-    }
+  const framework: InferenceFramework = {
+    id: 'ollama',
+    name: 'Ollama',
+    version: 'v0.9.5',
+    status: 'Running',
+    modelsLoaded: 2,
+    memoryUsage: '2.4 GB',
+    gpuUsage: '45%'
   };
 
-  // Real-time data updates
-  useEffect(() => {
-    if (!backendStatus.isRunning) return;
-
-    // Initial fetch
-    fetchSystemResources();
-
-    // Set up intervals for real-time updates
-    const resourcesInterval = setInterval(fetchSystemResources, 5000);
-
-    return () => {
-      clearInterval(resourcesInterval);
-    };
-  }, [backendStatus]);
-
-
-  // Handle service actions
-  const handleServiceAction = async (frameworkId: string, action: 'stop' | 'restart' | 'settings') => {
-    console.log(`${action} ${frameworkId}`);
-    // TODO: Implement service actions
+  const handleServiceAction = (frameworkId: string, action: string) => {
+    console.log(`${action} action for ${frameworkId}`);
   };
-
-
-
-
 
   return (
     <div
-      className="w-full h-full bg-white"
+      className="bg-white relative"
       style={{
-        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        height: '1050px',
+        borderRadius: '16px',
+        boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)'
       }}
     >
-      {/* Header with Segmented Control */}
-      <div className="flex items-center justify-between mb-6">
-        {/* Segmented Control */}
+      {/* Segmented Control */}
+      <div
+        className="absolute"
+        style={{
+          left: '59px',
+          top: '44px',
+          width: '503px',
+          height: '32px'
+        }}
+      >
         <div
-          className="flex bg-gray-100 rounded-lg p-1"
-          style={{ width: '412px', height: '48px' }}
+          className="w-full h-full flex items-center justify-center"
+          style={{
+            background: 'rgba(120, 120, 128, 0.12)',
+            borderRadius: '9px',
+            padding: '2px'
+          }}
         >
-          {(['Local Only', 'Gateway Mode', 'Benchmark Mode'] as const).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setSelectedMode(mode)}
-              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all ${
-                selectedMode === mode
-                  ? 'bg-white text-black shadow-sm'
-                  : 'text-gray-600 hover:text-black'
-              }`}
+          {/* Local Only Button - Selected */}
+          <div className="relative flex-1 h-full flex items-center justify-center">
+            <div
+              className="absolute inset-0 bg-white"
               style={{
-                fontFamily: 'Inter',
-                fontSize: '14px',
-                fontWeight: selectedMode === mode ? 600 : 500
+                borderRadius: '7px',
+                border: '0.5px solid rgba(0, 0, 0, 0.04)',
+                boxShadow: '0px 3px 1px 0px rgba(0, 0, 0, 0.04), 0px 3px 8px 0px rgba(0, 0, 0, 0.12)'
+              }}
+            />
+            <span
+              className="relative z-10"
+              style={{
+                fontFamily: 'SF Pro',
+                fontWeight: 590,
+                fontSize: '13px',
+                lineHeight: '1.385em',
+                letterSpacing: '-0.615%',
+                color: '#000000'
               }}
             >
-              {mode}
-            </button>
-          ))}
-        </div>
+              Local Only
+            </span>
+          </div>
 
-        {/* Reset and Save Buttons */}
-        <div className="flex space-x-3">
-          <button
-            className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+          {/* Separator */}
+          <div
+            className="bg-gray-400"
             style={{
-              fontFamily: 'Inter',
-              fontSize: '14px',
-              fontWeight: 500
+              width: '1px',
+              height: '12px',
+              opacity: 0.3,
+              borderRadius: '0.5px'
             }}
-          >
-            Reset
-          </button>
-          <button
-            className="px-4 py-2 text-sm font-medium text-white bg-black rounded-lg hover:bg-gray-800"
+          />
+
+          {/* Gateway Mode Button */}
+          <div className="flex-1 h-full flex items-center justify-center">
+            <span
+              style={{
+                fontFamily: 'SF Pro',
+                fontWeight: 400,
+                fontSize: '13px',
+                lineHeight: '1.385em',
+                letterSpacing: '-0.615%',
+                color: '#000000'
+              }}
+            >
+              Gateway Mode
+            </span>
+          </div>
+
+          {/* Separator */}
+          <div
+            className="bg-gray-400"
             style={{
-              fontFamily: 'Inter',
-              fontSize: '14px',
-              fontWeight: 500
+              width: '1px',
+              height: '12px',
+              opacity: 0.3,
+              borderRadius: '0.5px'
             }}
-          >
-            Save
-          </button>
+          />
+
+          {/* Benchmark Mode Button */}
+          <div className="flex-1 h-full flex items-center justify-center">
+            <span
+              style={{
+                fontFamily: 'SF Pro',
+                fontWeight: 400,
+                fontSize: '13px',
+                lineHeight: '1.385em',
+                letterSpacing: '-0.615%',
+                color: '#000000'
+              }}
+            >
+              Benchmark Mode
+            </span>
+          </div>
         </div>
       </div>
 
+      {/* Reset/Save Buttons */}
+      <div
+        className="absolute flex gap-4"
+        style={{
+          right: '32px',
+          bottom: '69px',
+          width: '240px'
+        }}
+      >
+        {/* Reset Button */}
+        <button
+          className="flex-1 flex items-center justify-center"
+          style={{
+            background: '#F7F7F7',
+            borderRadius: '8px',
+            padding: '12px',
+            fontFamily: 'Inter',
+            fontWeight: 400,
+            fontSize: '16px',
+            color: '#303030'
+          }}
+        >
+          Reset
+        </button>
+
+        {/* Save Button */}
+        <button
+          className="flex-1 flex items-center justify-center"
+          style={{
+            background: '#2C2C2C',
+            border: '1px solid #2C2C2C',
+            borderRadius: '8px',
+            padding: '12px',
+            fontFamily: 'Inter',
+            fontWeight: 400,
+            fontSize: '16px',
+            color: '#F5F5F5'
+          }}
+        >
+          Save
+        </button>
+      </div>
+
       {/* GPU Status Section */}
-      <div className="mb-8">
+      <div
+        className="absolute"
+        style={{
+          left: '61px',
+          top: '110px',
+          width: '1107px'
+        }}
+      >
+        {/* GPU Status Title */}
         <h2
-          className="text-2xl font-medium mb-8 text-black"
           style={{
             fontFamily: 'Inter',
-            fontSize: '24px',
             fontWeight: 500,
+            fontSize: '24px',
+            lineHeight: '1.2em',
             letterSpacing: '-2%',
-            lineHeight: '1.2em'
+            color: '#000000',
+            marginBottom: '34px'
           }}
         >
           GPU Status
         </h2>
 
-        <Card
-          className="bg-white border-0"
+        {/* GPU Status Card */}
+        <div
+          className="bg-white"
           style={{
-            boxShadow: '0px 0px 48.788509368896484px 7.533780574798584px rgba(234, 234, 234, 1)',
-            borderRadius: '12px'
+            borderRadius: '12px',
+            boxShadow: '0px 0px 48.79px 7.53px rgba(234, 234, 234, 1)',
+            padding: '28px 20px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '20px'
           }}
         >
-          <CardContent
-            className="flex flex-col items-center"
+          {/* GPU Info Row */}
+          <div
+            className="flex justify-between items-center"
             style={{
-              padding: '28px 20px',
-              gap: '20px'
+              width: '1043px',
+              gap: '72px'
             }}
           >
-            {/* GPU Info Grid */}
-            <div
-              className="flex justify-between items-center"
-              style={{
-                width: '1043px',
-                gap: '72px'
-              }}
-            >
-              {/* GPU Name */}
+            {/* GPU Name */}
+            <div style={{ width: '194px' }}>
               <div
-                className="flex flex-col"
-                style={{ width: '194px' }}
+                style={{
+                  fontFamily: 'Inter',
+                  fontWeight: 600,
+                  fontSize: '18px',
+                  color: '#000000'
+                }}
               >
-                <div
-                  className="text-center text-black"
-                  style={{
-                    fontFamily: 'Inter',
-                    fontSize: '24px',
-                    fontWeight: 500,
-                    letterSpacing: '-2%',
-                    lineHeight: '1.2em'
-                  }}
-                >
-                  {gpuInfo.name || 'Unknown GPU'}
-                </div>
-                <div
-                  className="text-center"
-                  style={{
-                    fontFamily: 'Inter',
-                    fontSize: '20px',
-                    fontWeight: 400,
-                    letterSpacing: '-2%',
-                    lineHeight: '1.2em',
-                    color: '#888888',
-                    width: '194px'
-                  }}
-                >
-                  Graphics Processor
-                </div>
+                {gpuInfo.name}
               </div>
+            </div>
 
-              {/* Memory */}
-              <div className="flex flex-col items-center">
+            {/* GPU Stats */}
+            <div className="flex items-center gap-8">
+              <div className="text-center">
                 <div
-                  className="text-center text-black"
                   style={{
                     fontFamily: 'Inter',
-                    fontSize: '24px',
                     fontWeight: 500,
-                    letterSpacing: '-2%',
-                    lineHeight: '1.2em'
-                  }}
-                >
-                  {(gpuInfo.memory.used / 1024).toFixed(2)} GB
-                </div>
-                <div
-                  className="text-center"
-                  style={{
-                    fontFamily: 'Inter',
-                    fontSize: '20px',
-                    fontWeight: 400,
-                    letterSpacing: '-2%',
-                    lineHeight: '1.2em',
-                    color: '#888888',
-                    width: '194px'
-                  }}
-                >
-                  Memory Used/{(gpuInfo.memory.total / 1024).toFixed(0)} GB
-                </div>
-              </div>
-
-              {/* Temperature */}
-              <div className="flex flex-col items-center">
-                <div
-                  className="text-center text-black"
-                  style={{
-                    fontFamily: 'Inter',
-                    fontSize: '24px',
-                    fontWeight: 500,
-                    letterSpacing: '-2%',
-                    lineHeight: '1.2em'
-                  }}
-                >
-                  {gpuInfo.temperature}℃
-                </div>
-                <div
-                  className="text-center"
-                  style={{
-                    fontFamily: 'Inter',
-                    fontSize: '20px',
-                    fontWeight: 400,
-                    letterSpacing: '-2%',
-                    lineHeight: '1.2em',
-                    color: '#888888',
-                    width: '194px'
+                    fontSize: '16px',
+                    color: '#666666'
                   }}
                 >
                   Temperature
                 </div>
-              </div>
-
-              {/* Utilization */}
-              <div className="flex flex-col items-center">
                 <div
-                  className="text-center text-black"
                   style={{
                     fontFamily: 'Inter',
-                    fontSize: '24px',
-                    fontWeight: 500,
-                    letterSpacing: '-2%',
-                    lineHeight: '1.2em'
+                    fontWeight: 600,
+                    fontSize: '20px',
+                    color: '#000000'
                   }}
                 >
-                  {gpuInfo.utilization.toFixed(0)}%
+                  {gpuInfo.temperature}°C
                 </div>
+              </div>
+
+              <div className="text-center">
                 <div
-                  className="text-center"
                   style={{
                     fontFamily: 'Inter',
-                    fontSize: '20px',
-                    fontWeight: 400,
-                    letterSpacing: '-2%',
-                    lineHeight: '1.2em',
-                    color: '#888888',
-                    width: '194px'
+                    fontWeight: 500,
+                    fontSize: '16px',
+                    color: '#666666'
                   }}
                 >
                   Utilization
                 </div>
-              </div>
-            </div>
-
-            {/* Memory Progress Section */}
-            <div
-              className="flex flex-col items-end w-full"
-              style={{ gap: '8px' }}
-            >
-              {/* Memory Label and Percentage */}
-              <div
-                className="flex justify-between items-center w-full"
-                style={{ gap: '841px' }}
-              >
-                <span
+                <div
                   style={{
-                    fontFamily: 'Roboto',
-                    fontSize: '22px',
-                    fontWeight: 400,
-                    lineHeight: '1.27em',
-                    color: 'rgba(0, 0, 0, 0.85)'
+                    fontFamily: 'Inter',
+                    fontWeight: 600,
+                    fontSize: '20px',
+                    color: '#000000'
+                  }}
+                >
+                  {gpuInfo.utilization}%
+                </div>
+              </div>
+
+              <div className="text-center">
+                <div
+                  style={{
+                    fontFamily: 'Inter',
+                    fontWeight: 500,
+                    fontSize: '16px',
+                    color: '#666666'
                   }}
                 >
                   Memory
-                </span>
-                <span
+                </div>
+                <div
                   style={{
-                    fontFamily: 'Roboto',
-                    fontSize: '22px',
-                    fontWeight: 400,
-                    lineHeight: '1.27em',
-                    color: 'rgba(0, 0, 0, 0.85)'
+                    fontFamily: 'Inter',
+                    fontWeight: 600,
+                    fontSize: '20px',
+                    color: '#000000'
                   }}
                 >
-                  {((gpuInfo.memory.used / gpuInfo.memory.total) * 100).toFixed(0)}%
-                </span>
-              </div>
-
-              {/* Progress Bar */}
-              <div
-                className="w-full relative"
-                style={{ height: '12px' }}
-              >
-                {/* Track */}
-                <div
-                  className="absolute rounded-sm"
-                  style={{
-                    left: '349.8px',
-                    top: '1.5px',
-                    width: '712px',
-                    height: '9px',
-                    backgroundColor: '#E7E7E7',
-                    borderRadius: '2px'
-                  }}
-                />
-                {/* Active Indicator */}
-                <div
-                  className="absolute"
-                  style={{
-                    left: '4.25px',
-                    top: '1px',
-                    width: `${(gpuInfo.memory.used / gpuInfo.memory.total) * 934.02}px`,
-                    height: '12px'
-                  }}
-                >
-                  <div
-                    className="h-full"
-                    style={{
-                      background: 'linear-gradient(90deg, #000000 0%, #000000 100%)',
-                      borderRadius: '24px'
-                    }}
-                  />
+                  {(gpuInfo.memory.used / 1024).toFixed(1)}GB / {(gpuInfo.memory.total / 1024).toFixed(1)}GB
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          {/* Progress Bar Section */}
+          <div className="w-full flex flex-col items-end gap-2">
+            <div className="flex justify-between items-center w-full">
+              <span
+                style={{
+                  fontFamily: 'Inter',
+                  fontWeight: 500,
+                  fontSize: '14px',
+                  color: '#666666'
+                }}
+              >
+                Memory Usage
+              </span>
+              <span
+                style={{
+                  fontFamily: 'Inter',
+                  fontWeight: 500,
+                  fontSize: '14px',
+                  color: '#000000'
+                }}
+              >
+                {((gpuInfo.memory.used / gpuInfo.memory.total) * 100).toFixed(1)}%
+              </span>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="w-full flex gap-1.5">
+              {Array.from({ length: 20 }, (_, i) => (
+                <div
+                  key={i}
+                  className="flex-1 h-2 rounded-sm"
+                  style={{
+                    background: i < (gpuInfo.memory.used / gpuInfo.memory.total) * 20
+                      ? '#6D20F5'
+                      : '#E5E5E5'
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Inference Framework Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {frameworks.map((framework) => (
-          <Card
-            key={framework.id}
-            className="bg-white border border-gray-200"
+      {/* Select your interface engine */}
+      <div
+        className="absolute"
+        style={{
+          left: '61px',
+          top: '401px'
+        }}
+      >
+        <h2
+          style={{
+            fontFamily: 'Inter',
+            fontWeight: 500,
+            fontSize: '24px',
+            lineHeight: '1.2em',
+            letterSpacing: '-2%',
+            color: '#000000',
+            width: '310px',
+            height: '29px'
+          }}
+        >
+          Select your interface engine
+        </h2>
+      </div>
+
+      {/* Ollama Framework Card */}
+      <div
+        className="absolute"
+        style={{
+          left: '61px',
+          top: '449px',
+          width: '645px',
+          height: '381px'
+        }}
+      >
+        {/* Card Background with Gradient Border */}
+        <div
+          className="relative w-full h-full"
+          style={{
+            background: 'linear-gradient(135deg, #6D20F5 0%, #E7337A 100%)',
+            borderRadius: '16px',
+            padding: '2.73px',
+            boxShadow: '0px 19.11px 27.3px 0px rgba(0, 0, 0, 0.1)'
+          }}
+        >
+          {/* Inner Card Content */}
+          <div
+            className="w-full h-full bg-white relative"
             style={{
-              boxShadow: '0px 0px 24.8px 0px rgba(198, 198, 198, 0.51)',
-              borderRadius: '12px'
+              borderRadius: '13.27px',
+              overflow: 'hidden'
             }}
           >
-            <CardContent className="p-6">
+            {/* Framework Content */}
+            <div
+              className="absolute"
+              style={{
+                left: '49.5px',
+                top: '34.5px',
+                width: '460.5px'
+              }}
+            >
               {/* Framework Header */}
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-end gap-4 mb-4">
                 <h3
-                  className="text-lg font-semibold text-black"
                   style={{
                     fontFamily: 'Bruno Ace',
-                    fontSize: '18px',
-                    fontWeight: 400
+                    fontWeight: 400,
+                    fontSize: '60.06px',
+                    lineHeight: '1.206em',
+                    color: '#000000'
                   }}
                 >
                   {framework.name}
                 </h3>
-                <div
-                  className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    framework.status === 'Running'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-gray-100 text-gray-600'
-                  }`}
+                <span
                   style={{
-                    fontFamily: 'Inter',
-                    fontSize: '14px',
-                    fontWeight: 500
+                    fontFamily: 'Menlo',
+                    fontWeight: 400,
+                    fontSize: '21px',
+                    lineHeight: '1.164em',
+                    color: '#5A5A5A'
                   }}
                 >
-                  {framework.status}
-                </div>
+                  {framework.version}
+                </span>
               </div>
 
-              {/* Statistics */}
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between items-center">
+              {/* Framework Statistics */}
+              <div className="flex flex-col items-end gap-5 mb-4">
+                <div className="flex justify-between items-center w-full">
                   <span
-                    className="text-sm text-gray-600"
                     style={{
                       fontFamily: 'Lato',
-                      fontSize: '14px',
-                      fontWeight: 400
+                      fontWeight: 400,
+                      fontSize: '20px',
+                      lineHeight: '1.2em',
+                      color: 'rgba(0, 0, 0, 0.55)'
                     }}
                   >
                     Models Loaded
                   </span>
                   <span
-                    className="text-sm font-medium text-black"
                     style={{
                       fontFamily: 'Lato',
-                      fontSize: '14px',
-                      fontWeight: 600
+                      fontWeight: 400,
+                      fontSize: '20px',
+                      lineHeight: '1.2em',
+                      color: 'rgba(0, 0, 0, 0.55)'
                     }}
                   >
                     {framework.modelsLoaded}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center w-full">
                   <span
-                    className="text-sm text-gray-600"
                     style={{
                       fontFamily: 'Lato',
-                      fontSize: '14px',
-                      fontWeight: 400
+                      fontWeight: 400,
+                      fontSize: '20px',
+                      lineHeight: '1.2em',
+                      color: 'rgba(0, 0, 0, 0.55)'
                     }}
                   >
                     Memory Usage
                   </span>
                   <span
-                    className="text-sm font-medium text-black"
                     style={{
                       fontFamily: 'Lato',
-                      fontSize: '14px',
-                      fontWeight: 600
+                      fontWeight: 400,
+                      fontSize: '20px',
+                      lineHeight: '1.2em',
+                      color: 'rgba(0, 0, 0, 0.55)'
                     }}
                   >
                     {framework.memoryUsage}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center w-full">
                   <span
-                    className="text-sm text-gray-600"
                     style={{
                       fontFamily: 'Lato',
-                      fontSize: '14px',
-                      fontWeight: 400
+                      fontWeight: 400,
+                      fontSize: '20px',
+                      lineHeight: '1.2em',
+                      color: 'rgba(0, 0, 0, 0.55)'
                     }}
                   >
                     GPU Usage
                   </span>
                   <span
-                    className="text-sm font-medium text-black"
                     style={{
                       fontFamily: 'Lato',
-                      fontSize: '14px',
-                      fontWeight: 600
+                      fontWeight: 400,
+                      fontSize: '20px',
+                      lineHeight: '1.2em',
+                      color: 'rgba(0, 0, 0, 0.55)'
                     }}
                   >
                     {framework.gpuUsage}
@@ -524,46 +552,83 @@ export const CyberModelInference: React.FC<CyberModelInferenceProps> = ({ backen
               </div>
 
               {/* Action Buttons */}
-              <div className="flex space-x-2">
+              <div className="flex items-center gap-4">
+                {/* Stop Button */}
                 <button
                   onClick={() => handleServiceAction(framework.id, 'stop')}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className="text-white flex items-center justify-center"
                   style={{
-                    fontFamily: 'Inter',
-                    fontSize: '14px',
-                    fontWeight: 500
+                    width: '291px',
+                    height: '39px',
+                    background: 'linear-gradient(135deg, #6D20F5 0%, #E7337A 100%)',
+                    borderRadius: '11.65px',
+                    fontFamily: 'Helvetica',
+                    fontSize: '16px',
+                    fontWeight: 400,
+                    padding: '12px 22.5px 13.53px'
                   }}
                 >
                   Stop
                 </button>
-                <button
-                  onClick={() => handleServiceAction(framework.id, 'restart')}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                  style={{
-                    fontFamily: 'Inter',
-                    fontSize: '14px',
-                    fontWeight: 500
-                  }}
-                >
-                  <RotateCcw className="w-4 h-4 mr-2 inline" />
-                  Restart
-                </button>
-                <button
-                  onClick={() => handleServiceAction(framework.id, 'settings')}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                  style={{
-                    fontFamily: 'Inter',
-                    fontSize: '14px',
-                    fontWeight: 500
-                  }}
-                >
-                  <Settings className="w-4 h-4" />
-                </button>
+
+                {/* Icon Buttons */}
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => handleServiceAction(framework.id, 'restart')}
+                    className="w-14 h-14 bg-black text-white flex items-center justify-center hover:bg-gray-800 transition-colors"
+                    style={{
+                      borderRadius: '11.65px'
+                    }}
+                  >
+                    <img
+                      src={restartIcon}
+                      alt="Restart"
+                      className="w-6 h-6 object-contain"
+                    />
+                  </button>
+                  <button
+                    onClick={() => handleServiceAction(framework.id, 'settings')}
+                    className="w-14 h-14 bg-black text-white flex items-center justify-center hover:bg-gray-800 transition-colors"
+                    style={{
+                      borderRadius: '11.65px'
+                    }}
+                  >
+                    <img
+                      src={settingsIcon}
+                      alt="Settings"
+                      className="w-6 h-6 object-contain"
+                    />
+                  </button>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        ))}
+            </div>
+
+            {/* Avatar/Logo */}
+            <div
+              className="absolute bg-white rounded-full flex items-center justify-center"
+              style={{
+                width: '123.4px',
+                height: '123.4px',
+                right: '0px',
+                top: '25.5px',
+                boxShadow: '0px 19.11px 27.3px 0px rgba(0, 0, 0, 0.1)'
+              }}
+            >
+              <img
+                src={ollamaLogo}
+                alt="Ollama Logo"
+                className="object-contain"
+                style={{
+                  width: '56.83px',
+                  height: '80.38px'
+                }}
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
+
+export default CyberModelInference;

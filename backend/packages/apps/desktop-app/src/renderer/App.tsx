@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/ui/sidebar';
-import { CyberDashboard } from './components/CyberDashboard';
 import { CyberTaskModule } from './components/CyberTaskModule';
 import { CyberModelInference } from './components/CyberModelInference';
 import { ConnectionSettings } from './components/ConnectionSettings';
 import { ModelReporting } from './components/ModelReporting';
 import { NewSettings } from './components/NewSettings';
+import { CyberDashboard } from './components/Dashboard';
+import { Earnings } from './components/Earnings';
+import { GatewayConfiguration } from './components/GatewayConfiguration';
+import { DIDManagement } from './components/DIDManagement';
 
 interface BackendStatus {
   isRunning: boolean;
@@ -18,7 +21,7 @@ const App: React.FC = () => {
     port: 8716,
   });
   const [isInitializing, setIsInitializing] = useState(true);
-  const [activeTab, setActiveTab] = useState('system');
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   useEffect(() => {
     // Check backend status
@@ -79,18 +82,24 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'system':
+      case 'dashboard':
         return <CyberDashboard backendStatus={backendStatus} />;
+      case 'device-registration':
+        return <ConnectionSettings />;
+      case 'model-configuration':
+        return <ModelReporting />;
       case 'tasks':
         return <CyberTaskModule backendStatus={backendStatus} />;
+      case 'earnings':
+        return <Earnings />;
+      case 'gateway-configuration':
+        return <GatewayConfiguration />;
+      case 'did-management':
+        return <DIDManagement />;
+      case 'settings':
+        return <NewSettings />;
       case 'inference':
         return <CyberModelInference backendStatus={backendStatus} />;
-      case 'model':
-        return <ModelReporting />;
-      case 'connection':
-        return <ConnectionSettings />;
-      case 'new-settings':
-        return <NewSettings />;
       default:
         return <CyberDashboard backendStatus={backendStatus} />;
     }
@@ -106,13 +115,11 @@ const App: React.FC = () => {
 
       <div className="flex h-screen bg-background relative z-10">
         {/* Clean Sidebar */}
-        <div className="cyber-sidebar">
           <Sidebar
             activeTab={activeTab}
             onTabChange={setActiveTab}
             className="cyber-sidebar"
           />
-        </div>
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col">
@@ -143,7 +150,7 @@ const App: React.FC = () => {
           {/* Main Content with clean styling */}
           <main className="flex-1 overflow-auto relative">
             <div className="p-6 relative z-10">
-              <div className="cyber-card p-6 min-h-full">
+              <div className="p-6 min-h-full">
                 {renderContent()}
               </div>
             </div>

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Server,
   CheckCircle,
   AlertCircle,
   Loader2,
-  User,
-  RefreshCw
+  Copy,
+  X
 } from 'lucide-react';
+import { Card } from './ui/card';
 
 interface RegistrationStatus {
   status: 'registered' | 'unregistered' | 'pending';
@@ -36,7 +36,7 @@ export const ConnectionSettings: React.FC = () => {
   const [rewardAddress, setRewardAddress] = useState('');
   const [registrationCode, setRegistrationCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [buttonState, setButtonState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [copyStates, setCopyStates] = useState<{[key: string]: 'idle' | 'copied'}>({});
 
   // Form validation states
   const [validationErrors, setValidationErrors] = useState<{
@@ -105,54 +105,27 @@ export const ConnectionSettings: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // Button styling based on state
-  const getButtonClass = () => {
-    const baseClass = "cyber-button w-full disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all duration-500 transform";
+  // Copy to clipboard function
+  const handleCopy = async (text: string, key: string) => {
+    try {
+      if (window.electronAPI?.clipboard) {
+        window.electronAPI.clipboard.writeText(text);
+      } else {
+        await navigator.clipboard.writeText(text);
+      }
 
-    switch (buttonState) {
-      case 'loading':
-        return `${baseClass} animate-pulse scale-101 shadow-lg shadow-cyan-400/20 text-white`;
-      case 'success':
-        return `${baseClass} bg-gradient-to-r from-green-500 to-green-600 shadow-lg shadow-green-400/30 scale-101 text-white`;
-      case 'error':
-        return `${baseClass} bg-gradient-to-r from-red-500 to-red-600 shadow-lg shadow-red-400/30 animate-bounce text-white`;
-      default:
-        return `${baseClass} hover:scale-101`;
+      setCopyStates(prev => ({ ...prev, [key]: 'copied' }));
+
+      // Reset copy state after 2 seconds
+      setTimeout(() => {
+        setCopyStates(prev => ({ ...prev, [key]: 'idle' }));
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy text:', error);
     }
   };
 
-  const getButtonContent = () => {
-    switch (buttonState) {
-      case 'loading':
-        return (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            REGISTERING...
-          </>
-        );
-      case 'success':
-        return (
-          <>
-            <CheckCircle className="h-4 w-4" />
-            REGISTERED
-          </>
-        );
-      case 'error':
-        return (
-          <>
-            <AlertCircle className="h-4 w-4" />
-            REGISTRATION FAILED
-          </>
-        );
-      default:
-        return (
-          <>
-            <Server className="h-4 w-4" />
-            REGISTER DEVICE
-          </>
-        );
-    }
-  };
+
 
   // Load device config from file
   const loadDeviceConfig = async () => {
@@ -264,20 +237,16 @@ export const ConnectionSettings: React.FC = () => {
   const handleRegisterDevice = async () => {
     // Validate form before submission
     if (!validateForm()) {
-      setButtonState('error');
       setRegistrationStatus({
         status: 'unregistered',
         deviceId: '',
         deviceName: '',
         message: 'Please fix validation errors before submitting'
       });
-      // Reset button state after 2 seconds
-      setTimeout(() => setButtonState('idle'), 2000);
       return;
     }
 
     setIsLoading(true);
-    setButtonState('loading');
     setRegistrationStatus(prev => ({
       ...prev,
       status: 'pending',
@@ -300,7 +269,6 @@ export const ConnectionSettings: React.FC = () => {
       const data = await response.json();
 
       if (data.success) {
-        setButtonState('success');
         setRegistrationStatus({
           status: 'registered',
           deviceId: data.deviceId || '',
@@ -310,32 +278,24 @@ export const ConnectionSettings: React.FC = () => {
         // Refresh registration status and reload config
         await loadDeviceConfig();
         await fetchRegistrationStatus();
-        // Reset button state after 3 seconds
-        setTimeout(() => setButtonState('idle'), 3000);
       } else {
         const errorMessage = getDetailedErrorMessage(null, data);
-        setButtonState('error');
         setRegistrationStatus({
           status: 'unregistered',
           deviceId: '',
           deviceName: '',
           message: errorMessage
         });
-        // Reset button state after 5 seconds for error states
-        setTimeout(() => setButtonState('idle'), 5000);
       }
     } catch (error) {
       console.error('Error registering device:', error);
       const errorMessage = getDetailedErrorMessage(error);
-      setButtonState('error');
       setRegistrationStatus({
         status: 'unregistered',
         deviceId: '',
         deviceName: '',
         message: errorMessage
       });
-      // Reset button state after 5 seconds for error states
-      setTimeout(() => setButtonState('idle'), 5000);
     } finally {
       setIsLoading(false);
     }
@@ -361,272 +321,227 @@ export const ConnectionSettings: React.FC = () => {
   useEffect(() => {
     if (deviceConfig) {
       fetchRegistrationStatus();
-    }
+    } 
   }, [deviceConfig]);
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'registered':
-        return <CheckCircle className="h-4 w-4" />;
-      case 'pending':
-        return <Loader2 className="h-4 w-4 animate-spin" />;
-      case 'unregistered':
-        return <AlertCircle className="h-4 w-4" />;
-      default:
-        return <AlertCircle className="h-4 w-4" />;
-    }
-  };
+
 
   return (
-    <div className="space-y-6 min-h-0">
-      {/* Device Registration Status Overview */}
-      <div className="cyber-card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-cyan-400 font-mono">DEVICE STATUS</h3>
-          <Server className="h-5 w-5 text-cyan-400" />
-        </div>
+    <div className="space-y-6 bg-white">
+      {/* Device Registration Status - Success State */}
+      {registrationStatus.status === 'registered' && deviceConfig && (
+        <Card className="bg-white rounded-2xl p-6 shadow-lg">
+          <h3 className="text-2xl font-semibold text-black mb-6">Device Registration Status</h3>
 
-        <div className={`text-2xl font-bold flex items-center gap-2 font-mono transition-all duration-500 ${
-          registrationStatus.status === 'registered' ? 'text-green-400 animate-pulse' :
-          registrationStatus.status === 'pending' ? 'text-yellow-400 animate-pulse' :
-          'text-red-400'
-        }`}>
-          <div className={`transition-transform duration-300 ${
-            registrationStatus.status === 'registered' ? 'scale-110' :
-            registrationStatus.status === 'pending' ? 'animate-spin' :
-            'scale-100'
-          }`}>
-            {getStatusIcon(registrationStatus.status)}
-          </div>
-          {registrationStatus.status === 'registered' ? 'REGISTERED' :
-           registrationStatus.status === 'pending' ? 'REGISTERING' : 'NOT REGISTERED'}
-        </div>
-
-        <div className={`cyber-status-card mt-4 p-4 font-mono text-sm ${
-          registrationStatus.status === 'registered'
-            ? 'status-registered text-green-400'
-            : registrationStatus.status === 'pending'
-            ? 'status-pending text-yellow-400'
-            : 'status-error text-red-400'
-        }`}>
-          <div className="flex items-start gap-2">
-            <div className="flex-shrink-0 mt-0.5">
-              {registrationStatus.status === 'registered' && <CheckCircle className="h-4 w-4" />}
-              {registrationStatus.status === 'pending' && <Loader2 className="h-4 w-4 animate-spin" />}
-              {registrationStatus.status === 'unregistered' && <AlertCircle className="h-4 w-4" />}
+          {/* Success Status Card */}
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-3 mb-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              <span className="text-lg font-semibold text-green-800">Device created successfully</span>
             </div>
-            <div className="flex-1">
-              <div className="font-medium">
-                {registrationStatus.status === 'registered' && 'SUCCESS'}
-                {registrationStatus.status === 'pending' && 'IN PROGRESS'}
-                {registrationStatus.status === 'unregistered' && 'ERROR'}
-              </div>
-              <div className="mt-1 text-xs opacity-90">
-                {registrationStatus.message}
-              </div>
-              {registrationStatus.status === 'unregistered' && (
-                <div className="mt-2 text-xs opacity-75">
-                  <div className="font-medium mb-1">Troubleshooting steps:</div>
-                  <ul className="list-disc list-inside space-y-1 ml-2">
-                    <li>Verify gateway address is correct and accessible</li>
-                    <li>Check registration code validity</li>
-                    <li>Ensure network connectivity to the gateway</li>
-                    <li>Try refreshing the page and registering again</li>
-                  </ul>
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      onClick={handleRegisterDevice}
-                      disabled={isLoading || !gatewayAddress || !rewardAddress || !registrationCode}
-                      className="cyber-button size-sm variant-secondary flex items-center gap-1"
-                    >
-                      <RefreshCw className="h-3 w-3" />
-                      RETRY REGISTRATION
-                    </button>
-                    <button
-                      onClick={fetchRegistrationStatus}
-                      className="cyber-button size-sm variant-secondary flex items-center gap-1"
-                    >
-                      <RefreshCw className="h-3 w-3" />
-                      CHECK STATUS
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <p className="text-sm text-black">
+              Click 'Create' to connect your device. You will need to run a command on your device to complete the connection.
+            </p>
           </div>
-        </div>
 
-        {registrationStatus.deviceId && (
-          <div className="mt-6 p-4 bg-black/20 rounded border border-cyan-400/20">
-            <div className="text-xs font-mono text-cyan-400 mb-2">DEVICE INFORMATION</div>
-            <div className="space-y-2">
-              <div className="text-sm font-mono">
-                <span className="text-cyan-400">Device ID:</span> {registrationStatus.deviceId}
+          {/* Device Information Fields */}
+          <div className="space-y-4">
+            {/* Device ID */}
+            <div>
+              <label className="block text-base font-semibold text-black mb-2">Device ID</label>
+              <div className="bg-gray-50 rounded-lg p-3 flex items-center justify-between">
+                <span className="text-sm font-mono text-black flex-1 break-all">
+                  {registrationStatus.deviceId}
+                </span>
+                <button
+                  onClick={() => handleCopy(registrationStatus.deviceId, 'deviceId')}
+                  className="ml-3 flex items-center gap-2 px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <Copy className="h-4 w-4 text-gray-600" />
+                  <span className="text-sm text-black">
+                    {copyStates.deviceId === 'copied' ? 'Copied' : 'Copy'}
+                  </span>
+                </button>
               </div>
-              {registrationStatus.deviceName && (
-                <div className="text-sm font-mono">
-                  <span className="text-cyan-400">Device Name:</span> {registrationStatus.deviceName}
-                </div>
-              )}
             </div>
-          </div>
-        )}
 
-        {deviceConfig && (
-          <div className="mt-4 p-4 bg-black/20 rounded border border-cyan-400/20">
-            <div className="text-xs font-mono text-cyan-400 mb-2">CONFIGURATION</div>
-            <div className="space-y-2">
-              <div className="text-sm font-mono">
-                <span className="text-cyan-400">Gateway:</span> {deviceConfig.gatewayAddress}
+            {/* Device Name */}
+            <div>
+              <label className="block text-base font-semibold text-black mb-2">Device Name</label>
+              <div className="bg-gray-50 rounded-lg p-3">
+                <span className="text-sm font-mono text-black">
+                  {registrationStatus.deviceName || 'SightAI Device'}
+                </span>
               </div>
-              <div className="text-sm font-mono">
-                <span className="text-cyan-400">Reward Address:</span> {deviceConfig.rewardAddress}
+            </div>
+
+            {/* Gateway */}
+            <div>
+              <label className="block text-base font-semibold text-black mb-2">Gateway</label>
+              <div className="bg-gray-50 rounded-lg p-3">
+                <span className="text-sm font-mono text-black break-all">
+                  {deviceConfig.gatewayAddress}
+                </span>
+              </div>
+            </div>
+
+            {/* Reward Address */}
+            <div>
+              <label className="block text-base font-semibold text-black mb-2">Reward Address</label>
+              <div className="bg-gray-50 rounded-lg p-3 flex items-center justify-between">
+                <span className="text-sm font-mono text-black flex-1 break-all">
+                  {deviceConfig.rewardAddress}
+                </span>
+                <button
+                  onClick={() => handleCopy(deviceConfig.rewardAddress, 'rewardAddress')}
+                  className="ml-3 flex items-center gap-2 px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <Copy className="h-4 w-4 text-gray-600" />
+                  <span className="text-sm text-black">
+                    {copyStates.rewardAddress === 'copied' ? 'Copied' : 'Copy'}
+                  </span>
+                </button>
               </div>
             </div>
           </div>
-        )}
-      </div>
+        </Card>
+      )}
 
       {/* Device Registration Form */}
-      <div className="cyber-card p-6">
-        <div className="flex items-center space-x-4 mb-6">
-          <div className="relative">
-            <div className="w-12 h-12 bg-gradient-to-br from-cyan-400 via-magenta-500 to-cyan-400 rounded-lg flex items-center justify-center animate-glow-pulse">
-              <User className="h-6 w-6 text-black" />
-            </div>
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full animate-ping opacity-75"></div>
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full"></div>
-          </div>
-          <div className="flex-1">
-            <h3 className="text-xl font-bold text-cyan-400 font-mono mb-1">DEVICE REGISTRATION</h3>
-            <p className="text-sm text-muted-foreground font-mono opacity-80">
-              Connect to the SightAI gateway network
-            </p>
-            <div className="flex items-center gap-2 mt-2">
-              <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
-              <div className="w-2 h-2 bg-magenta-500 rounded-full animate-pulse" style={{animationDelay: '0.5s'}}></div>
-              <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" style={{animationDelay: '1s'}}></div>
-            </div>
-          </div>
-        </div>
+      <Card className="bg-white rounded-2xl p-6 shadow-lg">
+        <h3 className="text-2xl font-semibold text-black mb-6">Device Registration</h3>
 
-        <div className="space-y-8">
-          <div className="cyber-form-field">
-            <label className="cyber-form-label required">REGISTRATION CODE</label>
-            <input
-              type="text"
-              value={registrationCode}
-              onChange={(e) => {
-                setRegistrationCode(e.target.value);
-                // Clear validation error when user starts typing
-                if (validationErrors.registrationCode) {
-                  setValidationErrors(prev => ({ ...prev, registrationCode: undefined }));
-                }
-              }}
-              onBlur={() => {
-                const error = validateRegistrationCode(registrationCode);
-                if (error) {
-                  setValidationErrors(prev => ({ ...prev, registrationCode: error }));
-                }
-              }}
-              className={`cyber-input w-full ${
-                validationErrors.registrationCode ? 'error' : ''
-              }`}
-              placeholder="Enter your one-time registration code..."
-              disabled={isLoading}
-            />
+        {/* Registration Form Fields */}
+        <div className="space-y-4 mb-6">
+          {/* Registration Code */}
+          <div>
+            <label className="block text-base font-semibold text-black mb-2">
+              Registration Code <span className="text-red-500">*</span>
+            </label>
+            <div className="bg-gray-50 border border-black rounded-lg p-3">
+              <input
+                type="text"
+                value={registrationCode}
+                onChange={(e) => {
+                  setRegistrationCode(e.target.value);
+                  if (validationErrors.registrationCode) {
+                    setValidationErrors(prev => ({ ...prev, registrationCode: undefined }));
+                  }
+                }}
+                className="w-full bg-transparent text-sm font-mono text-black outline-none"
+                placeholder="9NYFO6CG"
+                disabled={isLoading}
+              />
+            </div>
             {validationErrors.registrationCode && (
-              <div className="cyber-error-message">
-                <AlertCircle className="h-3 w-3 flex-shrink-0" />
-                <span>{validationErrors.registrationCode}</span>
+              <div className="mt-1 text-sm text-red-500 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {validationErrors.registrationCode}
               </div>
             )}
           </div>
 
-          <div className="cyber-form-field">
-            <label className="cyber-form-label required">GATEWAY ADDRESS</label>
-            <input
-              type="url"
-              value={gatewayAddress}
-              onChange={(e) => {
-                setGatewayAddress(e.target.value);
-                // Clear validation error when user starts typing
-                if (validationErrors.gatewayAddress) {
-                  setValidationErrors(prev => ({ ...prev, gatewayAddress: undefined }));
-                }
-              }}
-              onBlur={() => {
-                const error = validateGatewayAddress(gatewayAddress);
-                if (error) {
-                  setValidationErrors(prev => ({ ...prev, gatewayAddress: error }));
-                }
-              }}
-              className={`cyber-input w-full ${
-                validationErrors.gatewayAddress ? 'error' : ''
-              }`}
-              placeholder="https://gateway.sightai.com"
-              disabled={isLoading}
-            />
+          {/* Gateway Address */}
+          <div>
+            <label className="block text-base font-semibold text-black mb-2">
+              Gateway Address <span className="text-red-500">*</span>
+            </label>
+            <div className="bg-gray-50 border border-black rounded-lg p-3">
+              <input
+                type="text"
+                value={gatewayAddress}
+                onChange={(e) => {
+                  setGatewayAddress(e.target.value);
+                  if (validationErrors.gatewayAddress) {
+                    setValidationErrors(prev => ({ ...prev, gatewayAddress: undefined }));
+                  }
+                }}
+                className="w-full bg-transparent text-sm font-mono text-black outline-none"
+                placeholder="https://sightai.io/api/model/gateway-benchmark"
+                disabled={isLoading}
+              />
+            </div>
             {validationErrors.gatewayAddress && (
-              <div className="cyber-error-message">
-                <AlertCircle className="h-3 w-3 flex-shrink-0" />
-                <span>{validationErrors.gatewayAddress}</span>
+              <div className="mt-1 text-sm text-red-500 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {validationErrors.gatewayAddress}
               </div>
             )}
           </div>
 
-          <div className="cyber-form-field">
-            <label className="cyber-form-label required">REWARD ADDRESS</label>
-            <input
-              type="text"
-              value={rewardAddress}
-              onChange={(e) => {
-                setRewardAddress(e.target.value);
-                // Clear validation error when user starts typing
-                if (validationErrors.rewardAddress) {
-                  setValidationErrors(prev => ({ ...prev, rewardAddress: undefined }));
-                }
-              }}
-              onBlur={() => {
-                const error = validateRewardAddress(rewardAddress);
-                if (error) {
-                  setValidationErrors(prev => ({ ...prev, rewardAddress: error }));
-                }
-              }}
-              className={`cyber-input w-full ${
-                validationErrors.rewardAddress ? 'error' : ''
-              }`}
-              placeholder="Enter your reward receiving address..."
-              disabled={isLoading}
-            />
+          {/* Reward Address */}
+          <div>
+            <label className="block text-base font-semibold text-black mb-2">
+              Reward Address <span className="text-red-500">*</span>
+            </label>
+            <div className="bg-gray-50 border border-black rounded-lg p-3">
+              <input
+                type="text"
+                value={rewardAddress}
+                onChange={(e) => {
+                  setRewardAddress(e.target.value);
+                  if (validationErrors.rewardAddress) {
+                    setValidationErrors(prev => ({ ...prev, rewardAddress: undefined }));
+                  }
+                }}
+                className="w-full bg-transparent text-sm font-mono text-black outline-none"
+                placeholder="0x0c45B536C69AB0B8806a65C94BAf8C8e6e71Ba7c"
+                disabled={isLoading}
+              />
+            </div>
             {validationErrors.rewardAddress && (
-              <div className="cyber-error-message">
-                <AlertCircle className="h-3 w-3 flex-shrink-0" />
-                <span>{validationErrors.rewardAddress}</span>
+              <div className="mt-1 text-sm text-red-500 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {validationErrors.rewardAddress}
               </div>
             )}
           </div>
         </div>
 
-        <div className="mt-8 pt-6 border-t border-gradient-to-r from-transparent via-cyan-400/30 to-transparent relative">
-          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
-          </div>
-          <button
-            onClick={handleRegisterDevice}
-            disabled={isLoading || registrationStatus.status === 'pending' || buttonState === 'loading'}
-            className={getButtonClass()}
-          >
-            {getButtonContent()}
-          </button>
-          <div className="mt-4 text-center">
-            <p className="text-xs text-muted-foreground font-mono opacity-60">
-              Registration will connect your device to the SightAI network
-            </p>
+        {/* Action Buttons */}
+        <div className="flex justify-end">
+          <div className="flex gap-4 w-60">
+            <button
+              type="button"
+              className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+              disabled={isLoading}
+            >
+              <X className="h-4 w-4 inline mr-2" />
+              Cancel
+            </button>
+            <button
+              onClick={handleRegisterDevice}
+              disabled={isLoading || !registrationCode || !gatewayAddress || !rewardAddress}
+              className="flex-1 px-4 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 inline mr-2 animate-spin" />
+                  Registering...
+                </>
+              ) : (
+                'Register'
+              )}
+            </button>
           </div>
         </div>
-      </div>
 
+        {/* Note Section */}
+        <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-6 w-6 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h4 className="text-base font-semibold text-yellow-800 mb-2">Note</h4>
+              <ul className="text-sm text-black space-y-1">
+                <li>• Registration code is provided by the gateway administrator</li>
+                <li>• Gateway address determines which network environment you connect to</li>
+                <li>• Reward address is where your earnings will be sent (must be a valid wallet address)</li>
+                <li>• Make sure all information is correct before registering</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 };
