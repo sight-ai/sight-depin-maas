@@ -1,14 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/ui/sidebar';
-import { CyberTaskModule } from './components/CyberTaskModule';
 import { CyberModelInference } from './components/CyberModelInference';
 import { ConnectionSettings } from './components/ConnectionSettings';
 import { ModelReporting } from './components/ModelReporting';
-import { NewSettings } from './components/NewSettings';
 import { CyberDashboard } from './components/Dashboard';
-import { Earnings } from './components/Earnings';
-import { GatewayConfiguration } from './components/GatewayConfiguration';
-import { DIDManagement } from './components/DIDManagement';
 
 interface BackendStatus {
   isRunning: boolean;
@@ -89,15 +84,15 @@ const App: React.FC = () => {
       case 'model-configuration':
         return <ModelReporting />;
       case 'tasks':
-        return <CyberTaskModule backendStatus={backendStatus} />;
+        return <ModelReporting />;
       case 'earnings':
-        return <Earnings />;
+        return <ModelReporting />;
       case 'gateway-configuration':
-        return <GatewayConfiguration />;
+        return <ModelReporting />;
       case 'did-management':
-        return <DIDManagement />;
+        return <ModelReporting />;
       case 'settings':
-        return <NewSettings />;
+        return <ModelReporting />;
       case 'inference':
         return <CyberModelInference backendStatus={backendStatus} />;
       default:

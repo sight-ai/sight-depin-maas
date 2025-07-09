@@ -31,7 +31,13 @@ export const ConnectionSettings: React.FC = () => {
     message: ''
   });
 
-  const [deviceConfig, setDeviceConfig] = useState<DeviceConfig | null>(null);
+  const [deviceConfig, setDeviceConfig] = useState<DeviceConfig>({
+    gatewayAddress: '',
+    rewardAddress: '',
+    code: '',
+    deviceId: '',
+    deviceName: ''
+  });
   const [gatewayAddress, setGatewayAddress] = useState('https://sightai.io/api/model');
   const [rewardAddress, setRewardAddress] = useState('');
   const [registrationCode, setRegistrationCode] = useState('');
@@ -329,7 +335,6 @@ export const ConnectionSettings: React.FC = () => {
   return (
     <div className="space-y-6 bg-white">
       {/* Device Registration Status - Success State */}
-      {registrationStatus.status === 'registered' && deviceConfig && (
         <Card className="bg-white rounded-2xl p-6 shadow-lg">
           <h3 className="text-2xl font-semibold text-black mb-6">Device Registration Status</h3>
 
@@ -404,12 +409,9 @@ export const ConnectionSettings: React.FC = () => {
               </div>
             </div>
           </div>
-        </Card>
-      )}
 
       {/* Device Registration Form */}
-      <Card className="bg-white rounded-2xl p-6 shadow-lg">
-        <h3 className="text-2xl font-semibold text-black mb-6">Device Registration</h3>
+        <h3 className="text-2xl font-semibold text-black mb-6 mt-12">Device Registration</h3>
 
         {/* Registration Form Fields */}
         <div className="space-y-4 mb-6">

@@ -72,38 +72,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Sidebar Navigation Bar */}
       <div className="flex flex-col gap-4 px-4 pt-7 pb-1">
-
-        {/* Controls */}
-        <div className="flex justify-between items-center gap-22">
-          {/* Sidebar Control - Tab Bar Button */}
-          <div className="flex justify-center items-center gap-2 w-11 h-11">
-            <div className="w-6 h-5">
-              <img
-                src={require('../../assets/icons/sidebar-tab-button.svg')}
-                alt="Tab Bar"
-                className="w-full h-full"
-                style={{ filter: 'brightness(0) saturate(100%) invert(39%) sepia(0%) saturate(0%) hue-rotate(180deg) brightness(97%) contrast(89%)' }}
-              />
-            </div>
-          </div>
-
-          {/* Trailing - Settings Button */}
-          <div className="flex justify-end items-center gap-4 px-0 py-3 pr-4">
-            <div className="flex gap-2.5">
-              <button className="text-base text-gray-600">
-                <img
-                  src={require('../../assets/icons/sidebar-settings-icon.svg')}
-                  alt="Settings"
-                  className="w-4 h-4"
-                  style={{ filter: 'brightness(0) saturate(100%) invert(39%) sepia(0%) saturate(0%) hue-rotate(180deg) brightness(97%) contrast(89%)' }}
-                />
-              </button>
-            </div>
-          </div>
-        </div>
-
         {/* Search Bar */}
-        <div className="flex justify-stretch items-stretch gap-1 bg-gray-100 rounded-lg">
+        {/* <div className="flex justify-stretch items-stretch gap-1 bg-gray-100 rounded-lg">
           <div className="flex items-center flex-1 gap-[-16px] p-1">
             <div className="flex items-center flex-1 gap-2.5 px-5">
               <input
@@ -132,10 +102,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Title */}
-        <div className="flex flex-col px-2 py-1">
+        <div className="flex flex-col px-2 py-1 mt-7">
           <h1
             className="text-black font-bold text-left"
             style={{
