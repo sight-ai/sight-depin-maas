@@ -98,42 +98,14 @@ const App: React.FC = () => {
 
   return (
     <div className="app">
-      {/* Cyberpunk Background Effects */}
+      {/* Clean Background */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        {/* Animated scan lines */}
-        <div className="absolute inset-0 opacity-20">
-          {[...Array(5)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute w-full h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent"
-              style={{
-                top: `${20 + i * 20}%`,
-                animation: `scan-line ${3 + i * 0.5}s linear infinite`,
-                animationDelay: `${i * 0.5}s`
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Floating data particles */}
-        <div className="absolute inset-0">
-          {[...Array(20)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute w-1 h-1 bg-cyan-400 rounded-full opacity-60"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animation: `particle-float ${5 + Math.random() * 5}s ease-in-out infinite`,
-                animationDelay: `${Math.random() * 5}s`
-              }}
-            />
-          ))}
-        </div>
+        {/* Subtle gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-indigo-50/30" />
       </div>
 
       <div className="flex h-screen bg-background relative z-10">
-        {/* Cyberpunk Sidebar */}
+        {/* Clean Sidebar */}
         <div className="cyber-sidebar">
           <Sidebar
             activeTab={activeTab}
@@ -144,31 +116,31 @@ const App: React.FC = () => {
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col">
-          {/* Cyberpunk Header with drag support */}
-          <header className="cyber-header border-b border-cyan-500/20 bg-card/50 backdrop-blur-sm px-6 py-4 relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 to-magenta-500/5" />
+          {/* Clean Header with drag support */}
+          {/* <header className="cyber-header border-b border-border bg-card/80 backdrop-blur-sm px-6 py-4 relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-50/30 to-indigo-50/30" />
             <div className="relative z-10 flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
-                  <span className="text-cyan-400 font-mono text-sm">SIGHTAI_SYSTEM</span>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                  <span className="text-blue-600 font-medium text-sm">SightAI System</span>
                 </div>
-                <div className="text-sm text-muted-foreground font-mono">
-                  STATUS: {backendStatus.isRunning ? (
-                    <span className="status-online">ONLINE [PORT:{backendStatus.port}]</span>
+                <div className="text-sm text-muted-foreground">
+                  Status: {backendStatus.isRunning ? (
+                    <span className="text-green-600 font-medium">Online [Port: {backendStatus.port}]</span>
                   ) : (
-                    <span className="status-offline">OFFLINE</span>
+                    <span className="text-red-600 font-medium">Offline</span>
                   )}
                 </div>
               </div>
-              <div className="flex items-center space-x-2 text-xs font-mono text-cyan-400">
+              <div className="flex items-center space-x-2 text-xs text-muted-foreground">
                 <span>{new Date().toLocaleTimeString()}</span>
-                <div className="w-1 h-1 bg-cyan-400 rounded-full animate-pulse" />
+                <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" />
               </div>
             </div>
-          </header>
+          </header> */}
 
-          {/* Main Content with Cyberpunk styling */}
+          {/* Main Content with clean styling */}
           <main className="flex-1 overflow-auto relative">
             <div className="p-6 relative z-10">
               <div className="cyber-card p-6 min-h-full">

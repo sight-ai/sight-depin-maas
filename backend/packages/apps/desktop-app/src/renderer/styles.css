@@ -4,49 +4,49 @@
 
 @layer base {
   :root {
-    /* Cyberpunk Color Scheme */
-    --background: 210 100% 2%;
-    --foreground: 180 100% 90%;
-    --card: 210 50% 8%;
-    --card-foreground: 180 100% 90%;
-    --popover: 210 50% 8%;
-    --popover-foreground: 180 100% 90%;
-    --primary: 315 100% 60%;
-    --primary-foreground: 210 100% 2%;
-    --secondary: 180 100% 50%;
-    --secondary-foreground: 210 100% 2%;
-    --muted: 210 50% 15%;
-    --muted-foreground: 180 50% 70%;
-    --accent: 60 100% 50%;
-    --accent-foreground: 210 100% 2%;
-    --destructive: 0 100% 60%;
-    --destructive-foreground: 210 100% 2%;
-    --border: 180 50% 20%;
-    --input: 210 50% 12%;
-    --ring: 315 100% 60%;
+    /* White Theme Color Scheme */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 10%;
+    --card: 0 0% 98%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 210 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 95%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 210 40% 95%;
+    --accent-foreground: 0 0% 10%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 210 100% 50%;
     --radius: 0.75rem;
 
-    /* Cyberpunk Neon Colors */
-    --neon-cyan: #00ffff;
-    --neon-magenta: #ff00ff;
-    --neon-yellow: #ffff00;
-    --neon-green: #00ff00;
-    --neon-blue: #0080ff;
-    --neon-purple: #8000ff;
-    --neon-orange: #ff8000;
+    /* Clean Modern Colors */
+    --accent-blue: #2563eb;
+    --accent-green: #16a34a;
+    --accent-orange: #ea580c;
+    --accent-purple: #9333ea;
+    --accent-red: #dc2626;
+    --accent-yellow: #ca8a04;
+    --accent-gray: #6b7280;
 
     /* Background Colors */
-    --bg-primary: #0a0a0f;
-    --bg-secondary: #0f0f1a;
-    --bg-tertiary: #1a1a2e;
-    --bg-card: rgba(15, 15, 26, 0.8);
-    --bg-glass: rgba(0, 255, 255, 0.05);
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8fafc;
+    --bg-tertiary: #f1f5f9;
+    --bg-card: rgba(255, 255, 255, 0.95);
+    --bg-glass: rgba(59, 130, 246, 0.05);
 
     /* Text Colors */
-    --text-primary: #e0e0ff;
-    --text-secondary: #a0a0d0;
-    --text-muted: #606080;
-    --text-accent: #00ffff;
+    --text-primary: #1e293b;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --text-accent: #2563eb;
   }
 }
 
@@ -57,7 +57,7 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow: hidden;
@@ -285,11 +285,11 @@
 /* Cyberpunk Component Styles */
 @layer components {
   .cyber-card {
-    @apply bg-card/80 backdrop-blur-sm border border-border/50 rounded-lg;
-    background: linear-gradient(135deg, var(--bg-card) 0%, rgba(0, 255, 255, 0.02) 100%);
+    @apply bg-card backdrop-blur-sm border border-border rounded-lg;
+    background: var(--bg-card);
     box-shadow:
-      0 0 20px rgba(0, 255, 255, 0.1),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      0 1px 3px rgba(0, 0, 0, 0.1),
+      0 1px 2px rgba(0, 0, 0, 0.06);
     transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
@@ -302,16 +302,15 @@
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
-    opacity: 0.6;
+    background: linear-gradient(90deg, transparent, var(--accent-blue), transparent);
+    opacity: 0.3;
   }
 
   .cyber-card:hover {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
     box-shadow:
-      0 0 30px rgba(0, 255, 255, 0.2),
-      0 10px 40px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      0 4px 6px rgba(0, 0, 0, 0.1),
+      0 2px 4px rgba(0, 0, 0, 0.06);
   }
 
   .cyber-button {
@@ -607,8 +606,9 @@
 
   .cyber-sidebar {
     background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
-    border-right: 1px solid rgba(0, 255, 255, 0.2);
+    border-right: 1px solid var(--border);
     position: relative;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
   }
 
   .cyber-sidebar::before {
@@ -666,13 +666,11 @@
   }
 
   .status-online {
-    color: var(--neon-green);
-    text-shadow: 0 0 10px currentColor;
+    color: var(--accent-green);
   }
 
   .status-offline {
     color: var(--destructive);
-    text-shadow: 0 0 10px currentColor;
   }
 
   .status-warning {
@@ -681,11 +679,11 @@
   }
 
   .cyber-progress {
-    background: rgba(0, 255, 255, 0.1);
-    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
     overflow: hidden;
     position: relative;
-    border: 1px solid rgba(0, 255, 255, 0.3);
+    border: 1px solid rgba(0, 0, 0, 0.1);
     height: 8px;
   }
 
@@ -720,8 +718,8 @@
   /* Metric Cards */
   .cyber-metric-card {
     @apply cyber-card p-4;
-    background: linear-gradient(135deg, var(--bg-card) 0%, rgba(0, 255, 255, 0.05) 100%);
-    border: 1px solid rgba(0, 255, 255, 0.2);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
     position: relative;
   }
 
@@ -732,20 +730,19 @@
     left: 0;
     right: 0;
     height: 2px;
-    background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
-    opacity: 0.8;
+    background: linear-gradient(90deg, transparent, var(--accent-blue), transparent);
+    opacity: 0.3;
   }
 
   .cyber-metric-value {
-    @apply text-2xl font-bold font-mono;
-    color: var(--neon-cyan);
-    text-shadow: 0 0 10px currentColor;
+    @apply text-2xl font-bold;
+    color: var(--text-primary);
   }
 
   .cyber-metric-label {
-    @apply text-sm font-medium font-mono text-muted-foreground;
+    @apply text-sm font-medium text-muted-foreground;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
   }
 
   .cyber-metric-change {
