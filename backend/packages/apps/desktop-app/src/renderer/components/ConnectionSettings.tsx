@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   CheckCircle,
   AlertCircle,
@@ -24,6 +24,10 @@ interface DeviceConfig {
 }
 
 export const ConnectionSettings: React.FC = () => {
+  // 性能优化：使用 useRef 避免不必要的重渲染
+  const configCacheRef = useRef<{ data: any; timestamp: number } | null>(null);
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const [registrationStatus, setRegistrationStatus] = useState<RegistrationStatus>({
     status: 'unregistered',
     deviceId: '',
@@ -43,6 +47,9 @@ export const ConnectionSettings: React.FC = () => {
   const [registrationCode, setRegistrationCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copyStates, setCopyStates] = useState<{[key: string]: 'idle' | 'copied'}>({});
+
+  // 性能优化：添加防抖状态
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Form validation states
   const [validationErrors, setValidationErrors] = useState<{
@@ -133,20 +140,119 @@ export const ConnectionSettings: React.FC = () => {
 
 
 
-  // Load device config from file
-  const loadDeviceConfig = async () => {
+  // 性能优化：使用缓存和防抖的配置加载
+  const loadDeviceConfig = useCallback(async () => {
+    // 检查缓存
+    const now = Date.now();
+    if (configCacheRef.current && (now - configCacheRef.current.timestamp) < 10000) {
+      // 10秒内的缓存直接使用
+      const cachedData = configCacheRef.current.data;
+      setDeviceConfig(cachedData);
+      setGatewayAddress(cachedData.gatewayAddress || 'https://sightai.io/api/model');
+      setRewardAddress(cachedData.rewardAddress || '');
+      setRegistrationCode(cachedData.code || '');
+      return;
+    }
+
     try {
       if (window.electronAPI) {
         const result = await window.electronAPI.readDeviceConfig();
         if (result.success && result.data) {
+          // 更新缓存
+          configCacheRef.current = {
+            data: result.data,
+            timestamp: now
+          };
+
           setDeviceConfig(result.data);
-          setGatewayAddress(result.data.gatewayAddress);
-          setRewardAddress(result.data.rewardAddress);
-          setRegistrationCode(result.data.code);
+          setGatewayAddress(result.data.gatewayAddress || 'https://sightai.io/api/model');
+          setRewardAddress(result.data.rewardAddress || '');
+          setRegistrationCode(result.data.code || '');
+        } else {
+          console.warn('Failed to load device config:', result.error);
         }
       }
     } catch (error) {
       console.error('Error loading device config:', error);
+    }
+  }, []);
+
+  // 性能优化：防抖保存设备配置
+  const saveDeviceConfig = useCallback(async (configUpdate: Partial<DeviceConfig>) => {
+    if (isUpdating) return false;
+
+    setIsUpdating(true);
+
+    // 清除之前的定时器
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+    }
+
+    return new Promise<boolean>((resolve) => {
+      updateTimeoutRef.current = setTimeout(async () => {
+        try {
+          if (window.electronAPI && (window.electronAPI as any).updateDeviceConfig) {
+            const result = await (window.electronAPI as any).updateDeviceConfig(configUpdate);
+            if (result.success) {
+              console.log('Device config updated successfully:', result.message);
+
+              // 清除缓存，强制重新加载
+              configCacheRef.current = null;
+              await loadDeviceConfig();
+
+              resolve(true);
+            } else {
+              console.error('Failed to update device config:', result.error);
+              resolve(false);
+            }
+          } else {
+            resolve(false);
+          }
+        } catch (error) {
+          console.error('Error saving device config:', error);
+          resolve(false);
+        } finally {
+          setIsUpdating(false);
+        }
+      }, 500); // 500ms 防抖延迟
+    });
+  }, [isUpdating, loadDeviceConfig]);
+
+  // 新增：获取完整配置
+  const loadAllConfig = async () => {
+    try {
+      if (window.electronAPI && (window.electronAPI as any).getAllConfig) {
+        const result = await (window.electronAPI as any).getAllConfig();
+        if (result.success && result.data) {
+          console.log('All config loaded:', result.data);
+          // 可以在这里处理完整的配置数据
+          if (result.data.device) {
+            setDeviceConfig(result.data.device);
+            setGatewayAddress(result.data.device.gatewayAddress || '');
+            setRewardAddress(result.data.device.rewardAddress || '');
+            setRegistrationCode(result.data.device.code || '');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading all config:', error);
+    }
+  };
+
+  // 新增：验证配置
+  const validateConfiguration = async () => {
+    try {
+      if (window.electronAPI && (window.electronAPI as any).validateConfig) {
+        const result = await (window.electronAPI as any).validateConfig();
+        if (result.success && result.data) {
+          console.log('Config validation result:', result.data);
+          return result.data;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('Error validating config:', error);
+      return null;
     }
   };
 
@@ -281,6 +387,26 @@ export const ConnectionSettings: React.FC = () => {
           deviceName: data.deviceName || '',
           message: `Device registered successfully at ${new Date().toLocaleTimeString()}`
         });
+
+        // 使用新的配置管理保存设备配置
+        const configUpdate = {
+          deviceId: data.deviceId || '',
+          deviceName: data.deviceName || '',
+          gatewayAddress,
+          rewardAddress,
+          code: registrationCode,
+          isRegistered: true,
+          registrationTime: new Date().toISOString(),
+          lastUpdated: new Date().toISOString()
+        };
+
+        const saveSuccess = await saveDeviceConfig(configUpdate);
+        if (saveSuccess) {
+          console.log('Device configuration saved successfully after registration');
+        } else {
+          console.warn('Failed to save device configuration after registration');
+        }
+
         // Refresh registration status and reload config
         await loadDeviceConfig();
         await fetchRegistrationStatus();
@@ -307,11 +433,34 @@ export const ConnectionSettings: React.FC = () => {
     }
   };
 
+  // 新增：创建配置备份
+  const createConfigBackup = async () => {
+    try {
+      if (window.electronAPI && (window.electronAPI as any).backupConfig) {
+        const description = `Device config backup - ${new Date().toLocaleString()}`;
+        const result = await (window.electronAPI as any).backupConfig(description);
+        if (result.success) {
+          console.log('Config backup created:', result.backupId);
+          return result.backupId;
+        } else {
+          console.error('Failed to create config backup:', result.message);
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('Error creating config backup:', error);
+      return null;
+    }
+  };
+
   useEffect(() => {
     // Initialize by loading device config first, then registration status
     const initializeData = async () => {
       await loadDeviceConfig();
       await fetchRegistrationStatus();
+
+      // 可选：加载完整配置进行验证
+      await loadAllConfig();
     };
     initializeData();
 

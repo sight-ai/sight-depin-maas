@@ -43,7 +43,7 @@ export class OutcomeChatResponseHandler extends OutcomeBaseMessageHandler {
       // 转发响应消息
       await this.forwardResponse(chatResponse);
 
-      this.logger.debug(`✅ 非流式聊天响应发送成功 - TaskID: ${chatResponse.payload.taskId}`);
+
 
     } catch (error) {
       this.logger.error(`❌ 发送非流式聊天响应失败: ${error instanceof Error ? error.message : '未知错误'}`);

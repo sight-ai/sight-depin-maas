@@ -1,5 +1,6 @@
 const { composePlugins, withNx } = require('@nx/webpack');
 const path = require('path');
+const webpack = require('webpack');
 
 module.exports = composePlugins(withNx(), (config) => {
   // 配置多入口点：主进程和预加载脚本
@@ -19,6 +20,25 @@ module.exports = composePlugins(withNx(), (config) => {
   config.externals = {
     electron: 'commonjs electron',
     canvas: 'commonjs canvas',
+  };
+
+  // 添加插件来忽略 cloudflare:sockets
+  config.plugins = config.plugins || [];
+  config.plugins.push(
+    new webpack.IgnorePlugin({
+      checkResource(resource) {
+        return resource === 'cloudflare:sockets';
+      },
+    })
+  );
+
+  // 解决模块解析问题
+  config.resolve = {
+    ...config.resolve,
+    fallback: {
+      ...config.resolve?.fallback,
+      "cloudflare:sockets": false,
+    }
   };
 
   // 输出配置

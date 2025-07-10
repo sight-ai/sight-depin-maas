@@ -84,7 +84,7 @@ export class IncomeContextPingHandler extends IncomeBaseMessageHandler {
     
     try {
       await this.tunnel.sendMessage(pongMessage);
-      this.logger.debug(`上下文Pong响应发送成功`);
+
     } catch (error) {
       this.logger.error(`发送上下文Pong响应失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }

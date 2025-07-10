@@ -9,6 +9,7 @@ import {
   EnvironmentDetectorService
 } from '@saito/device-status';
 import { UnifiedModelService } from '@saito/model-inference-client';
+import { UnifiedConfigService } from './unified-config.service';
 import {
   AppConfigSchema,
   FrameworkConfigSchema,
@@ -87,6 +88,7 @@ export class AppConfigurationService implements OnModuleInit {
     private readonly deviceStatusService: EnhancedDeviceStatusService,
     private readonly environmentDetector: EnvironmentDetectorService,
     private readonly systemMonitorService: EnhancedSystemMonitorService,
+    private readonly unifiedConfigService: UnifiedConfigService,
   ) {}
 
   /**

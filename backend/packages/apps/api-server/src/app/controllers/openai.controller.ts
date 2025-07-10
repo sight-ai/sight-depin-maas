@@ -9,6 +9,7 @@ import {
   OpenAICompletionRequest
 } from '@saito/models';
 import z from 'zod';
+import { UnifiedModelListService } from '../services/unified-model-list.service';
 
 /**
  * Clean OpenAI Controller
@@ -27,7 +28,8 @@ export class OpenAIController {
   private readonly logger = new Logger(OpenAIController.name);
 
   constructor(
-    private readonly unifiedModelService: UnifiedModelService
+    private readonly unifiedModelService: UnifiedModelService,
+    private readonly unifiedModelListService: UnifiedModelListService
   ) {}
 
   /**
@@ -114,22 +116,8 @@ export class OpenAIController {
   @Get('/models')
   async listModels(@Res() res: Response) {
     try {
-      // Use unified model service
-      const currentFramework = this.unifiedModelService.getCurrentFramework();
-      const modelList = await this.unifiedModelService.listModels();
-
-      // Convert to OpenAI format for compatibility
-      const openaiFormat = {
-        object: 'list',
-        data: modelList.models.map((model: any) => ({
-          id: model.name,
-          object: 'model',
-          created: model.modified_at ? Math.floor(new Date(model.modified_at).getTime() / 1000) : Math.floor(Date.now() / 1000),
-          owned_by: currentFramework.toLowerCase()
-        }))
-      };
-
-      res.json(openaiFormat);
+      const result = await this.unifiedModelListService.getOpenAIFormatModels();
+      res.json(result);
 
     } catch (error) {
       this.logger.error(`List models error: ${error instanceof Error ? error.message : 'Unknown error'}`);

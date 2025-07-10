@@ -74,6 +74,14 @@ export interface ElectronAPI {
   openPath: (path: string) => Promise<{ success: boolean; error?: string }>;
   showItemInFolder: (path: string) => Promise<{ success: boolean; error?: string }>;
 
+  // 新增：配置管理 API
+  updateDeviceConfig: (config: any) => Promise<{ success: boolean; message?: string; error?: string }>;
+  getAllConfig: () => Promise<{ success: boolean; data?: any; error?: string }>;
+  getAppSettings: () => Promise<{ success: boolean; data?: any; error?: string }>;
+  updateAppSettings: (settings: any) => Promise<{ success: boolean; message?: string; error?: string }>;
+  validateConfig: () => Promise<{ success: boolean; data?: any; error?: string }>;
+  backupConfig: (description?: string) => Promise<{ success: boolean; backupId?: string; message?: string }>;
+
   // 剪贴板 API
   clipboard: {
     writeText: (text: string) => void;
@@ -117,6 +125,14 @@ const electronAPI: ElectronAPI = {
   // 文件/目录操作 API 实现
   openPath: (path: string) => ipcRenderer.invoke('open-path', path),
   showItemInFolder: (path: string) => ipcRenderer.invoke('show-item-in-folder', path),
+
+  // 新增：配置管理 API 实现
+  updateDeviceConfig: (config: any) => ipcRenderer.invoke('update-device-config', config),
+  getAllConfig: () => ipcRenderer.invoke('get-all-config'),
+  getAppSettings: () => ipcRenderer.invoke('get-app-settings'),
+  updateAppSettings: (settings: any) => ipcRenderer.invoke('update-app-settings', settings),
+  validateConfig: () => ipcRenderer.invoke('validate-config'),
+  backupConfig: (description?: string) => ipcRenderer.invoke('backup-config', description),
 
   // 剪贴板 API 实现
   clipboard: {

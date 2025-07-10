@@ -147,7 +147,7 @@ export class DefaultDeviceStatusService implements TDeviceStatusService, OnModul
       const systemInfo = await this.systemService.collectSystemInfo();
       await this.heartbeatService.sendHeartbeat(config, systemInfo);
 
-      this.logger.debug(`💓 心跳发送成功 - DeviceID: ${config.deviceId}`);
+
     } catch (error) {
       this.logger.error('心跳发送失败:', error);
       // 不抛出错误，避免中断心跳服务

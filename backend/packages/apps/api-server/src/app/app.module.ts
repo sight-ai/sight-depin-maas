@@ -12,12 +12,19 @@ import { OpenAIController } from "./controllers/openai.controller";
 import { ModelsController } from "./controllers/models.controller";
 import { AppConfigController } from "./controllers/app-config.controller";
 import { DashboardController } from "./controllers/dashboard.controller";
-import { EnhancedSystemMonitorService } from "@saito/common";
+import {
+  EnhancedSystemMonitorService,
+  UnifiedConfigFactoryService,
+  EnhancedUnifiedConfigService
+} from "@saito/common";
 
 import {DidModule} from "@saito/did"
 
 // 导入应用配置服务
 import { AppConfigurationService } from "./services/app-configuration.service";
+import { UnifiedModelListService } from "./services/unified-model-list.service";
+import { UnifiedHealthService } from "./services/unified-health.service";
+import { UnifiedConfigService } from "./services/unified-config.service";
 
 
 import { TunnelModule } from "@saito/tunnel";
@@ -27,6 +34,10 @@ import { ModelInferenceClientModule, TUNNEL_SERVICE_TOKEN } from "@saito/model-i
 import { ModelInferenceFrameworkManagementModule } from "@saito/model-inference-framework-management";
 import { EarningsTrackingModule } from '@saito/earnings-tracking';
 import { Libp2pController } from './controllers/tunnel-libp2p.controller';
+import { VllmProcessController } from './controllers/vllm-process.controller';
+import { OllamaProcessController } from './controllers/ollama-process.controller';
+import { FrameworkConfigController } from './controllers/framework-config.controller';
+import { UnifiedConfigController } from './controllers/unified-config.controller';
 @Module({
   imports: [
     EventEmitterModule.forRoot(),
@@ -49,7 +60,11 @@ import { Libp2pController } from './controllers/tunnel-libp2p.controller';
     ModelsController,
     AppConfigController,
     DashboardController,
-    Libp2pController
+    Libp2pController,
+    VllmProcessController,
+    OllamaProcessController,
+    FrameworkConfigController,
+    UnifiedConfigController
   ],
   providers: [
     {
@@ -58,6 +73,15 @@ import { Libp2pController } from './controllers/tunnel-libp2p.controller';
     },
     // 应用配置服务
     AppConfigurationService,
+    // 统一配置管理服务
+    UnifiedConfigService,
+    // 新的统一配置管理系统
+    UnifiedConfigFactoryService,
+    EnhancedUnifiedConfigService,
+    // 统一模型列表服务
+    UnifiedModelListService,
+    // 统一健康检查服务
+    UnifiedHealthService,
     // 系统监控服务
     EnhancedSystemMonitorService,
     // 为推理服务提供 TunnelService

@@ -49,8 +49,8 @@ const App: React.FC = () => {
       });
     }
 
-    // Regular backend status check as backup
-    const interval = setInterval(checkBackendStatus, 5000);
+    // 🚨 修复：减少后端状态检查频率，从5秒改为15秒
+    const interval = setInterval(checkBackendStatus, 15000);
 
     return () => clearInterval(interval);
   }, [isInitializing]);

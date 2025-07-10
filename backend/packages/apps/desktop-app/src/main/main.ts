@@ -6,6 +6,7 @@ import {
   TrayManager,
   IPCManager
 } from './managers';
+import { getDesktopConfigService, cleanupDesktopConfigService } from './services';
 
 class DesktopApp {
   private isQuiting = false;
@@ -34,7 +35,17 @@ class DesktopApp {
     // 设置应用程序安全策略
     app.whenReady().then(async () => {
       try {
-        this.logger.log('App is ready, starting services...');
+        this.logger.log('App is ready, initializing configuration service...');
+
+        // 初始化配置服务
+        try {
+          await getDesktopConfigService();
+          this.logger.log('Desktop configuration service initialized successfully');
+        } catch (error) {
+          this.logger.log(`Failed to initialize configuration service: ${error}`, 'ERROR');
+        }
+
+        this.logger.log('Starting services...');
 
         // 启动所有服务
         await this.serviceManager.startAllServices();
@@ -116,6 +127,14 @@ class DesktopApp {
 
     try {
       await this.serviceManager.stopAllServices();
+
+      // 清理配置服务
+      try {
+        await cleanupDesktopConfigService();
+        this.logger.log('Desktop configuration service cleaned up successfully');
+      } catch (error) {
+        this.logger.log(`Error cleaning up configuration service: ${error}`, 'ERROR');
+      }
     } catch (error) {
       this.logger.log(`Error during cleanup: ${error}`, 'ERROR');
     }

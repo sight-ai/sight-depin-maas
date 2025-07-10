@@ -2,6 +2,7 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { app } from 'electron';
 import { LogManager } from './LogManager';
+import { getDesktopConfigService, IDesktopConfigService } from '../services';
 
 interface BackendService {
   instance: any;
@@ -18,15 +19,17 @@ interface Libp2pService {
 export class ServiceManager {
   private backendService: BackendService = {
     instance: null,
-    port: 8716,
+    port: 8716, // 默认端口，将从配置服务获取
     isRunning: false,
   };
 
   private libp2pService: Libp2pService = {
     instance: null,
-    port: 4010,
+    port: 4010, // 默认端口，将从配置服务获取
     isRunning: false,
   };
+
+  private configService: IDesktopConfigService | null = null;
 
   private isDev: boolean;
   private logger: LogManager;
@@ -36,12 +39,43 @@ export class ServiceManager {
     this.logger = logger;
     this.isDev = isDev;
     this.startTime = Date.now();
+    this.initializeConfigService();
+  }
+
+  private async initializeConfigService(): Promise<void> {
+    try {
+      this.configService = await getDesktopConfigService();
+      await this.loadServiceConfiguration();
+    } catch (error) {
+      this.logger.log(`Failed to initialize config service in ServiceManager: ${error}`, 'ERROR');
+    }
+  }
+
+  private async loadServiceConfiguration(): Promise<void> {
+    try {
+      if (this.configService) {
+        const serviceConfig = await this.configService.getServiceConfig();
+
+        // 更新服务端口配置
+        this.backendService.port = serviceConfig.backend.port;
+        this.libp2pService.port = serviceConfig.libp2p.port;
+
+        this.logger.log(`Loaded service configuration - Backend port: ${this.backendService.port}, Libp2p port: ${this.libp2pService.port}`);
+      }
+    } catch (error) {
+      this.logger.log(`Failed to load service configuration: ${error}`, 'ERROR');
+    }
   }
 
   public async startAllServices(): Promise<void> {
     try {
       this.logger.log('Starting all services...');
-      
+
+      // 确保配置已加载
+      if (!this.configService) {
+        await this.initializeConfigService();
+      }
+
       // 先启动后端服务，等待完全启动
       await this.startBackendService();
       this.logger.log('Backend service started, now starting libp2p service...');

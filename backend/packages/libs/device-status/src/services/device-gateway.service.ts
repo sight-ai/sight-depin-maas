@@ -9,7 +9,7 @@ import {
   DEVICE_CONFIG_SERVICE
 } from "../device-status.interface";
 import { TunnelServiceImpl } from "@saito/tunnel";
-import { DynamicConfigService } from "./dynamic-config.service";
+
 import { TunnelCommunicationService } from "./tunnel-communication.service";
 import { DidServiceInterface } from "@saito/did";
 import { RegistrationStatus } from "../registration-storage";
@@ -27,7 +27,6 @@ export class DeviceGatewayService implements TDeviceGateway {
     private readonly deviceConfigService: TDeviceConfig,
     @Inject('TunnelService')
     private readonly tunnelService: TunnelServiceImpl,
-    private readonly dynamicConfigService: DynamicConfigService,
     private readonly tunnelCommunicationService: TunnelCommunicationService,
     @Inject('DidService') private readonly didService: DidServiceInterface,
   ) { }
@@ -50,8 +49,25 @@ export class DeviceGatewayService implements TDeviceGateway {
       let deviceSystemInfo = systemInfo;
       if (!deviceSystemInfo) {
         try {
-          const systemService = new (await import('./device-system.service')).DeviceSystemService();
-          deviceSystemInfo = await systemService.collectSystemInfo();
+          // 使用简化的系统信息收集，避免复杂的依赖注入
+          const si = await import('systeminformation');
+          const os = await import('os');
+
+          const [osInfo, cpu, mem] = await Promise.all([
+            si.osInfo(),
+            si.cpu(),
+            si.mem()
+          ]);
+
+          deviceSystemInfo = {
+            os: `${osInfo.distro} ${osInfo.release} (${osInfo.arch})`,
+            cpu: `${cpu.manufacturer} ${cpu.brand} ${cpu.speed}GHz`,
+            memory: `${(mem.total / 1024 / 1024 / 1024).toFixed(1)}GB`,
+            graphics: [], // 简化处理，不在这里检测 GPU
+            ipAddress: 'Unknown',
+            deviceType: process.env['DEVICE_TYPE'] || os.platform(),
+            deviceModel: process.env['GPU_MODEL'] || 'Unknown'
+          };
         } catch (error) {
           this.logger.warn('Failed to collect system info for registration:', error);
           deviceSystemInfo = {
@@ -199,7 +215,7 @@ export class DeviceGatewayService implements TDeviceGateway {
       );
 
       if (success) {
-        this.logger.debug('💓 心跳发送成功 via WebSocket');
+
       } else {
         this.logger.warn('❌ 心跳发送失败 via WebSocket');
       }

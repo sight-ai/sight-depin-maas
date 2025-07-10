@@ -6,15 +6,27 @@ import * as os from 'os';
 import * as fs from 'fs';
 import { LogManager } from './LogManager';
 import { ServiceManager } from './ServiceManager';
+import { getDesktopConfigService, IDesktopConfigService } from '../services';
 
 export class IPCManager {
   private logger: LogManager;
   private serviceManager: ServiceManager;
+  private configService: IDesktopConfigService | null = null;
 
   constructor(logger: LogManager, serviceManager: ServiceManager) {
     this.logger = logger;
     this.serviceManager = serviceManager;
+    this.initializeConfigService();
     this.setupIPC();
+  }
+
+  private async initializeConfigService(): Promise<void> {
+    try {
+      this.configService = await getDesktopConfigService();
+      this.logger.log('Desktop config service initialized successfully');
+    } catch (error) {
+      this.logger.log(`Failed to initialize desktop config service: ${error}`, 'ERROR');
+    }
   }
 
   private setupIPC(): void {
@@ -53,28 +65,26 @@ export class IPCManager {
       }
     });
 
-    // 读取设备配置
-    ipcMain.handle('read-device-config', () => {
+    // 读取设备配置 - 使用新的统一配置管理
+    ipcMain.handle('read-device-config', async () => {
       try {
-        const configPath = join(homedir(), '.sightai', 'config', 'device-registration.json');
-        if (!existsSync(configPath)) {
+        if (!this.configService) {
           return {
             success: false,
-            error: 'Device registration config file not found'
+            error: 'Configuration service not initialized'
           };
         }
 
-        const configData = readFileSync(configPath, 'utf-8');
-        const config = JSON.parse(configData);
+        const deviceConfig = await this.configService.getDeviceConfig();
 
         return {
           success: true,
           data: {
-            deviceId: config.deviceId || '',
-            deviceName: config.deviceName || '',
-            gatewayAddress: config.gatewayAddress || '',
-            rewardAddress: config.rewardAddress || '',
-            code: config.code || ''
+            deviceId: deviceConfig.deviceId,
+            deviceName: deviceConfig.deviceName,
+            gatewayAddress: deviceConfig.gatewayAddress,
+            rewardAddress: deviceConfig.rewardAddress,
+            code: deviceConfig.code
           }
         };
       } catch (error) {
@@ -100,29 +110,17 @@ export class IPCManager {
       }
     });
 
-    // 系统信息 API
+    // 系统信息 API - 使用新的统一配置管理
     ipcMain.handle('get-system-info', async () => {
       try {
-        const systemInfo = {
-          platform: os.platform(),
-          arch: os.arch(),
-          version: os.release(),
-          uptime: os.uptime(),
-          memory: {
-            total: os.totalmem(),
-            used: os.totalmem() - os.freemem(),
-            free: os.freemem()
-          },
-          cpu: {
-            model: os.cpus()[0]?.model || 'Unknown',
-            usage: 0 // CPU usage calculation would need additional implementation
-          },
-          disk: {
-            total: 0, // Disk info would need additional implementation
-            used: 0,
-            free: 0
-          }
-        };
+        if (!this.configService) {
+          return {
+            success: false,
+            error: 'Configuration service not initialized'
+          };
+        }
+
+        const systemInfo = await this.configService.getSystemInfo();
 
         return {
           success: true,
@@ -137,22 +135,33 @@ export class IPCManager {
       }
     });
 
-    // 应用信息 API
+    // 应用信息 API - 使用新的统一配置管理
     ipcMain.handle('get-app-info', async () => {
       try {
-        const appInfo = {
-          version: app.getVersion(),
+        if (!this.configService) {
+          return {
+            version: app.getVersion(),
+            startTime: this.serviceManager.getStartTime(),
+            uptime: Date.now() - this.serviceManager.getStartTime(),
+            environment: 'production'
+          };
+        }
+
+        const appInfo = await this.configService.getAppInfo();
+
+        // 合并服务管理器的信息
+        return {
+          ...appInfo,
           startTime: this.serviceManager.getStartTime(),
           uptime: Date.now() - this.serviceManager.getStartTime()
         };
-
-        return appInfo;
       } catch (error) {
         this.logger.log(`Failed to get app info: ${error}`, 'ERROR');
         return {
-          version: 'Unknown',
-          startTime: Date.now(),
-          uptime: 0
+          version: app.getVersion(),
+          startTime: this.serviceManager.getStartTime(),
+          uptime: Date.now() - this.serviceManager.getStartTime(),
+          environment: 'production'
         };
       }
     });
@@ -167,6 +176,147 @@ export class IPCManager {
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    });
+
+    // 新增：配置管理 API
+    ipcMain.handle('get-all-config', async () => {
+      try {
+        if (!this.configService) {
+          return {
+            success: false,
+            error: 'Configuration service not initialized'
+          };
+        }
+
+        const config = await this.configService.getAllConfig();
+        return {
+          success: true,
+          data: config
+        };
+      } catch (error) {
+        this.logger.log(`Failed to get all config: ${error}`, 'ERROR');
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    });
+
+    // 新增：更新设备配置
+    ipcMain.handle('update-device-config', async (_, config) => {
+      try {
+        if (!this.configService) {
+          return {
+            success: false,
+            error: 'Configuration service not initialized'
+          };
+        }
+
+        const success = await this.configService.updateDeviceConfig(config);
+        return {
+          success,
+          message: success ? 'Device configuration updated successfully' : 'Failed to update device configuration'
+        };
+      } catch (error) {
+        this.logger.log(`Failed to update device config: ${error}`, 'ERROR');
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    });
+
+    // 新增：获取应用设置
+    ipcMain.handle('get-app-settings', async () => {
+      try {
+        if (!this.configService) {
+          return {
+            success: false,
+            error: 'Configuration service not initialized'
+          };
+        }
+
+        const settings = await this.configService.getAppSettings();
+        return {
+          success: true,
+          data: settings
+        };
+      } catch (error) {
+        this.logger.log(`Failed to get app settings: ${error}`, 'ERROR');
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    });
+
+    // 新增：更新应用设置
+    ipcMain.handle('update-app-settings', async (_, settings) => {
+      try {
+        if (!this.configService) {
+          return {
+            success: false,
+            error: 'Configuration service not initialized'
+          };
+        }
+
+        const success = await this.configService.updateAppSettings(settings);
+        return {
+          success,
+          message: success ? 'App settings updated successfully' : 'Failed to update app settings'
+        };
+      } catch (error) {
+        this.logger.log(`Failed to update app settings: ${error}`, 'ERROR');
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    });
+
+    // 新增：验证配置
+    ipcMain.handle('validate-config', async () => {
+      try {
+        if (!this.configService) {
+          return {
+            success: false,
+            error: 'Configuration service not initialized'
+          };
+        }
+
+        const validation = await this.configService.validateConfig();
+        return {
+          success: true,
+          data: validation
+        };
+      } catch (error) {
+        this.logger.log(`Failed to validate config: ${error}`, 'ERROR');
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    });
+
+    // 新增：备份配置
+    ipcMain.handle('backup-config', async (_, description) => {
+      try {
+        if (!this.configService) {
+          return {
+            success: false,
+            error: 'Configuration service not initialized'
+          };
+        }
+
+        const result = await this.configService.backupConfig(description);
+        return result;
+      } catch (error) {
+        this.logger.log(`Failed to backup config: ${error}`, 'ERROR');
+        return {
+          success: false,
+          message: error instanceof Error ? error.message : 'Unknown error'
         };
       }
     });
