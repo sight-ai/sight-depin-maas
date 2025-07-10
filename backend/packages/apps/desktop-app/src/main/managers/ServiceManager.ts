@@ -350,7 +350,8 @@ export class ServiceManager {
             '--node-port', config.nodePort || '15050',
             '--libp2p-port', config.libp2pPort || '4010',
             '--api-port', config.apiPort || '8716',
-            '--is-gateway', config.isGateway ? 'true' : 'false'
+            '--is-gateway', config.isGateway ? '1' : '0',
+            '--bootstrap-addrs', config.bootstrapAddrs || ''
           ];
 
           this.log(`Starting with args: ${args.join(' ')}`);
