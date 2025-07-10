@@ -68,7 +68,7 @@ import { PeerController } from './controllers/peer.controller';
     VllmProcessController,
     OllamaProcessController,
     FrameworkConfigController,
-    UnifiedConfigController
+    UnifiedConfigController,
     DidController,
     PeerController
   ],
