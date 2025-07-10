@@ -67,7 +67,7 @@ import { KeyPairManager } from './services/key-pair-manager.service';
   exports: [
     'KEY_PAIR',
     DidServiceProvider,
-    DidDocumentManagerService,
+    DidDocumentManagerProvider,
     DidServiceImpl,
     KeyPairManager,
   ],

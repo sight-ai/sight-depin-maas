@@ -389,7 +389,7 @@ export class SocketMessageGatewayService implements ISocketTransportGateway {
   }
 }
 
-export const MessageGatewayProvider = {
-  provide: 'MessageGateway',
-  useClass: SocketMessageGatewayService,
-};
+// export const MessageGatewayProvider = {
+//   provide: 'MessageGateway',
+//   useClass: SocketMessageGatewayService,
+// };
