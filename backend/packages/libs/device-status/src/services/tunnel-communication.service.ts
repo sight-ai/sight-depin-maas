@@ -1,9 +1,11 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
-import { TunnelMessageService } from '@saito/tunnel';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { TunnelMessageService, TunnelService, TunnelServiceImpl, TUNNEL_EVENTS, TunnelMessageReceivedEvent } from '@saito/tunnel';
 import {
   DeviceRegisterRequestPayload,
   DeviceModelReportPayload,
-  DeviceHeartbeatReportPayload
+  DeviceHeartbeatReportPayload,
+  TunnelMessage
 } from '@saito/models';
 
 /**
@@ -16,8 +18,9 @@ export class TunnelCommunicationService {
   private readonly logger = new Logger(TunnelCommunicationService.name);
 
   constructor(
-    @Inject('TunnelService') private readonly tunnelService: any,
-    private readonly tunnelMessageService: TunnelMessageService
+    @Inject('TunnelService') private readonly tunnelService: TunnelServiceImpl,
+    private readonly tunnelMessageService: TunnelMessageService,
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
   /**
@@ -55,8 +58,10 @@ export class TunnelCommunicationService {
           registrationData.code,
           registrationData.basePath || ''
         );
+        // await this.tunnelService.connect(fromPeerId);
         this.logger.log(`✅ WebSocket连接已建立`);
       } else {
+        // await this.tunnelService.connect(fromPeerId);
         this.logger.log(`✅ WebSocket已连接，直接发送消息`);
       }
 
@@ -150,42 +155,64 @@ export class TunnelCommunicationService {
     payload: DeviceRegisterRequestPayload
   ): Promise<{ success: boolean; error?: string; data?: any }> {
     return new Promise(async (resolve) => {
+      let isResolved = false;
+
       const timeout = setTimeout(() => {
-        this.logger.warn('Device registration response timeout');
-        resolve({ success: false, error: 'Registration timeout' });
+        if (!isResolved) {
+          isResolved = true;
+          this.logger.warn('Device registration response timeout');
+          // 移除监听器
+          this.eventEmitter.off(TUNNEL_EVENTS.MESSAGE_RECEIVED, responseListener);
+          resolve({ success: false, error: 'Registration timeout' });
+        }
       }, 30000); // 30秒超时
 
-      // 设置响应监听器
-      const responseListener = (message: any) => {
+      // 设置响应监听器 - 使用EventEmitter2监听TUNNEL_EVENTS
+      const responseListener = (event: TunnelMessageReceivedEvent) => {
         try {
-          if (message.type === 'device_register_response' && message.fromPeerId === toPeerId) {
-            clearTimeout(timeout);
+          const message = event.message;
 
-            if (message.payload && message.payload.success) {
-              this.logger.log('✅ Device registration confirmed by gateway');
-              resolve({
-                success: true,
-                data: message.payload
-              });
-            } else {
-              this.logger.error('❌ Device registration rejected by gateway:', message.payload?.error);
-              resolve({
-                success: false,
-                error: message.payload?.error || 'Registration rejected'
-              });
+          if (message.type === 'device_register_response' && message.from === toPeerId) {
+            if (!isResolved) {
+              isResolved = true;
+              clearTimeout(timeout);
+              // 移除监听器
+              this.eventEmitter.off(TUNNEL_EVENTS.MESSAGE_RECEIVED, responseListener);
+
+              if (message.payload && message.payload.status === 'connected') {
+                this.logger.log('✅ Device registration confirmed by gateway');
+                resolve({
+                  success: true,
+                  data: message.payload
+                });
+              } else {
+                this.logger.error('❌ Device registration rejected by gateway:', message.payload?.error);
+                resolve({
+                  success: false,
+                  error: message.payload?.error || 'Registration rejected'
+                });
+              }
             }
           }
         } catch (error) {
-          clearTimeout(timeout);
-          this.logger.error('Error processing registration response:', error);
-          resolve({
-            success: false,
-            error: 'Failed to process response'
-          });
+          if (!isResolved) {
+            isResolved = true;
+            clearTimeout(timeout);
+            // 移除监听器
+            this.eventEmitter.off(TUNNEL_EVENTS.MESSAGE_RECEIVED, responseListener);
+            this.logger.error('Error processing registration response:', error);
+            resolve({
+              success: false,
+              error: 'Failed to process response'
+            });
+          }
         }
       };
 
       try {
+        // 注册响应监听器 - 在发送消息之前注册
+        this.eventEmitter.on(TUNNEL_EVENTS.MESSAGE_RECEIVED, responseListener);
+
         // 发送注册消息
         await this.tunnelMessageService.sendDeviceRegisterMessage(
           fromPeerId,
@@ -193,22 +220,20 @@ export class TunnelCommunicationService {
           payload
         );
 
-        // 注册响应监听器
-        if (this.tunnelService.on) {
-          this.tunnelService.on('message', responseListener);
-        } else {
-          // 如果没有事件监听机制，等待超时或依赖其他机制
-          clearTimeout(timeout);
-          this.logger.warn('No event listener available, waiting for timeout or external confirmation');
-          // 不要假设成功，让超时处理或其他机制来决定结果
-        }
+        this.logger.log('✅ Device registration message sent, waiting for response...');
+
       } catch (error) {
-        clearTimeout(timeout);
-        this.logger.error('Failed to send registration message:', error);
-        resolve({
-          success: false,
-          error: error instanceof Error ? error.message : 'Send failed'
-        });
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          // 移除监听器
+          this.eventEmitter.off(TUNNEL_EVENTS.MESSAGE_RECEIVED, responseListener);
+          this.logger.error('Failed to send registration message:', error);
+          resolve({
+            success: false,
+            error: error instanceof Error ? error.message : 'Send failed'
+          });
+        }
       }
     });
   }
@@ -345,38 +370,50 @@ export class TunnelCommunicationService {
    */
   private async waitForModelReportResponse(deviceId: string): Promise<boolean> {
     return new Promise((resolve) => {
+      let isResolved = false;
+
       const timeout = setTimeout(() => {
-        this.logger.warn('Model report response timeout');
-        resolve(false);
+        if (!isResolved) {
+          isResolved = true;
+          this.logger.warn('Model report response timeout');
+          this.eventEmitter.off(TUNNEL_EVENTS.MESSAGE_RECEIVED, responseListener);
+          resolve(false);
+        }
       }, 30000); // 30秒超时
 
-      // 创建响应监听器
-      const responseListener = (message: any) => {
-        if (message.type === 'device_model_report_response' && message.to === deviceId) {
-          clearTimeout(timeout);
+      // 创建响应监听器 - 使用EventEmitter2监听TUNNEL_EVENTS
+      const responseListener = (event: TunnelMessageReceivedEvent) => {
+        try {
+          const message = event.message;
 
-          if (message.payload?.success) {
-            this.logger.log('Model report response received: success');
-            resolve(true);
-          } else {
-            this.logger.warn('Model report response received: failed', message.payload?.error);
+          if (message.type === 'device_model_report_response' && message.to === deviceId) {
+            if (!isResolved) {
+              isResolved = true;
+              clearTimeout(timeout);
+              this.eventEmitter.off(TUNNEL_EVENTS.MESSAGE_RECEIVED, responseListener);
+
+              if (message.payload?.success) {
+                this.logger.log('Model report response received: success');
+                resolve(true);
+              } else {
+                this.logger.warn('Model report response received: failed', message.payload?.message);
+                resolve(false);
+              }
+            }
+          }
+        } catch (error) {
+          if (!isResolved) {
+            isResolved = true;
+            clearTimeout(timeout);
+            this.eventEmitter.off(TUNNEL_EVENTS.MESSAGE_RECEIVED, responseListener);
+            this.logger.error('Error processing model report response:', error);
             resolve(false);
           }
-
-          // 移除监听器
-          this.tunnelService.off?.('message', responseListener);
         }
       };
 
       // 注册监听器
-      if (this.tunnelService.on) {
-        this.tunnelService.on('message', responseListener);
-      } else {
-        // 如果没有事件监听机制，使用简化逻辑
-        clearTimeout(timeout);
-        this.logger.log('No event listener available, assuming success');
-        resolve(true);
-      }
+      this.eventEmitter.on(TUNNEL_EVENTS.MESSAGE_RECEIVED, responseListener);
     });
   }
 
@@ -386,38 +423,50 @@ export class TunnelCommunicationService {
    */
   private async waitForHeartbeatResponse(deviceId: string): Promise<boolean> {
     return new Promise((resolve) => {
+      let isResolved = false;
+
       const timeout = setTimeout(() => {
-        this.logger.warn('Heartbeat response timeout');
-        resolve(false);
+        if (!isResolved) {
+          isResolved = true;
+          this.logger.warn('Heartbeat response timeout');
+          this.eventEmitter.off(TUNNEL_EVENTS.MESSAGE_RECEIVED, responseListener);
+          resolve(false);
+        }
       }, 30000); // 30秒超时
 
-      // 创建响应监听器
-      const responseListener = (message: any) => {
-        if (message.type === 'device_heartbeat_response' && message.to === deviceId) {
-          clearTimeout(timeout);
+      // 创建响应监听器 - 使用EventEmitter2监听TUNNEL_EVENTS
+      const responseListener = (event: TunnelMessageReceivedEvent) => {
+        try {
+          const message = event.message;
 
-          if (message.payload?.success) {
-            this.logger.log('Heartbeat response received: success');
-            resolve(true);
-          } else {
-            this.logger.warn('Heartbeat response received: failed', message.payload?.error);
+          if (message.type === 'device_heartbeat_response' && message.to === deviceId) {
+            if (!isResolved) {
+              isResolved = true;
+              clearTimeout(timeout);
+              this.eventEmitter.off(TUNNEL_EVENTS.MESSAGE_RECEIVED, responseListener);
+
+              if (message.payload?.success) {
+                this.logger.log('Heartbeat response received: success');
+                resolve(true);
+              } else {
+                this.logger.warn('Heartbeat response received: failed', message.payload?.message);
+                resolve(false);
+              }
+            }
+          }
+        } catch (error) {
+          if (!isResolved) {
+            isResolved = true;
+            clearTimeout(timeout);
+            this.eventEmitter.off(TUNNEL_EVENTS.MESSAGE_RECEIVED, responseListener);
+            this.logger.error('Error processing heartbeat response:', error);
             resolve(false);
           }
-
-          // 移除监听器
-          this.tunnelService.off?.('message', responseListener);
         }
       };
 
       // 注册监听器
-      if (this.tunnelService.on) {
-        this.tunnelService.on('message', responseListener);
-      } else {
-        // 如果没有事件监听机制，使用简化逻辑
-        clearTimeout(timeout);
-        this.logger.log('No event listener available, assuming success');
-        resolve(true);
-      }
+      this.eventEmitter.on(TUNNEL_EVENTS.MESSAGE_RECEIVED, responseListener);
     });
   }
 
