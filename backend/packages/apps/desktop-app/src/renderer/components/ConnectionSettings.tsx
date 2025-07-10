@@ -7,6 +7,7 @@ import {
   X
 } from 'lucide-react';
 import { Card } from './ui/card';
+import { createApiClient, handleApiError } from '../utils/api-client';
 
 interface RegistrationStatus {
   status: 'registered' | 'unregistered' | 'pending';
@@ -484,7 +485,7 @@ export const ConnectionSettings: React.FC = () => {
   return (
     <div className="space-y-6 bg-white">
       {/* Device Registration Status - Success State */}
-        <Card className="bg-white rounded-2xl p-6 shadow-lg">
+        <Card className="bg-white rounded-2xl p-6 shadow-lg space-y-6">
           <h3 className="text-2xl font-semibold text-black mb-6">Device Registration Status</h3>
 
           {/* Success Status Card */}

@@ -1,0 +1,1467 @@
+openapi: 3.0.3
+info:
+  title: SightAI API Server
+  description: |
+    SightAI API Server provides comprehensive endpoints for AI model inference, device management, 
+    mining operations, and system monitoring. The API supports both OpenAI-compatible and Ollama-compatible 
+    endpoints for seamless integration with existing AI workflows.
+    
+    ## Key Features
+    - **Multi-Framework Support**: Supports both Ollama and vLLM inference frameworks
+    - **OpenAI Compatibility**: Full OpenAI API compatibility for chat completions and embeddings
+    - **Device Management**: Complete device registration and status monitoring
+    - **Mining Operations**: Task management and earnings tracking
+    - **Real-time Monitoring**: Dashboard statistics and system health checks
+    
+  version: 1.0.0
+  contact:
+    name: SightAI Team
+    url: https://sight.ai
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+  - url: https://api.sight.ai
+    description: Production server
+
+tags:
+  - name: Health
+    description: Health check and system status endpoints
+  - name: OpenAI Compatible
+    description: OpenAI-compatible API endpoints for chat completions and models
+  - name: Ollama Compatible
+    description: Ollama-compatible API endpoints for model inference
+  - name: Models
+    description: Model management and listing endpoints
+  - name: Dashboard
+    description: Dashboard statistics and analytics
+  - name: Device Management
+    description: Device registration and status management
+  - name: Mining
+    description: Mining operations and task management
+  - name: Configuration
+    description: System configuration and framework management
+  - name: Tunnel & Communication
+    description: P2P communication and tunnel management
+
+paths:
+  # Health Endpoints
+  /:
+    get:
+      tags: [Health]
+      summary: Application info
+      description: Returns basic application information
+      responses:
+        '200':
+          description: Application info
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "SightAI API Server v1.0.0"
+
+  /healthz:
+    get:
+      tags: [Health]
+      summary: Simple health check
+      description: Returns simple health status
+      responses:
+        '200':
+          description: Health status
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "OK"
+
+  /api/v1/health:
+    get:
+      tags: [Health]
+      summary: Detailed health check
+      description: Returns detailed health information including uptime
+      responses:
+        '200':
+          description: Detailed health information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  uptime:
+                    type: number
+                    description: Uptime in seconds
+
+  # OpenAI Compatible Endpoints
+  /openai/v1/chat/completions:
+    post:
+      tags: [OpenAI Compatible]
+      summary: Create chat completion
+      description: Creates a chat completion using OpenAI-compatible format
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenAIChatCompletionRequest'
+      responses:
+        '200':
+          description: Chat completion response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenAIChatCompletionResponse'
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-sent events for streaming responses
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /openai/v1/completions:
+    post:
+      tags: [OpenAI Compatible]
+      summary: Create completion
+      description: Creates a text completion using OpenAI-compatible format
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenAICompletionRequest'
+      responses:
+        '200':
+          description: Completion response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenAICompletionResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /openai/v1/models:
+    get:
+      tags: [OpenAI Compatible]
+      summary: List available models
+      description: Returns list of available models in OpenAI format
+      responses:
+        '200':
+          description: List of available models
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenAIModelsResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /openai/v1/embeddings:
+    post:
+      tags: [OpenAI Compatible]
+      summary: Create embeddings
+      description: Creates embeddings for the given input text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenAIEmbeddingRequest'
+      responses:
+        '200':
+          description: Embedding response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenAIEmbeddingResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Ollama Compatible Endpoints
+  /ollama/api/chat:
+    post:
+      tags: [Ollama Compatible]
+      summary: Ollama chat
+      description: Chat endpoint compatible with Ollama format
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OllamaChatRequest'
+      responses:
+        '200':
+          description: Chat response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaChatResponse'
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-sent events for streaming responses
+
+  /ollama/api/generate:
+    post:
+      tags: [Ollama Compatible]
+      summary: Ollama generate
+      description: Text generation endpoint compatible with Ollama format
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OllamaGenerateRequest'
+      responses:
+        '200':
+          description: Generation response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaGenerateResponse'
+
+  /ollama/api/tags:
+    get:
+      tags: [Ollama Compatible]
+      summary: List Ollama models
+      description: Returns list of available models in Ollama format
+      responses:
+        '200':
+          description: List of available models
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaModelsResponse'
+
+  /ollama/api/embeddings:
+    post:
+      tags: [Ollama Compatible]
+      summary: Ollama embeddings
+      description: Creates embeddings using Ollama format
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OllamaEmbeddingRequest'
+      responses:
+        '200':
+          description: Embedding response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaEmbeddingResponse'
+
+  # Models Management
+  /api/v1/models/list:
+    get:
+      tags: [Models]
+      summary: List models (internal format)
+      description: Returns list of available models in internal format
+      responses:
+        '200':
+          description: List of available models
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalModelsResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/models/report:
+    post:
+      tags: [Models]
+      summary: Report models to gateway
+      description: Reports available models to the gateway
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModelReportRequest'
+      responses:
+        '200':
+          description: Models reported successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelReportResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Dashboard Endpoints
+  /api/v1/dashboard/statistics:
+    get:
+      tags: [Dashboard]
+      summary: Get dashboard statistics
+      description: Returns comprehensive dashboard statistics including tasks, earnings, and device info
+      parameters:
+        - name: timeRange
+          in: query
+          description: Time range configuration for statistics
+          schema:
+            type: string
+            default: '{"request_serials":"daily","filteredTaskActivity":{}}'
+      responses:
+        '200':
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStatisticsResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/dashboard/task-count:
+    get:
+      tags: [Dashboard]
+      summary: Get task count
+      description: Returns task count for specified period
+      parameters:
+        - name: period
+          in: query
+          description: Time period for task count
+          schema:
+            type: string
+            enum: [today, week, month, all]
+            default: today
+      responses:
+        '200':
+          description: Task count data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskCountResponse'
+
+  /api/v1/dashboard/task-activity:
+    get:
+      tags: [Dashboard]
+      summary: Get task activity summary
+      description: Returns task activity summary and trends
+      responses:
+        '200':
+          description: Task activity data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskActivityResponse'
+
+  /api/v1/dashboard/task-trends:
+    get:
+      tags: [Dashboard]
+      summary: Get task trends
+      description: Returns task trends for specified number of days
+      parameters:
+        - name: days
+          in: query
+          description: Number of days for trend analysis
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: Task trends data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskTrendsResponse'
+
+  /api/v1/dashboard/earnings:
+    get:
+      tags: [Dashboard]
+      summary: Get earnings data
+      description: Returns earnings data for specified period
+      parameters:
+        - name: period
+          in: query
+          description: Time period for earnings
+          schema:
+            type: string
+            enum: [today, week, month, all]
+            default: today
+      responses:
+        '200':
+          description: Earnings data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EarningsResponse'
+
+  # Device Management Endpoints
+  /api/v1/device-status:
+    get:
+      tags: [Device Management]
+      summary: Get device status
+      description: Returns current device status and information
+      responses:
+        '200':
+          description: Device status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceStatusResponse'
+
+    post:
+      tags: [Device Management]
+      summary: Register device
+      description: Registers device with the gateway
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceRegistrationRequest'
+      responses:
+        '200':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceRegistrationResponse'
+        '400':
+          description: Registration failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/device-status/gateway-status:
+    get:
+      tags: [Device Management]
+      summary: Get gateway status
+      description: Returns gateway connection status
+      responses:
+        '200':
+          description: Gateway status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayStatusResponse'
+
+  /api/v1/device-status/update-did:
+    post:
+      tags: [Device Management]
+      summary: Update DID
+      description: Manually updates device DID information
+      responses:
+        '200':
+          description: DID updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DidUpdateResponse'
+
+  /api/v1/device-status/did-info:
+    get:
+      tags: [Device Management]
+      summary: Get DID information
+      description: Returns current DID information
+      responses:
+        '200':
+          description: DID information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DidInfoResponse'
+
+  # Mining Endpoints
+  /api/v1/miner/summary:
+    get:
+      tags: [Mining]
+      summary: Get mining summary
+      description: Returns mining summary with task and earnings information
+      parameters:
+        - name: timeRange
+          in: query
+          description: Time range configuration
+          schema:
+            type: string
+            default: '{"request_serials":"daily","filteredTaskActivity":{}}'
+      responses:
+        '200':
+          description: Mining summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MiningSummaryResponse'
+
+  /api/v1/miner/history:
+    get:
+      tags: [Mining]
+      summary: Get task history
+      description: Returns paginated task history
+      parameters:
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: Task history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskHistoryResponse'
+
+  /api/v1/miner/connect-task-list:
+    get:
+      tags: [Mining]
+      summary: Get connected task list
+      description: Returns list of connected tasks with optional status filtering
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: status
+          in: query
+          description: Filter by task status
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Connected task list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectedTaskListResponse'
+
+  # Configuration Endpoints
+  /api/v1/config/current:
+    get:
+      tags: [Configuration]
+      summary: Get current configuration
+      description: Returns current system configuration
+      responses:
+        '200':
+          description: Current configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationResponse'
+
+  /api/v1/config/switch-framework:
+    post:
+      tags: [Configuration]
+      summary: Switch inference framework
+      description: Switches between Ollama and vLLM frameworks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FrameworkSwitchRequest'
+      responses:
+        '200':
+          description: Framework switched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrameworkSwitchResponse'
+
+  /api/v1/config/vllm:
+    put:
+      tags: [Configuration]
+      summary: Update vLLM configuration
+      description: Updates vLLM-specific configuration parameters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VllmConfigUpdateRequest'
+      responses:
+        '200':
+          description: Configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigUpdateResponse'
+
+  /api/v1/config/generic:
+    put:
+      tags: [Configuration]
+      summary: Update generic configuration
+      description: Updates generic configuration values
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericConfigRequest'
+      responses:
+        '200':
+          description: Configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigUpdateResponse'
+
+components:
+  schemas:
+    # OpenAI Schemas
+    OpenAIChatCompletionRequest:
+      type: object
+      required: [model, messages]
+      properties:
+        model:
+          type: string
+          description: Model to use for completion
+          example: "llama3.2:3b"
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+          default: 1
+        max_tokens:
+          type: integer
+          minimum: 1
+        stream:
+          type: boolean
+          default: false
+        top_p:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    ChatMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant]
+        content:
+          type: string
+
+    OpenAIChatCompletionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          example: "chat.completion"
+        created:
+          type: integer
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatChoice'
+        usage:
+          $ref: '#/components/schemas/Usage'
+
+    ChatChoice:
+      type: object
+      properties:
+        index:
+          type: integer
+        message:
+          $ref: '#/components/schemas/ChatMessage'
+        finish_reason:
+          type: string
+          enum: [stop, length, content_filter]
+
+    Usage:
+      type: object
+      properties:
+        prompt_tokens:
+          type: integer
+        completion_tokens:
+          type: integer
+        total_tokens:
+          type: integer
+
+    OpenAICompletionRequest:
+      type: object
+      required: [model, prompt]
+      properties:
+        model:
+          type: string
+        prompt:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+        max_tokens:
+          type: integer
+          minimum: 1
+        stream:
+          type: boolean
+          default: false
+
+    OpenAICompletionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          example: "text_completion"
+        created:
+          type: integer
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompletionChoice'
+        usage:
+          $ref: '#/components/schemas/Usage'
+
+    CompletionChoice:
+      type: object
+      properties:
+        text:
+          type: string
+        index:
+          type: integer
+        finish_reason:
+          type: string
+
+    OpenAIModelsResponse:
+      type: object
+      properties:
+        object:
+          type: string
+          example: "list"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OpenAIModel'
+
+    OpenAIModel:
+      type: object
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          example: "model"
+        created:
+          type: integer
+        owned_by:
+          type: string
+
+    OpenAIEmbeddingRequest:
+      type: object
+      required: [model, input]
+      properties:
+        model:
+          type: string
+        input:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+
+    OpenAIEmbeddingResponse:
+      type: object
+      properties:
+        object:
+          type: string
+          example: "list"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmbeddingObject'
+        model:
+          type: string
+        usage:
+          $ref: '#/components/schemas/Usage'
+
+    EmbeddingObject:
+      type: object
+      properties:
+        object:
+          type: string
+          example: "embedding"
+        embedding:
+          type: array
+          items:
+            type: number
+        index:
+          type: integer
+
+    # Ollama Schemas
+    OllamaChatRequest:
+      type: object
+      required: [model, messages]
+      properties:
+        model:
+          type: string
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+        stream:
+          type: boolean
+          default: false
+        options:
+          type: object
+
+    OllamaChatResponse:
+      type: object
+      properties:
+        model:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        message:
+          $ref: '#/components/schemas/ChatMessage'
+        done:
+          type: boolean
+
+    OllamaGenerateRequest:
+      type: object
+      required: [model, prompt]
+      properties:
+        model:
+          type: string
+        prompt:
+          type: string
+        stream:
+          type: boolean
+          default: false
+        options:
+          type: object
+
+    OllamaGenerateResponse:
+      type: object
+      properties:
+        model:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        response:
+          type: string
+        done:
+          type: boolean
+
+    OllamaModelsResponse:
+      type: object
+      properties:
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/OllamaModel'
+
+    OllamaModel:
+      type: object
+      properties:
+        name:
+          type: string
+        modified_at:
+          type: string
+          format: date-time
+        size:
+          type: integer
+        digest:
+          type: string
+        details:
+          type: object
+
+    OllamaEmbeddingRequest:
+      type: object
+      required: [model, prompt]
+      properties:
+        model:
+          type: string
+        prompt:
+          type: string
+
+    OllamaEmbeddingResponse:
+      type: object
+      properties:
+        embedding:
+          type: array
+          items:
+            type: number
+
+    # Internal Models
+    InternalModelsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        framework:
+          type: string
+          enum: [ollama, vllm]
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/InternalModel'
+        total:
+          type: integer
+
+    InternalModel:
+      type: object
+      properties:
+        name:
+          type: string
+        size:
+          type: integer
+        modified_at:
+          type: string
+          format: date-time
+        digest:
+          type: string
+        details:
+          type: object
+
+    ModelReportRequest:
+      type: object
+      required: [models]
+      properties:
+        models:
+          type: array
+          items:
+            type: string
+          minItems: 1
+
+    ModelReportResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        reportedModels:
+          type: array
+          items:
+            type: string
+
+    # Dashboard Schemas
+    DashboardStatisticsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            taskStats:
+              $ref: '#/components/schemas/TaskStats'
+            earningsStats:
+              $ref: '#/components/schemas/EarningsStats'
+            deviceInfo:
+              $ref: '#/components/schemas/DeviceInfo'
+            systemHealth:
+              $ref: '#/components/schemas/SystemHealth'
+
+    TaskStats:
+      type: object
+      properties:
+        totalTasks:
+          type: integer
+        completedTasks:
+          type: integer
+        pendingTasks:
+          type: integer
+        failedTasks:
+          type: integer
+        todayTasks:
+          type: integer
+        weekTasks:
+          type: integer
+        monthTasks:
+          type: integer
+
+    EarningsStats:
+      type: object
+      properties:
+        totalEarnings:
+          type: number
+        todayEarnings:
+          type: number
+        weekEarnings:
+          type: number
+        monthEarnings:
+          type: number
+        pendingEarnings:
+          type: number
+
+    DeviceInfo:
+      type: object
+      properties:
+        deviceId:
+          type: string
+        status:
+          type: string
+          enum: [online, offline, maintenance]
+        lastSeen:
+          type: string
+          format: date-time
+        uptime:
+          type: number
+
+    SystemHealth:
+      type: object
+      properties:
+        cpuUsage:
+          type: number
+        memoryUsage:
+          type: number
+        diskUsage:
+          type: number
+        networkStatus:
+          type: string
+
+    TaskCountResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            count:
+              type: integer
+            period:
+              type: string
+
+    TaskActivityResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            summary:
+              type: object
+            trends:
+              type: array
+              items:
+                type: object
+
+    TaskTrendsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            trends:
+              type: array
+              items:
+                $ref: '#/components/schemas/TrendData'
+
+    TrendData:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        count:
+          type: integer
+        earnings:
+          type: number
+
+    EarningsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            total:
+              type: number
+            breakdown:
+              type: array
+              items:
+                $ref: '#/components/schemas/EarningsBreakdown'
+
+    EarningsBreakdown:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        amount:
+          type: number
+        taskCount:
+          type: integer
+
+    # Device Management Schemas
+    DeviceStatusResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            deviceId:
+              type: string
+            status:
+              type: string
+            registrationStatus:
+              type: string
+            gatewayConnection:
+              type: boolean
+            lastUpdate:
+              type: string
+              format: date-time
+
+    DeviceRegistrationRequest:
+      type: object
+      required: [deviceId]
+      properties:
+        deviceId:
+          type: string
+        deviceInfo:
+          type: object
+          properties:
+            name:
+              type: string
+            type:
+              type: string
+            capabilities:
+              type: array
+              items:
+                type: string
+
+    DeviceRegistrationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        deviceId:
+          type: string
+        registrationId:
+          type: string
+
+    GatewayStatusResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            connected:
+              type: boolean
+            gatewayUrl:
+              type: string
+            lastPing:
+              type: string
+              format: date-time
+            latency:
+              type: number
+
+    DidUpdateResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        didInfo:
+          $ref: '#/components/schemas/DidInfo'
+
+    DidInfoResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/DidInfo'
+
+    DidInfo:
+      type: object
+      properties:
+        did:
+          type: string
+        publicKey:
+          type: string
+        created:
+          type: string
+          format: date-time
+        lastUpdated:
+          type: string
+          format: date-time
+
+    # Mining Schemas
+    MiningSummaryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            totalTasks:
+              type: integer
+            completedTasks:
+              type: integer
+            totalEarnings:
+              type: number
+            averageTaskTime:
+              type: number
+            successRate:
+              type: number
+
+    TaskHistoryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            tasks:
+              type: array
+              items:
+                $ref: '#/components/schemas/TaskHistoryItem'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
+    TaskHistoryItem:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        earnings:
+          type: number
+        duration:
+          type: number
+
+    ConnectedTaskListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            tasks:
+              type: array
+              items:
+                $ref: '#/components/schemas/ConnectedTask'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
+    ConnectedTask:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        priority:
+          type: integer
+        assignedAt:
+          type: string
+          format: date-time
+        estimatedCompletion:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+    # Configuration Schemas
+    ConfigurationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            currentFramework:
+              type: string
+              enum: [ollama, vllm]
+            ollamaConfig:
+              type: object
+            vllmConfig:
+              type: object
+            systemConfig:
+              type: object
+
+    FrameworkSwitchRequest:
+      type: object
+      required: [framework]
+      properties:
+        framework:
+          type: string
+          enum: [ollama, vllm]
+
+    FrameworkSwitchResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        previousFramework:
+          type: string
+        currentFramework:
+          type: string
+
+    VllmConfigUpdateRequest:
+      type: object
+      properties:
+        gpuMemoryUtilization:
+          type: number
+          minimum: 0.1
+          maximum: 1.0
+        maxModelLen:
+          type: integer
+          minimum: 1
+        maxNumSeqs:
+          type: integer
+          minimum: 1
+        maxNumBatchedTokens:
+          type: integer
+          minimum: 1
+        enforceEager:
+          type: boolean
+        swapSpace:
+          type: number
+          minimum: 0
+        tensorParallelSize:
+          type: integer
+          minimum: 1
+        pipelineParallelSize:
+          type: integer
+          minimum: 1
+        blockSize:
+          type: integer
+          minimum: 1
+        quantization:
+          type: string
+          enum: [awq, gptq, squeezellm, fp8, int8]
+          nullable: true
+
+    GenericConfigRequest:
+      type: object
+      required: [configFile, key, value]
+      properties:
+        configFile:
+          type: string
+        key:
+          type: string
+        value:
+          oneOf:
+            - type: string
+            - type: number
+            - type: boolean
+            - type: object
+        gatewayPath:
+          type: string
+
+    ConfigUpdateResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        updatedConfig:
+          type: object
+
+    # Common Error Response
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+        timestamp:
+          type: string
+          format: date-time

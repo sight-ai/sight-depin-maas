@@ -4,6 +4,10 @@ import { CyberModelInference } from './components/CyberModelInference';
 import { ConnectionSettings } from './components/ConnectionSettings';
 import { ModelReporting } from './components/ModelReporting';
 import { CyberDashboard } from './components/Dashboard';
+import { Earnings } from './components/Earnings';
+import { GatewayConfiguration } from './components/GatewayConfiguration';
+import { Communication } from './components/Communication';
+import { Settings } from './components/Settings';
 
 interface BackendStatus {
   isRunning: boolean;
@@ -86,13 +90,15 @@ const App: React.FC = () => {
       case 'tasks':
         return <ModelReporting />;
       case 'earnings':
-        return <ModelReporting />;
+        return <Earnings backendStatus={backendStatus} />;
       case 'gateway-configuration':
-        return <ModelReporting />;
+        return <GatewayConfiguration backendStatus={backendStatus} />;
+      case 'communication':
+        return <Communication backendStatus={backendStatus} />;
       case 'did-management':
-        return <ModelReporting />;
+        return <CyberModelInference backendStatus={backendStatus} />;
       case 'settings':
-        return <ModelReporting />;
+        return <Settings backendStatus={backendStatus} />;
       case 'inference':
         return <CyberModelInference backendStatus={backendStatus} />;
       default:
@@ -104,48 +110,50 @@ const App: React.FC = () => {
     <div className="app">
       {/* Clean Background */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        {/* Subtle gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-indigo-50/30" />
+        {/* Pure white background */}
+        <div className="absolute inset-0 bg-white" />
       </div>
 
       <div className="flex h-screen bg-background relative z-10">
         {/* Clean Sidebar */}
-          <Sidebar
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            className="cyber-sidebar"
-          />
+          <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+            <Sidebar
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              className="cyber-sidebar"
+            />
+          </div>
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col">
-          {/* Clean Header with drag support */}
-          {/* <header className="cyber-header border-b border-border bg-card/80 backdrop-blur-sm px-6 py-4 relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-50/30 to-indigo-50/30" />
-            <div className="relative z-10 flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                  <span className="text-blue-600 font-medium text-sm">SightAI System</span>
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Status: {backendStatus.isRunning ? (
-                    <span className="text-green-600 font-medium">Online [Port: {backendStatus.port}]</span>
-                  ) : (
-                    <span className="text-red-600 font-medium">Offline</span>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center space-x-2 text-xs text-muted-foreground">
-                <span>{new Date().toLocaleTimeString()}</span>
-                <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" />
-              </div>
+          {/* Draggable Header */}
+          <div
+            className="h-8 bg-white border-b border-gray-100 flex items-center justify-between px-4"
+            style={{
+              WebkitAppRegion: 'drag',
+              userSelect: 'none'
+            } as React.CSSProperties}
+          >
+            <div className="flex items-center space-x-2">
+              <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+              <span className="text-xs text-gray-600 font-medium">SIGHT.AI</span>
             </div>
-          </header> */}
+            <div className="flex items-center space-x-2">
+              <span className="text-xs text-gray-500">
+                {backendStatus.isRunning ? 'Online' : 'Offline'}
+              </span>
+            </div>
+          </div>
 
           {/* Main Content with clean styling */}
-          <main className="flex-1 overflow-auto relative">
-            <div className="p-6 relative z-10">
-              <div className="p-6 min-h-full">
+          <main
+            className="flex-1 overflow-auto relative"
+            style={{
+              WebkitAppRegion: 'no-drag'
+            } as React.CSSProperties}
+          >
+            <div className="relative z-10">
+              <div className="min-h-full">
                 {renderContent()}
               </div>
             </div>

@@ -7,6 +7,7 @@ import {
   Server,
   Zap
 } from 'lucide-react';
+import { createApiClient, handleApiError, type ApiResponse } from '../utils/api-client';
 
 interface BackendStatus {
   isRunning: boolean;
@@ -65,6 +66,12 @@ export const CyberDashboard: React.FC<CyberDashboardProps> = ({ backendStatus })
 
   // 🚨 紧急修复：使用简单的初始化标志，避免复杂的函数引用
   const isInitializedRef = useRef(false);
+
+  // API 客户端实例
+  const apiClient = useMemo(() => {
+    if (!backendStatus?.isRunning) return null;
+    return createApiClient(backendStatus);
+  }, [backendStatus?.isRunning, backendStatus?.port]);
 
   const [metrics, setMetrics] = useState<SystemMetrics>({
     cpu: 0,
@@ -317,6 +324,50 @@ export const CyberDashboard: React.FC<CyberDashboardProps> = ({ backendStatus })
     }
   }, [backendStatus.isRunning, backendStatus.port]); // 🚨 简化依赖项
 
+  // 🆕 使用新 API 获取仪表板统计数据
+  const fetchDashboardStatistics = useCallback(async () => {
+    if (!apiClient) return;
+
+    try {
+      const timeRange = JSON.stringify({
+        request_serials: 'daily',
+        filteredTaskActivity: {}
+      });
+
+      const response = await apiClient.getDashboardStatistics(timeRange);
+
+      if (response.success && response.data) {
+        const stats = response.data as any;
+
+        // 更新收益数据
+        if (stats.earningsStats || stats.todayEarnings || stats.cumulativeEarnings) {
+          const newEarnings = {
+            today: stats.todayEarnings?.totalEarnings || stats.earningsStats?.todayEarnings || 0,
+            total: stats.cumulativeEarnings?.totalEarnings || stats.earningsStats?.totalEarnings || 0,
+            tasks: stats.totalTasks || stats.taskStats?.totalTasks || 0,
+            efficiency: stats.up_time_percentage || 0
+          };
+          setEarnings(newEarnings);
+        }
+
+        // 更新系统健康状态
+        if (stats.systemHealth) {
+          setMetrics(prev => ({
+            ...prev,
+            cpu: stats.systemHealth.cpuUsage || prev.cpu,
+            memory: stats.systemHealth.memoryUsage || prev.memory,
+            network: stats.systemHealth.networkStatus === 'online' ? 50 : 0
+          }));
+        }
+
+        recordSuccess();
+      }
+    } catch (error) {
+      console.error('Failed to fetch dashboard statistics:', error);
+      recordFailure();
+    }
+  }, [apiClient, recordSuccess, recordFailure]);
+
   // Fetch earnings data using new dashboard API
   // 🚨 紧急修复：添加请求控制的收益数据获取
   const fetchEarnings = useCallback(async () => {
@@ -426,14 +477,20 @@ export const CyberDashboard: React.FC<CyberDashboardProps> = ({ backendStatus })
         // 串行执行，避免同时发起多个请求
         console.log('🔄 Starting initial data load...');
 
-        // 首先获取系统资源（最重要的数据）
+        // 🆕 优先使用新的仪表板统计 API
+        if (apiClient) {
+          await fetchDashboardStatistics();
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
+        // 回退到原有的系统资源获取
         await fetchSystemResources();
 
         // 等待一小段时间再获取应用状态
         await new Promise(resolve => setTimeout(resolve, 1000));
         await fetchAppStatus();
 
-        // 最后获取收益数据（优先级最低）
+        // 最后获取收益数据（如果新 API 没有提供完整数据）
         await new Promise(resolve => setTimeout(resolve, 1000));
         await fetchEarnings();
 
@@ -524,9 +581,10 @@ export const CyberDashboard: React.FC<CyberDashboardProps> = ({ backendStatus })
   }, [requestControlRef.current.circuitBreakerOpen, requestControlRef.current.failureCount]);
 
   return (
-    <div className='bg-white space-y-6'>
+    <div className='bg-white'>
+      <Card className="bg-white rounded-2xl p-6 shadow-lg space-y-6">
         {/* Basic Information Section */}
-        <Card className="bg-white rounded-2xl border-0 relative" style={{ boxShadow: '0px 0px 44px 0px rgba(232, 232, 232, 1)' }}>
+        <Card className="bg-white rounded-2xl border-0 relative " style={{ boxShadow: '0px 0px 44px 0px rgba(232, 232, 232, 1)' }}>
           {LoadingIndicator}
           {CircuitBreakerIndicator}
           <CardContent className="p-8 space-y-9">
@@ -794,6 +852,7 @@ export const CyberDashboard: React.FC<CyberDashboardProps> = ({ backendStatus })
             </CardContent>
           </Card>
         </div>
+        </Card>
     </div>
   );
 };

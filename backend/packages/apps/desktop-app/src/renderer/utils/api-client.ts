@@ -1,0 +1,340 @@
+/**
+ * API 客户端工具
+ * 
+ * 提供统一的 API 调用接口，支持错误处理、超时控制和重试机制
+ */
+
+export interface ApiResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  timestamp?: string;
+}
+
+export interface BackendStatus {
+  isRunning: boolean;
+  port: number;
+}
+
+export class ApiClient {
+  private baseUrl: string;
+  private timeout: number;
+
+  constructor(backendStatus: BackendStatus, timeout = 10000) {
+    this.baseUrl = `http://localhost:${backendStatus.port}`;
+    this.timeout = timeout;
+  }
+
+  /**
+   * 通用 API 请求方法
+   */
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {},
+    timeoutMs?: number
+  ): Promise<ApiResponse<T>> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs || this.timeout);
+
+    try {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          throw new Error('Request timeout');
+        }
+        throw error;
+      }
+      
+      throw new Error('Unknown error occurred');
+    }
+  }
+
+  /**
+   * GET 请求
+   */
+  async get<T>(endpoint: string, timeoutMs?: number): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { method: 'GET' }, timeoutMs);
+  }
+
+  /**
+   * POST 请求
+   */
+  async post<T>(endpoint: string, data?: any, timeoutMs?: number): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    }, timeoutMs);
+  }
+
+  /**
+   * PUT 请求
+   */
+  async put<T>(endpoint: string, data?: any, timeoutMs?: number): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'PUT',
+      body: data ? JSON.stringify(data) : undefined,
+    }, timeoutMs);
+  }
+
+  // ===== 具体 API 方法 =====
+
+  /**
+   * 健康检查
+   */
+  async getHealth() {
+    return this.get('/api/v1/health', 5000);
+  }
+
+  /**
+   * 获取系统资源信息 (已存在的接口)
+   */
+  async getSystemResources() {
+    return this.get('/api/app/system-resources', 5000);
+  }
+
+  /**
+   * 获取应用状态 (已存在的接口)
+   */
+  async getAppStatus() {
+    return this.get('/api/app/status', 5000);
+  }
+
+  /**
+   * 获取应用配置 (已存在的接口)
+   */
+  async getAppConfig() {
+    return this.get('/api/app/config', 5000);
+  }
+
+  /**
+   * 更新应用配置 (已存在的接口)
+   */
+  async updateAppConfig(config: any) {
+    return this.put('/api/app/config', config);
+  }
+
+  /**
+   * 切换推理框架 (已存在的接口)
+   */
+  async switchAppFramework(framework: 'ollama' | 'vllm', options?: {
+    validateAvailability?: boolean;
+    stopOthers?: boolean;
+    restartRequired?: boolean;
+  }) {
+    return this.post('/api/app/switch-framework', { framework, ...options });
+  }
+
+  /**
+   * 执行应用健康检查 (已存在的接口)
+   */
+  async performAppHealthCheck() {
+    return this.get('/api/app/health', 5000);
+  }
+
+  /**
+   * 获取仪表板统计
+   */
+  async getDashboardStatistics(timeRange?: string) {
+    const params = timeRange ? `?timeRange=${encodeURIComponent(timeRange)}` : '';
+    return this.get(`/api/v1/dashboard/statistics${params}`);
+  }
+
+  /**
+   * 获取任务计数
+   */
+  async getTaskCount(period: 'today' | 'week' | 'month' | 'all' = 'today') {
+    return this.get(`/api/v1/dashboard/task-count?period=${period}`);
+  }
+
+  /**
+   * 获取任务活动
+   */
+  async getTaskActivity() {
+    return this.get('/api/v1/dashboard/task-activity');
+  }
+
+  /**
+   * 获取任务趋势
+   */
+  async getTaskTrends(days = 30) {
+    return this.get(`/api/v1/dashboard/task-trends?days=${days}`);
+  }
+
+  /**
+   * 获取收益数据
+   */
+  async getEarnings(period: 'today' | 'week' | 'month' | 'all' = 'today') {
+    return this.get(`/api/v1/dashboard/earnings?period=${period}`);
+  }
+
+  /**
+   * 获取设备状态
+   */
+  async getDeviceStatus() {
+    return this.get('/api/v1/device-status');
+  }
+
+  /**
+   * 注册设备
+   */
+  async registerDevice(deviceData: {
+    deviceId: string;
+    deviceInfo?: {
+      name?: string;
+      type?: string;
+      capabilities?: string[];
+    };
+  }) {
+    return this.post('/api/v1/device-status', deviceData);
+  }
+
+  /**
+   * 获取网关状态
+   */
+  async getGatewayStatus() {
+    return this.get('/api/v1/device-status/gateway-status');
+  }
+
+  /**
+   * 更新 DID
+   */
+  async updateDid() {
+    return this.post('/api/v1/device-status/update-did');
+  }
+
+  /**
+   * 获取 DID 信息
+   */
+  async getDidInfo() {
+    return this.get('/api/v1/device-status/did-info');
+  }
+
+  /**
+   * 获取模型列表
+   */
+  async getModels() {
+    return this.get('/api/v1/models/list');
+  }
+
+  /**
+   * 报告模型到网关
+   */
+  async reportModels(models: string[]) {
+    return this.post('/api/v1/models/report', { models });
+  }
+
+  /**
+   * 获取挖矿摘要
+   */
+  async getMiningSummary(timeRange?: string) {
+    const params = timeRange ? `?timeRange=${encodeURIComponent(timeRange)}` : '';
+    return this.get(`/api/v1/miner/summary${params}`);
+  }
+
+  /**
+   * 获取任务历史
+   */
+  async getTaskHistory(page = 1, limit = 10) {
+    return this.get(`/api/v1/miner/history?page=${page}&limit=${limit}`);
+  }
+
+  /**
+   * 获取连接任务列表
+   */
+  async getConnectedTaskList(page = 1, limit = 10, status?: string) {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    if (status) {
+      params.append('status', status);
+    }
+    return this.get(`/api/v1/miner/connect-task-list?${params}`);
+  }
+
+  /**
+   * 获取当前配置
+   */
+  async getCurrentConfig() {
+    return this.get('/api/v1/config/current');
+  }
+
+  /**
+   * 切换推理框架
+   */
+  async switchFramework(framework: 'ollama' | 'vllm') {
+    return this.post('/api/v1/config/switch-framework', { framework });
+  }
+
+  /**
+   * 更新 vLLM 配置
+   */
+  async updateVllmConfig(config: {
+    gpuMemoryUtilization?: number;
+    maxModelLen?: number;
+    maxNumSeqs?: number;
+    maxNumBatchedTokens?: number;
+    enforceEager?: boolean;
+    swapSpace?: number;
+    tensorParallelSize?: number;
+    pipelineParallelSize?: number;
+    blockSize?: number;
+    quantization?: string;
+  }) {
+    return this.put('/api/v1/config/vllm', config);
+  }
+
+  /**
+   * 更新通用配置
+   */
+  async updateGenericConfig(config: {
+    configFile: string;
+    key: string;
+    value: any;
+    gatewayPath?: string;
+  }) {
+    return this.put('/api/v1/config/generic', config);
+  }
+}
+
+/**
+ * 创建 API 客户端实例
+ */
+export function createApiClient(backendStatus: BackendStatus): ApiClient {
+  return new ApiClient(backendStatus);
+}
+
+/**
+ * API 错误处理工具
+ */
+export function handleApiError(error: unknown): string {
+  if (error instanceof Error) {
+    if (error.message.includes('timeout')) {
+      return 'Request timeout. Please check your connection.';
+    }
+    if (error.message.includes('Failed to fetch')) {
+      return 'Network error. Please check if the backend is running.';
+    }
+    return error.message;
+  }
+  return 'Unknown error occurred';
+}

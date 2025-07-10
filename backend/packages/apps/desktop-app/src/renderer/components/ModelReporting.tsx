@@ -7,6 +7,7 @@ import {
   CheckCircle,
   AlertCircle
 } from 'lucide-react';
+import { Card } from './ui/card';
 
 interface LocalModel {
   name: string;
@@ -43,7 +44,16 @@ export const ModelReporting: React.FC = () => {
   const [currentFramework, setCurrentFramework] = useState<string>('');
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [buttonStates, setButtonStates] = useState<Record<string, 'idle' | 'loading' | 'success' | 'error'>>({});
-
+  const [gpuInfo, setGpuInfo] = useState<any>({
+    name: 'NVIDIA GeForce RTX 4090',
+    memory: {
+      total: 24576,
+      used: 8192,
+      free: 16384
+    },
+    temperature: 65,
+    utilization: 45
+  });
   // Get local model list
   const fetchLocalModels = async () => {
     setIsLoading(true);
@@ -193,7 +203,8 @@ export const ModelReporting: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="">
+        <Card className="bg-white rounded-2xl p-6 shadow-lg space-y-6">
       {/* Page Header */}
       <div>
         <h1 className="text-2xl font-semibold text-black mb-2">Model Configuration</h1>
@@ -202,7 +213,160 @@ export const ModelReporting: React.FC = () => {
           Total <span className="font-medium">{localModels.length}</span> models
         </p>
       </div>
+      <div
+      >
+        {/* GPU Status Title */}
 
+        {/* GPU Status Card */}
+        <div
+          className="bg-white"
+          style={{
+            borderRadius: '12px',
+            boxShadow: '0px 0px 48.79px 7.53px rgba(234, 234, 234, 1)',
+            padding: '28px 20px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '20px'
+          }}
+        >
+          {/* GPU Info Row */}
+          <div
+            className="flex justify-between items-center"
+            style={{
+              width: '100%',
+              gap: '72px'
+            }}
+          >
+            {/* GPU Name */}
+            <div style={{ width: '194px' }}>
+              <div
+                style={{
+                  fontFamily: 'Inter',
+                  fontWeight: 600,
+                  fontSize: '18px',
+                  color: '#000000'
+                }}
+              >
+                {gpuInfo.name}
+              </div>
+            </div>
+
+            {/* GPU Stats */}
+            <div className="flex items-center gap-8">
+              <div className="text-center">
+                <div
+                  style={{
+                    fontFamily: 'Inter',
+                    fontWeight: 500,
+                    fontSize: '16px',
+                    color: '#666666'
+                  }}
+                >
+                  Temperature
+                </div>
+                <div
+                  style={{
+                    fontFamily: 'Inter',
+                    fontWeight: 600,
+                    fontSize: '20px',
+                    color: '#000000'
+                  }}
+                >
+                  {gpuInfo.temperature}°C
+                </div>
+              </div>
+
+              <div className="text-center">
+                <div
+                  style={{
+                    fontFamily: 'Inter',
+                    fontWeight: 500,
+                    fontSize: '16px',
+                    color: '#666666'
+                  }}
+                >
+                  Utilization
+                </div>
+                <div
+                  style={{
+                    fontFamily: 'Inter',
+                    fontWeight: 600,
+                    fontSize: '20px',
+                    color: '#000000'
+                  }}
+                >
+                  {gpuInfo.utilization}%
+                </div>
+              </div>
+
+              <div className="text-center">
+                <div
+                  style={{
+                    fontFamily: 'Inter',
+                    fontWeight: 500,
+                    fontSize: '16px',
+                    color: '#666666'
+                  }}
+                >
+                  Memory
+                </div>
+                <div
+                  style={{
+                    fontFamily: 'Inter',
+                    fontWeight: 600,
+                    fontSize: '20px',
+                    color: '#000000'
+                  }}
+                >
+                  {(gpuInfo.memory.used / 1024).toFixed(1)}GB / {(gpuInfo.memory.total / 1024).toFixed(1)}GB
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Progress Bar Section */}
+          <div className="w-full flex flex-col items-end gap-2">
+            <div className="flex justify-between items-center w-full">
+              <span
+                style={{
+                  fontFamily: 'Inter',
+                  fontWeight: 500,
+                  fontSize: '14px',
+                  color: '#666666'
+                }}
+              >
+                Memory Usage
+              </span>
+              <span
+                style={{
+                  fontFamily: 'Inter',
+                  fontWeight: 500,
+                  fontSize: '14px',
+                  color: '#000000'
+                }}
+              >
+                {((gpuInfo.memory.used / gpuInfo.memory.total) * 100).toFixed(1)}%
+              </span>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="w-full flex gap-1.5">
+              {Array.from({ length: 20 }, (_, i) => (
+                <div
+                  key={i}
+                  className="flex-1 h-2 rounded-sm"
+                  style={{
+                    background: i < (gpuInfo.memory.used / gpuInfo.memory.total) * 20
+                      ? '#6D20F5'
+                      : '#E5E5E5'
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
       {/* Control Panel */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-black mb-4">Model Control Panel</h2>
@@ -356,6 +520,7 @@ export const ModelReporting: React.FC = () => {
           </div>
         )}
       </div>
+      </Card>
     </div>
   );
 };

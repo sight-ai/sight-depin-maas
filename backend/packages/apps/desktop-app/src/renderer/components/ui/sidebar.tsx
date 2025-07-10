@@ -25,7 +25,7 @@ interface NavSection {
 
 const mainNavItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', level: 0 },
-  { id: 'device-registration', label: 'Device Registration', level: 0, isActive: true },
+  { id: 'device-registration', label: 'Device Registration', level: 0 },
   { id: 'model-configuration', label: 'Model Configuration', level: 0 },
 ];
 
@@ -35,9 +35,10 @@ const modularConfigSection: NavSection = {
   isExpandable: true,
   isExpanded: true,
   items: [
-    { id: 'tasks', label: 'Tasks', level: 1 },
+    // { id: 'tasks', label: 'Tasks', level: 1 },
     { id: 'earnings', label: 'Earnings', level: 1 },
     { id: 'gateway-configuration', label: 'Gateway Configuration', level: 1 },
+    { id: 'communication', label: 'Communication', level: 1 },
     { id: 'did-management', label: 'DID Management', level: 1 },
     { id: 'settings', label: 'Settings', level: 1 },
   ],
@@ -149,7 +150,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Navigation Content */}
-      <div className="flex flex-col flex-1">
+      <div className="flex flex-col flex-1 mt-6">
 
         {/* Main Navigation Items */}
         {mainNavItems.map((item) => (
@@ -158,8 +159,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {/* { activeTab } {item.id} */}
               <div
                 className={cn(
-                  "flex justify-center items-center flex-1 gap-2 px-2 cursor-pointer",
-                  activeTab === item.id ? "text-blue-600" : "text-black"
+                  "flex justify-center items-center flex-1 gap-2 px-2 cursor-pointer rounded-lg transition-colors duration-200",
+                  activeTab === item.id ? " text-[#6750A4]" : "text-black "
                 )}
                 onClick={() => handleItemClick(item.id)}
               >
@@ -172,7 +173,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       fontSize: '15px',
                       lineHeight: '1.294em',
                       letterSpacing: '-0.025em',
-                      color: item.isActive ? '#096DD9' : '#000000'
+                      color: activeTab === item.id ? '#096DD9' : '#000000'
                     }}
                   >
                     {item.label}
@@ -232,7 +233,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {expandedSections['modular-configuration'] && modularConfigSection.items.map((item) => (
             <div key={item.id} className="px-4 w-80 h-11">
               <div
-                className="flex justify-center items-center flex-1 gap-2 px-2 pl-5 cursor-pointer"
+                className={cn(
+                  "flex justify-center items-center flex-1 gap-2 px-2 pl-5 cursor-pointer rounded-lg transition-colors duration-200",
+                  activeTab === item.id ? "bg-blue-50" : "hover:bg-gray-50"
+                )}
                 onClick={() => handleItemClick(item.id)}
               >
                 <div className="flex items-center gap-2.5 flex-1">
@@ -240,11 +244,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     className="text-left"
                     style={{
                       fontFamily: 'SF Pro',
-                      fontWeight: 400,
+                      fontWeight: activeTab === item.id ? 590 : 400,
                       fontSize: '14px',
                       lineHeight: '1.294em',
                       letterSpacing: '-0.025em',
-                      color: '#000000'
+                      color: activeTab === item.id ? '#096DD9' : '#000000'
                     }}
                   >
                     {item.label}

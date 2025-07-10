@@ -31,16 +31,16 @@ export class WindowManager {
         spellcheck: true,
         allowRunningInsecureContent: false,
       },
-      titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+      titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
       titleBarOverlay: process.platform !== 'darwin' ? {
-        color: '#0a0a0f',
-        symbolColor: '#00ffff',
-        height: 30
+        color: '#ffffff',
+        symbolColor: '#000000',
+        height: 32
       } : undefined,
-      backgroundColor: '#0a0a0f',
+      backgroundColor: '#ffffff',
       show: false, // 先不显示，等加载完成后再显示
       // 添加窗口拖动支持
-      frame: true, // 保持窗口框架以支持拖动
+      frame: process.platform === 'darwin', // macOS 保持框架，Windows/Linux 使用无框架
       movable: true, // 允许窗口移动
       resizable: true, // 允许窗口调整大小
     });
