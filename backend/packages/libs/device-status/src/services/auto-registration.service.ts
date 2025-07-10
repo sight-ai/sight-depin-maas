@@ -77,7 +77,6 @@ export class AutoRegistrationService implements OnModuleInit {
       } else {
         this.logger.log('Found stored registration info, attempting to register with gateway...');
       }
-
       // 获取系统信息
       const systemInfo = await this.getSystemInfo();
 
@@ -99,6 +98,7 @@ export class AutoRegistrationService implements OnModuleInit {
         this.handleRegistrationFailure();
         return false;
       }
+
 
     } catch (error) {
       this.logger.error('Auto registration error:', error);

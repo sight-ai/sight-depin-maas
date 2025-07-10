@@ -1,16 +1,23 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { TunnelMessage } from '@saito/models';
 import axios from 'axios';
-import { MessageGateway } from './message-gateway.interface';
+import { ILibp2pTransportGateway, ConnectionStatus } from './message-gateway.interface';
 
 @Injectable()
-export class MessageGatewayLibp2pService implements MessageGateway {
+export class MessageGatewayLibp2pService implements ILibp2pTransportGateway {
   private readonly logger = new Logger(MessageGatewayLibp2pService.name);
   private messageCallback: ((message: TunnelMessage) => void) | null = null;
   private connectionCallback: ((connected: boolean) => void) | null = null;
   private errorCallback: ((error: Error) => void) | null = null;
 
   constructor() {}
+
+  /**
+   * 获取传输类型标识
+   */
+  getTransportType(): 'libp2p' {
+    return 'libp2p';
+  }
 
   // 实际负责消息发送，调用 libp2p 网络
   async sendMessage(message: TunnelMessage): Promise<void> {
@@ -42,43 +49,19 @@ export class MessageGatewayLibp2pService implements MessageGateway {
     }
   }
 
-  async connect(
-    gatewayAddress: string,
-    code?: string,
-    basePath?: string,
-  ): Promise<void> {
-    return;
-  }
-
-  async receiveMessage(message: TunnelMessage) {
-    // 这里手动触发之前注册的 callback
-    if (this.messageCallback) {
-      await this.messageCallback(message);
-    }
-  }
-
-  async disconnect(): Promise<void> {
-    return;
-  }
-
-  isConnected(): boolean {
-    return true;
-  }
-
-  getDeviceId(): string | null {
-    return null;
-  }
-
   onMessage(callback: (message: TunnelMessage) => void): void {
     this.messageCallback = callback;
   }
 
-  onConnectionChange(callback: (connected: boolean) => void): void {
-    this.connectionCallback = callback;
-  }
-
-  onError(callback: (error: Error) => void): void {
-    this.errorCallback = callback;
+  /**
+   * 获取连接状态 - Libp2p模式下始终返回已连接
+   */
+  getConnectionStatus(): ConnectionStatus {
+    return {
+      connected: true, // Libp2p模式下假设始终连接
+      deviceId: null,
+      gatewayUrl: undefined
+    };
   }
 }
 

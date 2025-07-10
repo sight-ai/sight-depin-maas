@@ -38,6 +38,10 @@ import { VllmProcessController } from './controllers/vllm-process.controller';
 import { OllamaProcessController } from './controllers/ollama-process.controller';
 import { FrameworkConfigController } from './controllers/framework-config.controller';
 import { UnifiedConfigController } from './controllers/unified-config.controller';
+import { DidController } from './controllers/did.controller';
+import { PeerController } from './controllers/peer.controller';
+
+
 @Module({
   imports: [
     EventEmitterModule.forRoot(),
@@ -64,7 +68,9 @@ import { UnifiedConfigController } from './controllers/unified-config.controller
     VllmProcessController,
     OllamaProcessController,
     FrameworkConfigController,
-    UnifiedConfigController
+    UnifiedConfigController,
+    DidController,
+    PeerController
   ],
   providers: [
     {
