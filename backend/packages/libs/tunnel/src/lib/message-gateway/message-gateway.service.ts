@@ -140,7 +140,7 @@ export class SocketMessageGatewayService implements ISocketTransportGateway {
 
     try {
       this.socket.emit('message', message);
-      // this.logger.debug('消息已发送', message);
+
     } catch (error) {
       this.logger.error(`发送消息失败: ${error instanceof Error ? error.message : '未知错误'}`);
       throw error;

@@ -1,21 +1,19 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Put, 
-  Body, 
-  HttpStatus, 
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  HttpStatus,
   HttpException,
-  Logger,
-  Query
+  Logger
 } from '@nestjs/common';
 import { AppConfigurationService } from '../services/app-configuration.service';
-import { 
-  AppConfigSchema,
-  FrameworkConfigSchema,
+import {
   RequestValidators,
-  type AppConfig 
+  type AppConfig
 } from '@saito/models';
+import { EnhancedSystemMonitorService } from '@saito/common';
 
 /**
  * 框架切换请求 DTO
@@ -46,7 +44,8 @@ export class AppConfigController {
   private readonly logger = new Logger(AppConfigController.name);
 
   constructor(
-    private readonly appConfigService: AppConfigurationService
+    private readonly appConfigService: AppConfigurationService,
+    private readonly systemMonitorService: EnhancedSystemMonitorService
   ) {}
 
   /**
@@ -57,7 +56,7 @@ export class AppConfigController {
   async getAppConfig() {
     try {
       const config = await this.appConfigService.getAppConfig();
-      
+
       return {
         success: true,
         data: config,
@@ -75,6 +74,54 @@ export class AppConfigController {
       );
     }
   }
+
+  /**
+   * 获取系统资源信息
+   * GET /api/app/system-resources
+   */
+  @Get('system-resources')
+  async getSystemResources() {
+    try {
+      // 使用增强的系统监控服务获取完整的系统指标
+      const systemMetrics = await this.systemMonitorService.getSystemMetrics();
+
+      return {
+        success: true,
+        data: {
+          // 保持向后兼容的字段名
+          cpuUsage: systemMetrics.cpu.usage,
+          memoryUsage: systemMetrics.memory.usage,
+          gpus: systemMetrics.gpus.map(gpu => ({
+            name: gpu.name,
+            memory: gpu.memory,
+            usage: gpu.usage,
+            temperature: gpu.temperature,
+            vendor: gpu.vendor
+          })),
+          // 新增的详细系统信息
+          cpu: systemMetrics.cpu,
+          memory: systemMetrics.memory,
+          disk: systemMetrics.disk,
+          network: systemMetrics.network,
+          os: systemMetrics.os,
+          timestamp: systemMetrics.timestamp
+        },
+        timestamp: systemMetrics.timestamp
+      };
+    } catch (error) {
+      this.logger.error('Failed to get system resources:', error);
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to get system resources',
+          error: error instanceof Error ? error.message : 'Unknown error'
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+
 
   /**
    * 更新应用配置

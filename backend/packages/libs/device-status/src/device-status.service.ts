@@ -21,6 +21,7 @@ import {
   DEVICE_SYSTEM_SERVICE,
   DeviceStatusService
 } from "./device-status.interface";
+import { RegistrationStatus } from './registration-storage';
 
 /**
  * 优化的设备状态服务
@@ -146,7 +147,7 @@ export class DefaultDeviceStatusService implements TDeviceStatusService, OnModul
       const systemInfo = await this.systemService.collectSystemInfo();
       await this.heartbeatService.sendHeartbeat(config, systemInfo);
 
-      this.logger.debug(`💓 心跳发送成功 - DeviceID: ${config.deviceId}`);
+
     } catch (error) {
       this.logger.error('心跳发送失败:', error);
       // 不抛出错误，避免中断心跳服务
@@ -237,8 +238,19 @@ export class DefaultDeviceStatusService implements TDeviceStatusService, OnModul
   // 配置访问方法
   // ========================================
 
-  async getGatewayStatus(): Promise<{ isRegistered: boolean }> {
-    return { isRegistered: this.configService.isRegistered() };
+  async getGatewayStatus(): Promise<{
+    isRegistered: boolean;
+    status: RegistrationStatus;
+    error?: string;
+    lastAttempt?: string;
+  }> {
+    const statusInfo = this.configService.getRegistrationStatusInfo();
+    return {
+      isRegistered: this.configService.isRegistered(),
+      status: statusInfo.status,
+      error: statusInfo.error,
+      lastAttempt: statusInfo.lastAttempt
+    };
   }
 
   async getDeviceId(): Promise<string> {
@@ -255,6 +267,10 @@ export class DefaultDeviceStatusService implements TDeviceStatusService, OnModul
 
   async getGatewayAddress(): Promise<string> {
     return this.configService.getGatewayAddress();
+  }
+
+  async getKey(): Promise<string> {
+    return this.configService.getCode();
   }
 
   async isRegistered(): Promise<boolean> {

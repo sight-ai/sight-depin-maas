@@ -20,6 +20,23 @@ export interface OllamaProcessStatus {
   memoryUsage?: number;
   cpuUsage?: number;
   version?: string;
+  // 新增字段
+  health?: {
+    status: 'healthy' | 'unhealthy' | 'unknown';
+    responseTime?: number;
+    lastCheck?: Date;
+    error?: string;
+  };
+  models?: {
+    total: number;
+    loaded: string[];
+    running?: string[];
+  };
+  resources?: {
+    memoryUsageMB?: number;
+    cpuUsagePercent?: number;
+    diskUsageMB?: number;
+  };
 }
 
 @Injectable()
@@ -144,6 +161,239 @@ export class OllamaProcessManagerService {
   }
 
   /**
+   * 获取实时监控信息
+   */
+  async getOllamaMonitoringInfo(): Promise<{
+    service: {
+      status: 'running' | 'stopped' | 'error';
+      uptime?: number;
+      responseTime?: number;
+      version?: string;
+    };
+    models: {
+      total: number;
+      loaded: string[];
+      running?: string[];
+      details?: Array<{
+        name: string;
+        size?: string;
+        modified?: string;
+        digest?: string;
+      }>;
+    };
+    resources: {
+      memory?: {
+        used: number;
+        unit: 'MB' | 'GB';
+      };
+      cpu?: {
+        usage: number;
+        unit: '%';
+      };
+    };
+    health: {
+      lastCheck: Date;
+      checks: Array<{
+        name: string;
+        status: 'pass' | 'fail';
+        responseTime?: number;
+        error?: string;
+      }>;
+    };
+  }> {
+    const result: {
+      service: {
+        status: 'running' | 'stopped' | 'error';
+        uptime?: number;
+        responseTime?: number;
+        version?: string;
+      };
+      models: {
+        total: number;
+        loaded: string[];
+        running?: string[];
+        details?: Array<{
+          name: string;
+          size?: string;
+          modified?: string;
+          digest?: string;
+        }>;
+      };
+      resources: {
+        memory?: {
+          used: number;
+          unit: 'MB' | 'GB';
+        };
+        cpu?: {
+          usage: number;
+          unit: '%';
+        };
+      };
+      health: {
+        lastCheck: Date;
+        checks: Array<{
+          name: string;
+          status: 'pass' | 'fail';
+          responseTime?: number;
+          error?: string;
+        }>;
+      };
+    } = {
+      service: {
+        status: 'stopped'
+      },
+      models: {
+        total: 0,
+        loaded: []
+      },
+      resources: {},
+      health: {
+        lastCheck: new Date(),
+        checks: []
+      }
+    };
+
+    try {
+      // 执行多项健康检查
+      const healthChecks = await Promise.allSettled([
+        this.performHealthCheck(),
+        this.getModelsInfo(),
+        this.getOllamaVersion(),
+        this.getOllamaPid()
+      ]);
+
+      // 处理健康检查结果
+      const healthCheck = healthChecks[0].status === 'fulfilled' ? healthChecks[0].value : null;
+      const modelsInfo = healthChecks[1].status === 'fulfilled' ? healthChecks[1].value : null;
+      const version = healthChecks[2].status === 'fulfilled' ? healthChecks[2].value : undefined;
+      const pid = healthChecks[3].status === 'fulfilled' ? healthChecks[3].value : null;
+
+      // 设置服务状态
+      if (healthCheck?.isHealthy) {
+        result.service.status = 'running';
+        result.service.responseTime = healthCheck.responseTime;
+        result.service.version = version;
+
+        // 如果有PID，计算运行时间
+        if (pid && await this.isProcessRunning(pid)) {
+          const processInfo = await this.getProcessInfo(pid);
+          if (processInfo.startTime) {
+            result.service.uptime = Date.now() - processInfo.startTime.getTime();
+          }
+
+          // 设置资源使用情况
+          if (processInfo.memoryUsage) {
+            const memoryMB = Math.round(processInfo.memoryUsage / 1024 / 1024);
+            result.resources.memory = {
+              used: memoryMB > 1024 ? Math.round(memoryMB / 1024) : memoryMB,
+              unit: memoryMB > 1024 ? 'GB' : 'MB'
+            };
+          }
+
+          if (processInfo.cpuUsage) {
+            result.resources.cpu = {
+              usage: Math.round(processInfo.cpuUsage * 100) / 100,
+              unit: '%'
+            };
+          }
+        }
+      } else {
+        result.service.status = healthCheck ? 'error' : 'stopped';
+      }
+
+      // 设置模型信息
+      if (modelsInfo) {
+        result.models = {
+          total: modelsInfo.total,
+          loaded: modelsInfo.loaded,
+          running: modelsInfo.running
+        };
+
+        // 获取详细模型信息
+        if (modelsInfo.loaded.length > 0) {
+          try {
+            const detailedModels = await this.getDetailedModelsInfo();
+            result.models.details = detailedModels;
+          } catch (error) {
+            this.logger.debug('Failed to get detailed models info:', error);
+          }
+        }
+      }
+
+      // 设置健康检查结果
+      result.health.checks = [
+        {
+          name: 'API Connectivity',
+          status: healthCheck?.isHealthy ? 'pass' : 'fail',
+          responseTime: healthCheck?.responseTime,
+          error: healthCheck?.error
+        },
+        {
+          name: 'Model Loading',
+          status: modelsInfo && modelsInfo.total >= 0 ? 'pass' : 'fail'
+        },
+        {
+          name: 'Version Check',
+          status: version ? 'pass' : 'fail'
+        }
+      ];
+
+    } catch (error) {
+      this.logger.error('Failed to get monitoring info:', error);
+      result.service.status = 'error';
+      result.health.checks.push({
+        name: 'General Health',
+        status: 'fail',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * 获取详细模型信息
+   */
+  private async getDetailedModelsInfo(): Promise<Array<{
+    name: string;
+    size?: string;
+    modified?: string;
+    digest?: string;
+  }>> {
+    try {
+      const ollamaUrl = process.env.OLLAMA_API_URL || 'http://127.0.0.1:11434';
+      const response = await fetch(`${ollamaUrl}/api/tags`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000)
+      });
+
+      if (response.ok) {
+        const data = await response.json() as any;
+        return (data.models || []).map((model: any) => ({
+          name: model.name || model.model || 'unknown',
+          size: model.size ? this.formatBytes(model.size) : undefined,
+          modified: model.modified_at || model.modified,
+          digest: model.digest
+        }));
+      }
+    } catch (error) {
+      this.logger.debug('Failed to get detailed models info:', error);
+    }
+    return [];
+  }
+
+  /**
+   * 格式化字节数
+   */
+  private formatBytes(bytes: number): string {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  /**
    * 重启Ollama服务
    */
   async restartOllamaService(config?: OllamaProcessConfig): Promise<{ success: boolean; message: string; pid?: number }> {
@@ -186,33 +436,63 @@ export class OllamaProcessManagerService {
   }
 
   /**
-   * 获取Ollama服务状态
+   * 获取Ollama服务状态 - 增强版本
    */
   async getOllamaStatus(): Promise<OllamaProcessStatus> {
     try {
-      const pid = await this.getOllamaPid();
-      const isRunning = pid ? await this.isProcessRunning(pid) : false;
+      // 执行健康检查
+      const healthCheck = await this.performHealthCheck();
 
-      if (!isRunning) {
-        return { isRunning: false };
+      if (!healthCheck.isHealthy) {
+        return {
+          isRunning: false,
+          health: {
+            status: 'unhealthy',
+            responseTime: healthCheck.responseTime,
+            lastCheck: new Date(),
+            error: healthCheck.error
+          }
+        };
       }
 
-      // 获取进程信息
-      const processInfo = await this.getProcessInfo(pid!);
-      
+      // 尝试获取PID（如果是通过此服务启动的）
+      const pid = await this.getOllamaPid();
+
       // 获取Ollama版本
       const version = await this.getOllamaVersion();
 
-      return {
+      // 获取模型信息
+      const modelsInfo = await this.getModelsInfo();
+
+      const result: OllamaProcessStatus = {
         isRunning: true,
-        pid: pid!,
         port: 11434, // Ollama默认端口
-        config: undefined, // Ollama不需要配置
-        startTime: processInfo.startTime,
-        memoryUsage: processInfo.memoryUsage,
-        cpuUsage: processInfo.cpuUsage,
-        version
+        config: this.currentConfig || undefined,
+        version,
+        health: {
+          status: 'healthy',
+          responseTime: healthCheck.responseTime,
+          lastCheck: new Date()
+        },
+        models: modelsInfo
       };
+
+      // 如果有PID，获取进程信息
+      if (pid && await this.isProcessRunning(pid)) {
+        const processInfo = await this.getProcessInfo(pid);
+        result.pid = pid;
+        result.startTime = processInfo.startTime;
+        result.memoryUsage = processInfo.memoryUsage;
+        result.cpuUsage = processInfo.cpuUsage;
+
+        // 设置资源使用信息
+        result.resources = {
+          memoryUsageMB: processInfo.memoryUsage ? Math.round(processInfo.memoryUsage / 1024 / 1024) : undefined,
+          cpuUsagePercent: processInfo.cpuUsage
+        };
+      }
+
+      return result;
 
     } catch (error) {
       this.logger.error('Failed to get Ollama status:', error);
@@ -288,6 +568,118 @@ export class OllamaProcessManagerService {
     }
     
     throw new Error(`Process ${pid} did not stop within ${timeout}ms`);
+  }
+
+  /**
+   * 执行健康检查
+   */
+  private async performHealthCheck(): Promise<{
+    isHealthy: boolean;
+    responseTime?: number;
+    error?: string;
+  }> {
+    const startTime = Date.now();
+
+    try {
+      const ollamaUrl = process.env.OLLAMA_API_URL || 'http://127.0.0.1:11434';
+      const response = await fetch(`${ollamaUrl}/api/version`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000) // 5秒超时
+      });
+
+      const responseTime = Date.now() - startTime;
+
+      if (response.ok) {
+        return {
+          isHealthy: true,
+          responseTime
+        };
+      } else {
+        return {
+          isHealthy: false,
+          responseTime,
+          error: `HTTP ${response.status}: ${response.statusText}`
+        };
+      }
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      return {
+        isHealthy: false,
+        responseTime,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * 获取模型信息
+   */
+  private async getModelsInfo(): Promise<{
+    total: number;
+    loaded: string[];
+    running?: string[];
+  }> {
+    try {
+      const ollamaUrl = process.env.OLLAMA_API_URL || 'http://127.0.0.1:11434';
+
+      // 获取已安装的模型列表
+      const tagsResponse = await fetch(`${ollamaUrl}/api/tags`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000)
+      });
+
+      let loadedModels: string[] = [];
+      if (tagsResponse.ok) {
+        const tagsData = await tagsResponse.json() as any;
+        loadedModels = (tagsData.models || []).map((model: any) => model.name || model.model || 'unknown');
+      }
+
+      // 尝试获取运行中的模型（如果API支持）
+      let runningModels: string[] | undefined;
+      try {
+        const runningResponse = await fetch(`${ollamaUrl}/api/ps`, {
+          method: 'GET',
+          signal: AbortSignal.timeout(3000)
+        });
+
+        if (runningResponse.ok) {
+          const runningData = await runningResponse.json() as any;
+          runningModels = (runningData.models || []).map((model: any) => model.name || model.model || 'unknown');
+        }
+      } catch (error) {
+        // /api/ps 可能不被支持，忽略错误
+        this.logger.debug('Failed to get running models (API may not be supported):', error);
+      }
+
+      return {
+        total: loadedModels.length,
+        loaded: loadedModels,
+        running: runningModels
+      };
+    } catch (error) {
+      this.logger.warn('Failed to get models info:', error);
+      return {
+        total: 0,
+        loaded: [],
+        running: undefined
+      };
+    }
+  }
+
+  /**
+   * 检查Ollama服务是否可访问（通过HTTP）
+   */
+  private async checkOllamaService(): Promise<boolean> {
+    try {
+      const ollamaUrl = process.env.OLLAMA_API_URL || 'http://127.0.0.1:11434';
+      const response = await fetch(`${ollamaUrl}/api/tags`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000) // 5秒超时
+      });
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
   }
 
   /**
