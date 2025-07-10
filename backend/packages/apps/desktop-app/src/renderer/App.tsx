@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/ui/sidebar';
 import { CyberModelInference } from './components/CyberModelInference';
-import { ConnectionSettings } from './components/ConnectionSettings';
 import { ModelReporting } from './components/ModelReporting';
 import { CyberDashboard } from './components/Dashboard';
 import { Earnings } from './components/Earnings';
 import { GatewayConfiguration } from './components/GatewayConfiguration';
 import { Communication } from './components/Communication';
 import { Settings } from './components/Settings';
+import { DeviceRegistration } from './components/DeviceRegistration';
+import { DIDManagement } from './components/DIDManagement';
 
 interface BackendStatus {
   isRunning: boolean;
@@ -84,11 +85,11 @@ const App: React.FC = () => {
       case 'dashboard':
         return <CyberDashboard backendStatus={backendStatus} />;
       case 'device-registration':
-        return <ConnectionSettings />;
-      case 'model-configuration':
-        return <ModelReporting />;
-      case 'tasks':
-        return <ModelReporting />;
+        return <DeviceRegistration backendStatus={backendStatus}/>;
+      case 'model-configuration'://
+        return <ModelReporting/>;
+      case 'tasks'://
+        return <ModelReporting/>;
       case 'earnings':
         return <Earnings backendStatus={backendStatus} />;
       case 'gateway-configuration':
@@ -96,10 +97,10 @@ const App: React.FC = () => {
       case 'communication':
         return <Communication backendStatus={backendStatus} />;
       case 'did-management':
-        return <CyberModelInference backendStatus={backendStatus} />;
+        return <DIDManagement backendStatus={backendStatus} />;
       case 'settings':
         return <Settings backendStatus={backendStatus} />;
-      case 'inference':
+      case 'inference': //
         return <CyberModelInference backendStatus={backendStatus} />;
       default:
         return <CyberDashboard backendStatus={backendStatus} />;

@@ -1,593 +1,1443 @@
 /**
- * Communication 页面组件
- * 
- * 根据 Figma 设计实现的通信管理页面
- * 包含服务控制、状态监控、节点信息和网络配置功能
+ * Communication页面组件 - 严格按照Figma设计实现
+ *
+ * 遵循SOLID原则：
+ * - 单一职责原则：UI组件只负责展示，业务逻辑由Hook处理
+ * - 依赖倒置原则：通过抽象接口获取数据
+ * - 接口隔离原则：使用专门的Hook接口
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Button } from './ui/button';
-import { Switch } from './ui/switch';
-import { Badge } from './ui/badge';
-import { Input } from './ui/input';
-import { Copy, Check, CheckCircle, AlertCircle, MessageCircle } from 'lucide-react';
-import { Card } from './ui/card';
-
-interface ServiceStatus {
-  libp2pService: boolean;
-  serviceStatus: 'running' | 'stopped';
-  availableToClaim: number;
-  gatewayConnections: number;
-}
-
-interface PeerInfo {
-  peerId: string;
-  listeningAddress: string;
-}
-
-interface ConnectedPeer {
-  id: string;
-  type: 'Gateway Node' | 'Peer Node' | 'Bootstrap Node';
-  peerId: string;
-  status: 'connected' | 'unstable';
-  latency: string;
-}
-
-interface NetworkConfig {
-  port: string;
-  maxConnections: string;
-  enableDHT: boolean;
-  enableRelay: boolean;
-}
+import React, { useState, useCallback } from 'react';
+import { Copy, MessageCircle, CheckCircle, AlertCircle } from 'lucide-react';
+import { useCommunication, COMMUNICATION_CONSTANTS } from '../hooks/useCommunication';
+import { BackendStatus } from '../hooks/types';
 
 interface CommunicationProps {
-  backendStatus?: {
-    isRunning: boolean;
-    port: number;
-  };
+  backendStatus: BackendStatus;
 }
 
-export const Communication: React.FC<CommunicationProps> = ({ backendStatus }) => {
-  const [serviceStatus, setServiceStatus] = useState<ServiceStatus>({
-    libp2pService: true,
-    serviceStatus: 'running',
-    availableToClaim: 12,
-    gatewayConnections: 3
-  });
-
-  const [peerInfo, setPeerInfo] = useState<PeerInfo>({
-    peerId: 'ABC123DEF456',
-    listeningAddress: '/ip4/0.0.0.0/tcp/4001'
-  });
-
-  const [connectedPeers, setConnectedPeers] = useState<ConnectedPeer[]>([
-    {
-      id: '1',
-      type: 'Gateway Node',
-      peerId: '12D3KooWGateway...',
-      status: 'connected',
-      latency: '15 ms'
-    },
-    {
-      id: '2',
-      type: 'Peer Node',
-      peerId: '12D3KooWGateway...',
-      status: 'connected',
-      latency: '32 ms'
-    },
-    {
-      id: '3',
-      type: 'Bootstrap Node',
-      peerId: '12D3KooWGateway...',
-      status: 'unstable',
-      latency: '156 ms'
-    }
-  ]);
-
-  const [networkConfig, setNetworkConfig] = useState<NetworkConfig>({
-    port: '4001',
-    maxConnections: '100',
-    enableDHT: true,
-    enableRelay: true
-  });
-
-  const [testMessage, setTestMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [copiedPeerId, setCopiedPeerId] = useState(false);
-
-  // 获取服务状态
-  const fetchServiceStatus = useCallback(async () => {
-    if (!backendStatus?.isRunning) return;
-
-    setError(null);
-    try {
-      const response = await fetch(`http://localhost:${backendStatus.port}/api/v1/communication/status`);
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          setServiceStatus(result.data);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch service status:', error);
-      setError('Failed to load service status. Please check your connection.');
-    }
-  }, [backendStatus]);
-
-  // 获取节点信息
-  const fetchPeerInfo = useCallback(async () => {
-    if (!backendStatus?.isRunning) return;
-
-    try {
-      const response = await fetch(`http://localhost:${backendStatus.port}/api/v1/communication/peer-info`);
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          setPeerInfo(result.data);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch peer info:', error);
-    }
-  }, [backendStatus]);
-
-  // 获取已连接节点
-  const fetchConnectedPeers = useCallback(async () => {
-    if (!backendStatus?.isRunning) return;
-
-    try {
-      const response = await fetch(`http://localhost:${backendStatus.port}/api/v1/communication/peers`);
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          setConnectedPeers(result.data);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch connected peers:', error);
-    }
-  }, [backendStatus]);
-
-  // 获取网络配置
-  const fetchNetworkConfig = useCallback(async () => {
-    if (!backendStatus?.isRunning) return;
-
-    try {
-      const response = await fetch(`http://localhost:${backendStatus.port}/api/v1/communication/network-config`);
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          setNetworkConfig(result.data);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch network config:', error);
-    }
-  }, [backendStatus]);
-
-  // 切换 LibP2P 服务
-  const toggleLibP2PService = useCallback(async (enabled: boolean) => {
-    if (!backendStatus?.isRunning) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`http://localhost:${backendStatus.port}/api/v1/communication/service`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ enabled })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          setServiceStatus(prev => ({
-            ...prev,
-            libp2pService: enabled,
-            serviceStatus: enabled ? 'running' : 'stopped'
-          }));
-        } else {
-          throw new Error(result.error || 'Failed to toggle service');
-        }
-      } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Failed to toggle LibP2P service:', error);
-      setError('Failed to toggle service. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [backendStatus]);
-
-  // 发送测试消息
-  const sendTestMessage = useCallback(async () => {
-    if (!backendStatus?.isRunning || !testMessage.trim()) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`http://localhost:${backendStatus.port}/api/v1/communication/test-message`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: testMessage })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          setTestMessage('');
-          console.log('Test message sent successfully');
-        } else {
-          throw new Error(result.error || 'Failed to send test message');
-        }
-      } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Failed to send test message:', error);
-      setError('Failed to send test message. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [backendStatus, testMessage]);
-
-  // 复制节点 ID
-  const copyPeerId = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(peerInfo.peerId);
-      setCopiedPeerId(true);
-      setTimeout(() => setCopiedPeerId(false), 2000);
-    } catch (error) {
-      console.error('Failed to copy peer ID:', error);
-    }
-  }, [peerInfo.peerId]);
-
-  // 更新网络配置
-  const updateNetworkConfig = useCallback(async (key: keyof NetworkConfig, value: string | boolean) => {
-    if (!backendStatus?.isRunning) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`http://localhost:${backendStatus.port}/api/v1/communication/network-config`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ [key]: value })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          setNetworkConfig(prev => ({
-            ...prev,
-            [key]: value
-          }));
-        } else {
-          throw new Error(result.error || 'Failed to update network config');
-        }
-      } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Failed to update network config:', error);
-      setError('Failed to update network configuration. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [backendStatus]);
-
-  useEffect(() => {
-    fetchServiceStatus();
-    fetchPeerInfo();
-    fetchConnectedPeers();
-    fetchNetworkConfig();
-    
-    // 定期刷新状态（每30秒）
-    const interval = setInterval(() => {
-      fetchServiceStatus();
-      fetchConnectedPeers();
-    }, 30000);
-    
-    return () => clearInterval(interval);
-  }, [fetchServiceStatus, fetchPeerInfo, fetchConnectedPeers, fetchNetworkConfig]);
-
+/**
+ * Service Control组件 - 严格按照Figma设计实现
+ */
+const ServiceControl: React.FC<{
+  libp2pService: boolean;
+  availableToClaim: number;
+  gatewayConnections: number;
+  isLoading: boolean;
+  onToggle: () => Promise<void>;
+}> = ({ libp2pService, availableToClaim, gatewayConnections, isLoading, onToggle }) => {
   return (
-    <div className="min-h-screen bg-white">
-              <Card className="bg-white rounded-2xl p-6 shadow-lg">
-      <div className="max-w-7xl mx-auto space-y-12">
-        
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <div className="text-red-800 text-sm">{error}</div>
-          </div>
-        )}
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignSelf: 'stretch',
+      gap: '17px'
+    }}>
+      {/* Header with title and switch */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignSelf: 'stretch',
+        gap: '744px'
+      }}>
+        <h2 style={{
+          fontFamily: 'Inter',
+          fontWeight: 500,
+          fontSize: '24px',
+          lineHeight: '1.2em',
+          letterSpacing: '-2%',
+          color: '#000000'
+        }}>
+          Service Control
+        </h2>
 
-        {/* Service Control Section */}
-        <div className="space-y-[17px]">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-medium text-black" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 500, fontSize: '24px', lineHeight: '1.2em', letterSpacing: '-2%' }}>
-              Service Control
-            </h1>
-            <div className="flex items-center gap-3">
-              <span className="text-lg text-[#49454F]" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '18px', lineHeight: '1.33em', letterSpacing: '3.33%' }}>
-                LibP2P Service
-              </span>
-              <Switch
-                checked={serviceStatus.libp2pService}
-                onCheckedChange={toggleLibP2PService}
-                disabled={isLoading}
-                className="data-[state=checked]:bg-[#6750A4] data-[state=unchecked]:bg-gray-200 w-[52px] h-[32px]"
-              />
-            </div>
-          </div>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <span style={{
+            fontFamily: 'Roboto',
+            fontWeight: 400,
+            fontSize: '17px',
+            lineHeight: '1.33em',
+            letterSpacing: '3.33%',
+            color: '#49454F',
+            textAlign: 'center'
+          }}>
+            LibP2P Service
+          </span>
 
-          {/* Status Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Service Status */}
-            <div className="h-[103px] rounded-2xl border border-gray-200/50" style={{
-              background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.04) 100%)',
-              boxShadow: '0px 0px 46.5px 0px rgba(242, 242, 242, 1)'
+          {/* Custom Switch - exactly matching Figma */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'stretch',
+              alignItems: 'stretch',
+              padding: '2px 4px',
+              width: '52px',
+              height: '32px',
+              backgroundColor: libp2pService ? '#6750A4' : '#E0E0E0',
+              borderRadius: '100px',
+              cursor: isLoading ? 'default' : 'pointer',
+              transition: 'background-color 0.2s'
+            }}
+            onClick={() => !isLoading && onToggle()}
+          >
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: '4px',
+              position: 'relative',
+              left: libp2pService ? '8px' : '-10px',
+              transition: 'left 0.2s'
             }}>
-              <div className="flex flex-col justify-center items-center h-full">
-                <div className="text-lg font-medium text-[#49454F] mb-3" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '18px', lineHeight: '1.33em', letterSpacing: '3.33%' }}>
-                  Service Status
-                </div>
-                <Badge className={`${serviceStatus.serviceStatus === 'running' ? 'bg-[#C7FACE] text-[#306339]' : 'bg-red-100 text-red-800'} hover:bg-[#C7FACE] flex items-center gap-2 px-3 py-1.5 rounded-full w-[100px] h-[32px] justify-center`}>
-                  <CheckCircle size={20} />
-                  <span className="font-medium" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 500, fontSize: '14px', lineHeight: '1.43em', letterSpacing: '0.71%' }}>
-                    {serviceStatus.serviceStatus === 'running' ? 'Running' : 'Stopped'}
-                  </span>
-                </Badge>
-              </div>
-            </div>
-
-            {/* Available to Claim */}
-            <div className="h-[103px] rounded-2xl border border-gray-200/50" style={{
-              background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.04) 100%)',
-              boxShadow: '0px 0px 46.5px 0px rgba(242, 242, 242, 1)'
-            }}>
-              <div className="flex flex-col justify-center items-center h-full">
-                <div className="text-lg font-medium text-[#49454F] mb-2" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '18px', lineHeight: '1.33em', letterSpacing: '3.33%' }}>
-                  Available to claim
-                </div>
-                <div className="text-4xl font-normal text-[#49454F] w-[141px] h-[30px] flex items-center justify-center" style={{ fontFamily: 'Aldrich, monospace', fontWeight: 400, fontSize: '36px', lineHeight: '0.67em', letterSpacing: '1.67%' }}>
-                  {serviceStatus.availableToClaim}
-                </div>
-              </div>
-            </div>
-
-            {/* Gateway Connections */}
-            <div className="h-[103px] rounded-2xl border border-gray-200/50" style={{
-              background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.04) 100%)',
-              boxShadow: '0px 0px 46.5px 0px rgba(242, 242, 242, 1)'
-            }}>
-              <div className="flex flex-col justify-center items-center h-full">
-                <div className="text-lg font-medium text-[#49454F] mb-2" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '18px', lineHeight: '1.33em', letterSpacing: '3.33%' }}>
-                  Gateway Connections
-                </div>
-                <div className="text-4xl font-normal text-[#49454F] w-[141px] h-[30px] flex items-center justify-center" style={{ fontFamily: 'Aldrich, monospace', fontWeight: 400, fontSize: '36px', lineHeight: '0.67em', letterSpacing: '1.67%' }}>
-                  {serviceStatus.gatewayConnections}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-
-          {/* Left Column */}
-          <div className="space-y-12">
-
-            {/* Peer Information Section */}
-            <div className="space-y-6">
-              <h2 className="text-2xl font-medium text-black" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 500, fontSize: '24px', lineHeight: '1.2em', letterSpacing: '-2%' }}>
-                Peer Information
-              </h2>
-
-              <div className="space-y-3">
-                {/* Peer ID */}
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-2 rounded-xl gap-4">
-                  <div className="flex-shrink-0">
-                    <div className="text-lg text-[#49454F]" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '18px', lineHeight: '1.33em', letterSpacing: '3.33%' }}>
-                      Peer ID
-                    </div>
-                  </div>
-                  <div className="flex-1 max-w-xs bg-[#F9F9F9] rounded-lg px-2.5 py-2.5 flex items-center justify-between">
-                    <div className="text-sm text-black" style={{ fontFamily: 'Menlo, monospace', fontWeight: 400, fontSize: '15px', lineHeight: '1.16em' }}>
-                      {peerInfo.peerId}
-                    </div>
-                    <div className="p-2 rounded-lg hover:bg-gray-200 cursor-pointer" onClick={copyPeerId}>
-                      {copiedPeerId ? (
-                        <Check size={14} className="text-green-600" />
-                      ) : (
-                        <Copy size={14} className="text-[#1E1E1E]" />
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Listening Address */}
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-2 rounded-xl gap-4">
-                  <div className="flex-shrink-0">
-                    <div className="text-lg text-[#49454F]" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '18px', lineHeight: '1.33em', letterSpacing: '3.33%' }}>
-                      Listening Address
-                    </div>
-                  </div>
-                  <div className="flex-1 max-w-xs bg-[#F9F9F9] rounded-lg px-2.5 py-2.5">
-                    <div className="text-sm text-black" style={{ fontFamily: 'Menlo, monospace', fontWeight: 400, fontSize: '15px', lineHeight: '1.16em' }}>
-                      {peerInfo.listeningAddress}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Device Registration Section */}
-            <div className="space-y-6">
-              <h2 className="text-2xl font-medium text-black" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 500, fontSize: '24px', lineHeight: '1.2em', letterSpacing: '-2%' }}>
-                Device Registration
-              </h2>
-
-              <div className="space-y-3">
-                <div className="flex gap-6">
-                  <div className="flex-1">
-                    <Input
-                      placeholder="Enter test message..."
-                      value={testMessage}
-                      onChange={(e) => setTestMessage(e.target.value)}
-                      className="w-full bg-[#F9F9F9] border-[#D2D5DA] text-[#9EA4AF] px-2.5 py-2.5 rounded-lg"
-                      style={{ fontFamily: 'Inter, sans-serif', fontWeight: 400, fontSize: '15px', lineHeight: '1.21em' }}
-                    />
-                  </div>
-                  <Button
-                    onClick={sendTestMessage}
-                    disabled={isLoading || !testMessage.trim()}
-                    className="bg-[#2C2C2C] hover:bg-gray-700 text-white px-3 py-3 rounded-lg flex items-center justify-center border border-[#2C2C2C]"
-                  >
-                    <MessageCircle size={16} className="text-[#F5F5F5]" />
-                  </Button>
-                </div>
-                <div className="text-sm text-[#888888]" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 400, fontSize: '15px', lineHeight: '1.21em' }}>
-                  Send a test message to all connected peers
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column */}
-          <div className="space-y-6">
-
-            {/* Connected Peers Section */}
-            <div className="space-y-6">
-              <h2 className="text-2xl font-medium text-black" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 500, fontSize: '24px', lineHeight: '1.2em', letterSpacing: '-2%' }}>
-                Connected Peers
-              </h2>
-
-              <div className="bg-[#FAFAFA] rounded-xl p-3 space-y-3">
-                {connectedPeers.map((peer) => (
-                  <div key={peer.id} className="bg-white rounded-xl p-2 flex justify-between items-center">
-                    <div className="space-y-1">
-                      <div className="text-lg text-[#49454F]" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '18px', lineHeight: '1.33em', letterSpacing: '3.33%' }}>
-                        {peer.type}
-                      </div>
-                      <div className="text-sm text-[#49454F]" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '14px', lineHeight: '1.71em', letterSpacing: '4.29%' }}>
-                        {peer.peerId}
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end justify-center gap-2">
-                      <Badge className={`${
-                        peer.status === 'connected'
-                          ? 'bg-[#C7FACE] text-[#306339]'
-                          : 'bg-[#FFF1B8] text-[#88451D]'
-                      } hover:bg-[#C7FACE] flex items-center gap-2 px-3 py-1.5 rounded-full w-[115px] h-[32px] justify-center`}>
-                        {peer.status === 'connected' ? (
-                          <CheckCircle size={16} />
-                        ) : (
-                          <AlertCircle size={16} />
-                        )}
-                        <span className="font-medium" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 500, fontSize: '14px', lineHeight: '1.43em', letterSpacing: '0.71%' }}>
-                          {peer.status === 'connected' ? 'Connected' : 'Unstable'}
-                        </span>
-                      </Badge>
-                      <div className="text-sm text-[#49454F] w-[100px] text-right" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '14px', lineHeight: '1.71em', letterSpacing: '4.29%' }}>
-                        {peer.latency}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Network Configuration Section */}
-        <div className="space-y-6">
-          <h2 className="text-2xl font-medium text-black" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 500, fontSize: '24px', lineHeight: '1.2em', letterSpacing: '-2%' }}>
-            Network Configuration
-          </h2>
-
-          <div className="flex gap-6">
-            {/* Port and Max Connections */}
-            <div className="flex gap-6  flex-col">
-              <div className="space-y-3">
-                <div className="text-sm text-black" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 400, fontSize: '15px', lineHeight: '1.21em' }}>
-                  Port
-                </div>
-                <Input
-                  value={networkConfig.port}
-                  onChange={(e) => updateNetworkConfig('port', e.target.value)}
-                  className="bg-[#F9F9F9] border-[#D2D5DA] text-black px-2.5 py-2.5 rounded-lg"
-                  style={{ fontFamily: 'Inter, sans-serif', fontWeight: 400, fontSize: '15px', lineHeight: '1.21em' }}
-                />
-              </div>
-              <div className="space-y-3">
-                <div className="text-sm text-black" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 400, fontSize: '15px', lineHeight: '1.21em' }}>
-                  Max Connections
-                </div>
-                <Input
-                  value={networkConfig.maxConnections}
-                  onChange={(e) => updateNetworkConfig('maxConnections', e.target.value)}
-                  className="bg-[#F9F9F9] border-[#D2D5DA] text-black px-2.5 py-2.5 rounded-lg"
-                  style={{ fontFamily: 'Inter, sans-serif', fontWeight: 400, fontSize: '15px', lineHeight: '1.21em' }}
-                />
-              </div>
-            </div>
-
-            {/* DHT and Relay Settings */}
-            <div className="space-y-10 mt-9">
-              {/* Enable DHT */}
-              <div className="bg-white rounded-xl p-2 flex items-center justify-between h-[45px]">
-                <div className="space-y-1 flex-1">
-                  <div className="text-lg text-[#1D1B20]" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '18px', lineHeight: '1.33em', letterSpacing: '3.33%' }}>
-                    Enable DHT
-                  </div>
-                  <div className="text-sm text-[#878787]" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '15px', lineHeight: '1.6em', letterSpacing: '4%' }}>
-                    Distributed Hash Table for peer discovery
-                  </div>
-                </div>
-                <Switch
-                  checked={networkConfig.enableDHT}
-                  onCheckedChange={(checked) => updateNetworkConfig('enableDHT', checked)}
-                  disabled={isLoading}
-                  className="data-[state=checked]:bg-[#6750A4] data-[state=unchecked]:bg-gray-200 w-[52px] h-[32px] ml-10"
-                />
-              </div>
-
-              {/* Enable Relay */}
-              <div className="bg-white rounded-xl p-2 flex items-center justify-between h-[45px]">
-                <div className="space-y-1 flex-1">
-                  <div className="text-lg text-[#1D1B20]" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '18px', lineHeight: '1.33em', letterSpacing: '3.33%' }}>
-                    Enable Relay
-                  </div>
-                  <div className="text-sm text-[#878787]" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '15px', lineHeight: '1.6em', letterSpacing: '4%' }}>
-                    Allow connections through relay nodes
-                  </div>
-                </div>
-                <Switch
-                  checked={networkConfig.enableRelay}
-                  onCheckedChange={(checked) => updateNetworkConfig('enableRelay', checked)}
-                  disabled={isLoading}
-                  className="data-[state=checked]:bg-[#6750A4] data-[state=unchecked]:bg-gray-200 w-[52px] h-[32px]"
-                />
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  padding: '11px',
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: '24px',
+                  width: '2px',
+                  height: '2px'
+                }} />
               </div>
             </div>
           </div>
         </div>
       </div>
-      </Card>
+
+      {/* Status Cards */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        alignSelf: 'stretch',
+        gap: '49px'
+      }}>
+        {/* Service Status Card */}
+        <div style={{
+          width: '315px',
+          height: '103px',
+          background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.04) 100%)',
+          border: '1px solid',
+          borderImage: 'linear-gradient(90deg, #AAAAAA 0%, #FFFFFF 5.29%, #FFFFFF 94.03%, #AAAAAA 100%) 1',
+          borderRadius: '16px',
+          boxShadow: '0px 0px 46.5px 0px rgba(242, 242, 242, 1)'
+        }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: '157px',
+            position: 'relative',
+            left: '79px',
+            top: '21px'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              alignSelf: 'stretch',
+              gap: '16px',
+              padding: '4px 8px',
+              width: '141px'
+            }}>
+              <span style={{
+                fontFamily: 'Roboto',
+                fontWeight: 400,
+                fontSize: '18px',
+                lineHeight: '1.33em',
+                letterSpacing: '3.33%',
+                color: '#49454F',
+                width: '141px'
+              }}>
+                Service Status
+              </span>
+            </div>
+
+            {/* Running Badge */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              width: '100px',
+              height: '32px',
+              backgroundColor: '#C7FACE',
+              borderRadius: '100px'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '6px 12px'
+              }}>
+                <CheckCircle style={{
+                  width: '20px',
+                  height: '20px',
+                  color: '#306339',
+                  strokeWidth: 2
+                }} />
+                <span style={{
+                  fontFamily: 'Roboto',
+                  fontWeight: 500,
+                  fontSize: '14px',
+                  lineHeight: '1.43em',
+                  letterSpacing: '0.71%',
+                  color: '#306339'
+                }}>
+                  Running
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Available to claim Card */}
+        <div style={{
+          width: '315px',
+          height: '103px',
+          background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.04) 100%)',
+          border: '1px solid',
+          borderImage: 'linear-gradient(90deg, #AAAAAA 0%, #FFFFFF 5.29%, #FFFFFF 94.03%, #AAAAAA 100%) 1',
+          borderRadius: '16px',
+          boxShadow: '0px 0px 46.5px 0px rgba(242, 242, 242, 1)'
+        }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            width: '166px',
+            position: 'relative',
+            left: '75px',
+            top: '21px'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '16px',
+              padding: '4px 8px',
+              width: '166px'
+            }}>
+              <span style={{
+                fontFamily: 'Roboto',
+                fontWeight: 400,
+                fontSize: '18px',
+                lineHeight: '1.33em',
+                letterSpacing: '3.33%',
+                color: '#49454F'
+              }}>
+                Available to claim
+              </span>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              alignSelf: 'stretch',
+              gap: '16px',
+              padding: '4px 8px'
+            }}>
+              <span style={{
+                fontFamily: 'Aldrich',
+                fontWeight: 400,
+                fontSize: '36px',
+                lineHeight: '0.67em',
+                letterSpacing: '1.67%',
+                color: '#49454F',
+                textAlign: 'center',
+                width: '141px',
+                height: '30px'
+              }}>
+                {availableToClaim}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Gateway Connections Card */}
+        <div style={{
+          width: '315px',
+          height: '103px',
+          background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.04) 100%)',
+          border: '1px solid',
+          borderImage: 'linear-gradient(90deg, #AAAAAA 0%, #FFFFFF 5.29%, #FFFFFF 94.03%, #AAAAAA 100%) 1',
+          borderRadius: '16px',
+          boxShadow: '0px 0px 46.5px 0px rgba(242, 242, 242, 1)'
+        }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            position: 'relative',
+            left: '57px',
+            top: '17px'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '16px',
+              padding: '4px 8px'
+            }}>
+              <span style={{
+                fontFamily: 'Roboto',
+                fontWeight: 400,
+                fontSize: '18px',
+                lineHeight: '1.33em',
+                letterSpacing: '3.33%',
+                color: '#49454F'
+              }}>
+                Gateway Connections
+              </span>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              alignSelf: 'stretch',
+              gap: '16px',
+              padding: '4px 8px'
+            }}>
+              <span style={{
+                fontFamily: 'Aldrich',
+                fontWeight: 400,
+                fontSize: '36px',
+                lineHeight: '0.67em',
+                letterSpacing: '1.67%',
+                color: '#49454F',
+                textAlign: 'center',
+                width: '141px',
+                height: '30px'
+              }}>
+                {gatewayConnections}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Peer Information和Device Registration组件 - 严格按照Figma设计实现
+ */
+const PeerInformationAndDeviceRegistration: React.FC<{
+  peerId: string;
+  listeningAddress: string;
+  testMessage: string;
+  onCopy: (text: string) => Promise<void>;
+  onSendMessage: (message: string) => Promise<void>;
+  onTestMessageChange: (message: string) => void;
+}> = ({ peerId, listeningAddress, testMessage, onCopy, onSendMessage, onTestMessageChange }) => {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      alignSelf: 'stretch',
+      gap: '69px',
+      width: '519px'
+    }}>
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '46px',
+        width: '519px'
+      }}>
+        {/* Peer Information Section */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignSelf: 'stretch',
+          gap: '24px'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            alignSelf: 'stretch',
+            gap: '823px'
+          }}>
+            <h2 style={{
+              fontFamily: 'Inter',
+              fontWeight: 500,
+              fontSize: '24px',
+              lineHeight: '1.2em',
+              letterSpacing: '-2%',
+              color: '#000000'
+            }}>
+              Peer Information
+            </h2>
+          </div>
+
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            width: '519px'
+          }}>
+            {/* Peer ID Row */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              alignSelf: 'stretch',
+              gap: '16px',
+              padding: '4px 8px',
+              borderRadius: '12px'
+            }}>
+              <span style={{
+                fontFamily: 'Roboto',
+                fontWeight: 400,
+                fontSize: '18px',
+                lineHeight: '1.33em',
+                letterSpacing: '3.33%',
+                color: '#49454F',
+                width: '141px'
+              }}>
+                Peer ID
+              </span>
+
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '10px',
+                width: '238px',
+                backgroundColor: '#F9F9F9',
+                borderRadius: '8px'
+              }}>
+                <span style={{
+                  fontFamily: 'Menlo',
+                  fontWeight: 400,
+                  fontSize: '15px',
+                  lineHeight: '1.16em',
+                  color: '#000000'
+                }}>
+                  {peerId}
+                </span>
+
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 8px',
+                  borderRadius: '8px',
+                  cursor: 'pointer'
+                }}
+                onClick={() => onCopy(peerId)}
+                >
+                  <Copy style={{
+                    width: '14px',
+                    height: '14px',
+                    color: '#1E1E1E',
+                    strokeWidth: 1
+                  }} />
+                </div>
+              </div>
+            </div>
+
+            {/* Listening Address Row */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              alignSelf: 'stretch',
+              gap: '16px',
+              padding: '4px 8px',
+              borderRadius: '12px'
+            }}>
+              <span style={{
+                fontFamily: 'Roboto',
+                fontWeight: 400,
+                fontSize: '18px',
+                lineHeight: '1.33em',
+                letterSpacing: '3.33%',
+                color: '#49454F'
+              }}>
+                Listening Address
+              </span>
+
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '10px',
+                width: '238px',
+                backgroundColor: '#F9F9F9',
+                borderRadius: '8px'
+              }}>
+                <span style={{
+                  fontFamily: 'Menlo',
+                  fontWeight: 400,
+                  fontSize: '15px',
+                  lineHeight: '1.16em',
+                  color: '#000000'
+                }}>
+                  {listeningAddress}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Device Registration Section */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignSelf: 'stretch',
+          gap: '24px'
+        }}>
+          <h2 style={{
+            fontFamily: 'Inter',
+            fontWeight: 500,
+            fontSize: '24px',
+            lineHeight: '1.2em',
+            letterSpacing: '-2%',
+            color: '#000000',
+            alignSelf: 'stretch'
+          }}>
+            Device Registration
+          </h2>
+
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignSelf: 'stretch',
+            gap: '12px'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignSelf: 'stretch',
+              gap: '24px'
+            }}>
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                flex: 1
+              }}>
+                <input
+                  type="text"
+                  value={testMessage}
+                  onChange={(e) => onTestMessageChange(e.target.value)}
+                  placeholder="Enter test message..."
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    alignSelf: 'stretch',
+                    gap: '10px',
+                    padding: '10px',
+                    backgroundColor: '#F9F9F9',
+                    border: '1px solid #D2D5DA',
+                    borderRadius: '8px',
+                    fontFamily: 'Inter',
+                    fontWeight: 400,
+                    fontSize: '15px',
+                    lineHeight: '1.21em',
+                    color: testMessage ? '#000000' : '#9EA4AF',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+
+              <button
+                onClick={() => onSendMessage(testMessage)}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '12px',
+                  backgroundColor: '#2C2C2C',
+                  border: '1px solid #2C2C2C',
+                  borderRadius: '8px',
+                  cursor: 'pointer'
+                }}
+              >
+                <MessageCircle style={{
+                  width: '16px',
+                  height: '16px',
+                  color: '#F5F5F5',
+                  strokeWidth: 1.6
+                }} />
+              </button>
+            </div>
+
+            <span style={{
+              fontFamily: 'Inter',
+              fontWeight: 400,
+              fontSize: '15px',
+              lineHeight: '1.21em',
+              color: '#888888'
+            }}>
+              Send a test message to all connected peers
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Connected Peers组件 - 严格按照Figma设计实现
+ */
+const ConnectedPeers: React.FC<{
+  peers: Array<{
+    id: string;
+    type: string;
+    name: string;
+    peerId: string;
+    status: 'connected' | 'unstable' | 'disconnected';
+    latency: number;
+  }>;
+  isLoading: boolean;
+}> = () => {
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '24px',
+      width: '519px'
+    }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        alignSelf: 'stretch',
+        gap: '823px'
+      }}>
+        <h2 style={{
+          fontFamily: 'Inter',
+          fontWeight: 500,
+          fontSize: '24px',
+          lineHeight: '1.2em',
+          letterSpacing: '-2%',
+          color: '#000000'
+        }}>
+          Connected Peers
+        </h2>
+      </div>
+
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        width: '519px'
+      }}>
+        {/* Gateway Node */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          padding: '6px 7px',
+          width: '519px',
+          backgroundColor: '#FAFAFA',
+          borderRadius: '12px'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            alignSelf: 'stretch',
+            gap: '16px',
+            padding: '4px 8px',
+            borderRadius: '12px'
+          }}>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center'
+            }}>
+              <span style={{
+                fontFamily: 'Roboto',
+                fontWeight: 400,
+                fontSize: '18px',
+                lineHeight: '1.33em',
+                letterSpacing: '3.33%',
+                color: '#49454F'
+              }}>
+                Gateway Node
+              </span>
+              <span style={{
+                fontFamily: 'Roboto',
+                fontWeight: 400,
+                fontSize: '14px',
+                lineHeight: '1.71em',
+                letterSpacing: '4.29%',
+                color: '#49454F'
+              }}>
+                12D3KooWGateway...
+              </span>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'flex-end'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                width: '115px',
+                height: '32px',
+                backgroundColor: '#C7FACE',
+                borderRadius: '100px'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '6px 12px'
+                }}>
+                  <CheckCircle style={{
+                    width: '20px',
+                    height: '20px',
+                    color: '#306339',
+                    strokeWidth: 2
+                  }} />
+                  <span style={{
+                    fontFamily: 'Roboto',
+                    fontWeight: 500,
+                    fontSize: '14px',
+                    lineHeight: '1.43em',
+                    letterSpacing: '0.71%',
+                    color: '#306339'
+                  }}>
+                    Connected
+                  </span>
+                </div>
+              </div>
+
+              <span style={{
+                fontFamily: 'Roboto',
+                fontWeight: 400,
+                fontSize: '14px',
+                lineHeight: '1.71em',
+                letterSpacing: '4.29%',
+                color: '#49454F',
+                textAlign: 'right',
+                width: '100px'
+              }}>
+                15 ms
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Peer Node */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          padding: '6px 7px',
+          width: '519px',
+          backgroundColor: '#FAFAFA',
+          borderRadius: '12px'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            alignSelf: 'stretch',
+            gap: '16px',
+            padding: '4px 8px',
+            borderRadius: '12px'
+          }}>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center'
+            }}>
+              <span style={{
+                fontFamily: 'Roboto',
+                fontWeight: 400,
+                fontSize: '18px',
+                lineHeight: '1.33em',
+                letterSpacing: '3.33%',
+                color: '#49454F'
+              }}>
+                Peer Node
+              </span>
+              <span style={{
+                fontFamily: 'Roboto',
+                fontWeight: 400,
+                fontSize: '14px',
+                lineHeight: '1.71em',
+                letterSpacing: '4.29%',
+                color: '#49454F'
+              }}>
+                12D3KooWGateway...
+              </span>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'flex-end'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                width: '115px',
+                height: '32px',
+                backgroundColor: '#C7FACE',
+                borderRadius: '100px'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '6px 12px'
+                }}>
+                  <CheckCircle style={{
+                    width: '20px',
+                    height: '20px',
+                    color: '#306339',
+                    strokeWidth: 2
+                  }} />
+                  <span style={{
+                    fontFamily: 'Roboto',
+                    fontWeight: 500,
+                    fontSize: '14px',
+                    lineHeight: '1.43em',
+                    letterSpacing: '0.71%',
+                    color: '#306339'
+                  }}>
+                    Connected
+                  </span>
+                </div>
+              </div>
+
+              <span style={{
+                fontFamily: 'Roboto',
+                fontWeight: 400,
+                fontSize: '14px',
+                lineHeight: '1.71em',
+                letterSpacing: '4.29%',
+                color: '#49454F',
+                textAlign: 'right',
+                width: '100px'
+              }}>
+                32 ms
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Bootstrap Node */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          padding: '6px 7px',
+          width: '519px',
+          backgroundColor: '#FAFAFA',
+          borderRadius: '12px'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            alignSelf: 'stretch',
+            gap: '16px',
+            padding: '4px 8px',
+            borderRadius: '12px'
+          }}>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center'
+            }}>
+              <span style={{
+                fontFamily: 'Roboto',
+                fontWeight: 400,
+                fontSize: '18px',
+                lineHeight: '1.33em',
+                letterSpacing: '3.33%',
+                color: '#49454F'
+              }}>
+                Bootstrap Node
+              </span>
+              <span style={{
+                fontFamily: 'Roboto',
+                fontWeight: 400,
+                fontSize: '14px',
+                lineHeight: '1.71em',
+                letterSpacing: '4.29%',
+                color: '#49454F'
+              }}>
+                12D3KooWGateway...
+              </span>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'flex-end'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                width: '115px',
+                backgroundColor: '#FFF1B8',
+                borderRadius: '100px'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '6px 12px'
+                }}>
+                  <AlertCircle style={{
+                    width: '20px',
+                    height: '20px',
+                    color: '#88451D',
+                    strokeWidth: 2
+                  }} />
+                  <span style={{
+                    fontFamily: 'Roboto',
+                    fontWeight: 500,
+                    fontSize: '14px',
+                    lineHeight: '1.43em',
+                    letterSpacing: '0.71%',
+                    color: '#88451D'
+                  }}>
+                    Unstable
+                  </span>
+                </div>
+              </div>
+
+              <span style={{
+                fontFamily: 'Roboto',
+                fontWeight: 400,
+                fontSize: '14px',
+                lineHeight: '1.71em',
+                letterSpacing: '4.29%',
+                color: '#49454F',
+                textAlign: 'right',
+                width: '100px'
+              }}>
+                156 ms
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Network Configuration组件 - 严格按照Figma设计实现
+ */
+const NetworkConfiguration: React.FC<{
+  port: string;
+  maxConnections: string;
+  enableDHT: boolean;
+  enableRelay: boolean;
+  isLoading: boolean;
+  onToggle: (setting: 'enableDHT' | 'enableRelay', value: boolean) => Promise<void>;
+}> = ({ port, maxConnections, enableDHT, enableRelay, isLoading, onToggle }) => {
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignSelf: 'stretch',
+      gap: '24px'
+    }}>
+      <h2 style={{
+        fontFamily: 'Inter',
+        fontWeight: 500,
+        fontSize: '24px',
+        lineHeight: '1.2em',
+        letterSpacing: '-2%',
+        color: '#000000',
+        alignSelf: 'stretch'
+      }}>
+        Network Configuration
+      </h2>
+
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '24px'
+      }}>
+        <div style={{
+          display: 'flex',
+          alignSelf: 'stretch',
+          gap: '24px'
+        }}>
+          {/* Port */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignSelf: 'stretch',
+            gap: '12px',
+            flex: 1
+          }}>
+            <span style={{
+              fontFamily: 'Inter',
+              fontWeight: 400,
+              fontSize: '15px',
+              lineHeight: '1.21em',
+              color: '#000000'
+            }}>
+              Port
+            </span>
+
+            <div style={{
+              display: 'flex',
+              alignSelf: 'stretch',
+              gap: '24px'
+            }}>
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                flex: 1
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  alignSelf: 'stretch',
+                  gap: '10px',
+                  padding: '10px',
+                  backgroundColor: '#F9F9F9',
+                  border: '1px solid #D2D5DA',
+                  borderRadius: '8px'
+                }}>
+                  <span style={{
+                    fontFamily: 'Inter',
+                    fontWeight: 400,
+                    fontSize: '15px',
+                    lineHeight: '1.21em',
+                    color: '#000000'
+                  }}>
+                    {port}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Max Connections */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignSelf: 'stretch',
+            gap: '12px',
+            flex: 1
+          }}>
+            <span style={{
+              fontFamily: 'Inter',
+              fontWeight: 400,
+              fontSize: '15px',
+              lineHeight: '1.21em',
+              color: '#000000'
+            }}>
+              Max Connections
+            </span>
+
+            <div style={{
+              display: 'flex',
+              alignSelf: 'stretch',
+              gap: '24px'
+            }}>
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                flex: 1
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  alignSelf: 'stretch',
+                  gap: '10px',
+                  padding: '10px',
+                  backgroundColor: '#F9F9F9',
+                  border: '1px solid #D2D5DA',
+                  borderRadius: '8px'
+                }}>
+                  <span style={{
+                    fontFamily: 'Inter',
+                    fontWeight: 400,
+                    fontSize: '15px',
+                    lineHeight: '1.21em',
+                    color: '#000000'
+                  }}>
+                    {maxConnections}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '24px'
+        }}>
+          {/* Enable DHT */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              alignSelf: 'stretch',
+              gap: '16px',
+              padding: '4px 8px',
+              borderRadius: '12px'
+            }}>
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
+                height: '45px'
+              }}>
+                <span style={{
+                  fontFamily: 'Roboto',
+                  fontWeight: 400,
+                  fontSize: '18px',
+                  lineHeight: '1.33em',
+                  letterSpacing: '3.33%',
+                  color: '#1D1B20'
+                }}>
+                  Enable DHT
+                </span>
+                <span style={{
+                  fontFamily: 'Roboto',
+                  fontWeight: 400,
+                  fontSize: '15px',
+                  lineHeight: '1.6em',
+                  letterSpacing: '4%',
+                  color: '#878787'
+                }}>
+                  Distributed Hash Table for peer discovery
+                </span>
+              </div>
+
+              {/* DHT Switch */}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'stretch',
+                  alignItems: 'stretch',
+                  padding: '2px 4px',
+                  width: '52px',
+                  height: '32px',
+                  backgroundColor: enableDHT ? '#6750A4' : '#E0E0E0',
+                  borderRadius: '100px',
+                  cursor: isLoading ? 'default' : 'pointer',
+                  transition: 'background-color 0.2s'
+                }}
+                onClick={() => !isLoading && onToggle('enableDHT', !enableDHT)}
+              >
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  padding: '4px',
+                  position: 'relative',
+                  left: enableDHT ? '8px' : '-10px',
+                  transition: 'left 0.2s'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px'
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      padding: '11px',
+                      backgroundColor: '#FFFFFF',
+                      borderRadius: '24px',
+                      width: '2px',
+                      height: '2px'
+                    }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Enable Relay */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              alignSelf: 'stretch',
+              gap: '16px',
+              padding: '4px 8px',
+              borderRadius: '12px'
+            }}>
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
+                height: '45px'
+              }}>
+                <span style={{
+                  fontFamily: 'Roboto',
+                  fontWeight: 400,
+                  fontSize: '18px',
+                  lineHeight: '1.33em',
+                  letterSpacing: '3.33%',
+                  color: '#1D1B20'
+                }}>
+                  Enable Relay
+                </span>
+                <span style={{
+                  fontFamily: 'Roboto',
+                  fontWeight: 400,
+                  fontSize: '15px',
+                  lineHeight: '1.6em',
+                  letterSpacing: '4%',
+                  color: '#878787'
+                }}>
+                  Allow connections through relay nodes
+                </span>
+              </div>
+
+              {/* Relay Switch */}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'stretch',
+                  alignItems: 'stretch',
+                  padding: '2px 4px',
+                  width: '52px',
+                  height: '32px',
+                  backgroundColor: enableRelay ? '#6750A4' : '#E0E0E0',
+                  borderRadius: '100px',
+                  cursor: isLoading ? 'default' : 'pointer',
+                  transition: 'background-color 0.2s'
+                }}
+                onClick={() => !isLoading && onToggle('enableRelay', !enableRelay)}
+              >
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  padding: '4px',
+                  position: 'relative',
+                  left: enableRelay ? '8px' : '-10px',
+                  transition: 'left 0.2s'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px'
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      padding: '11px',
+                      backgroundColor: '#FFFFFF',
+                      borderRadius: '24px',
+                      width: '2px',
+                      height: '2px'
+                    }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * 主Communication组件 - 严格按照Figma设计实现
+ */
+export const Communication: React.FC<CommunicationProps> = ({ backendStatus }) => {
+  // 使用专用Communication Hook获取数据 - 依赖倒置原则
+  const { data, loading, toggleLibP2PService, copyToClipboard, toggleNetworkSetting, sendTestMessage } = useCommunication(backendStatus);
+
+  // 复制成功状态和测试消息状态
+  const [copySuccess, setCopySuccess] = useState<string | null>(null);
+  const [testMessage, setTestMessage] = useState<string>('');
+
+  // 复制到剪贴板
+  const handleCopy = useCallback(async (text: string) => {
+    const success = await copyToClipboard(text);
+    if (success) {
+      setCopySuccess(text);
+      setTimeout(() => setCopySuccess(null), COMMUNICATION_CONSTANTS.COPY_SUCCESS_DURATION);
+    }
+  }, [copyToClipboard]);
+
+  // 切换LibP2P服务
+  const handleToggleService = useCallback(async () => {
+    try {
+      await toggleLibP2PService();
+      // 这里可以显示成功提示
+    } catch (error) {
+      console.error('Toggle service failed:', error);
+      // 这里可以显示错误提示
+    }
+  }, [toggleLibP2PService]);
+
+  // 发送测试消息
+  const handleSendMessage = useCallback(async (message: string) => {
+    try {
+      await sendTestMessage(message);
+      setTestMessage(''); // 清空输入框
+      // 这里可以显示成功提示
+    } catch (error) {
+      console.error('Send message failed:', error);
+      // 这里可以显示错误提示
+    }
+  }, [sendTestMessage]);
+
+  // 切换网络设置
+  const handleToggleNetworkSetting = useCallback(async (setting: 'enableDHT' | 'enableRelay', value: boolean) => {
+    try {
+      await toggleNetworkSetting(setting, value);
+      // 这里可以显示成功提示
+    } catch (error) {
+      console.error('Toggle network setting failed:', error);
+      // 这里可以显示错误提示
+    }
+  }, [toggleNetworkSetting]);
+
+  // 错误状态处理
+  if (loading.error) {
+    return (
+      <div className="bg-white rounded-2xl p-6 shadow-lg">
+        <div className="flex items-center justify-center p-8">
+          <AlertCircle className="h-8 w-8 text-red-500 mr-3" />
+          <div>
+            <h3 className="text-lg font-medium text-red-800">Failed to load communication data</h3>
+            <p className="text-sm text-red-600 mt-1">{loading.error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-3 px-4 py-2 bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="bg-white rounded-2xl shadow-lg relative m-3"
+      style={{
+        width: '1225px',
+        height: '1050px',
+        borderRadius: '16px',
+        padding: '27px 26px',
+        boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)'
+      }}
+    >
+      <div className='' style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '48px',
+        width: '1107px',
+        position: 'relative',
+        left: '64px',
+        top: '65px'
+      }}>
+        {/* Service Control */}
+        <ServiceControl
+          libp2pService={data?.serviceStatus.libp2pService || true}
+          availableToClaim={data?.serviceStatus.availableToClaim || 12}
+          gatewayConnections={data?.serviceStatus.gatewayConnections || 3}
+          isLoading={loading.isLoading}
+          onToggle={handleToggleService}
+        />
+
+        <div className='flex justify-between'>
+          {/* Peer Information and Device Registration */}
+        <PeerInformationAndDeviceRegistration
+          peerId={data?.peerInfo.peerId || 'ABC123DEF456'}
+          listeningAddress={data?.peerInfo.listeningAddress || '/ip4/0.0.0.0/tcp/4001'}
+          testMessage={testMessage}
+          onCopy={handleCopy}
+          onSendMessage={handleSendMessage}
+          onTestMessageChange={setTestMessage}
+        />
+
+        {/* Connected Peers */}
+        <ConnectedPeers
+          peers={data?.connectedPeers || []}
+          isLoading={loading.isLoading}
+        />
+        </div>
+
+        {/* Network Configuration */}
+        <NetworkConfiguration
+          port={data?.networkConfig.port || '4001'}
+          maxConnections={data?.networkConfig.maxConnections || '100'}
+          enableDHT={data?.networkConfig.enableDHT || true}
+          enableRelay={data?.networkConfig.enableRelay || true}
+          isLoading={loading.isLoading}
+          onToggle={handleToggleNetworkSetting}
+        />
+      </div>
+
+      {/* 复制成功提示 */}
+      {copySuccess && (
+        <div style={{
+          position: 'fixed',
+          bottom: '16px',
+          right: '16px',
+          backgroundColor: '#10B981',
+          color: '#FFFFFF',
+          padding: '8px 16px',
+          borderRadius: '8px',
+          boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.1)',
+          zIndex: 1000
+        }}>
+          Copied to clipboard!
+        </div>
+      )}
     </div>
   );
 };

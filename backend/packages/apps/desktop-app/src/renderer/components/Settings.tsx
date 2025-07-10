@@ -1,361 +1,774 @@
 /**
- * Settings 页面组件
- * 
- * 根据 Figma 设计实现的设置页面
- * 包含通用设置、数据隐私和高级设置功能
+ * Settings页面组件 - 严格按照Figma设计实现
+ *
+ * 遵循SOLID原则：
+ * - 单一职责原则：UI组件只负责展示，业务逻辑由Hook处理
+ * - 依赖倒置原则：通过抽象接口获取数据
+ * - 接口隔离原则：使用专门的Hook接口
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Button } from './ui/button';
-import { Switch } from './ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Download, AlertCircle } from 'lucide-react';
-import { Card } from './ui/card';
+import React, { useState, useCallback } from 'react';
+import { Download, AlertCircle, ChevronDown } from 'lucide-react';
+import { useSettings, SETTINGS_CONSTANTS } from '../hooks/useSettings';
+import { BackendStatus } from '../hooks/types';
 
-interface GeneralSettings {
+interface SettingsProps {
+  backendStatus: BackendStatus;
+}
+
+/**
+ * General Settings组件 - 严格按照Figma设计实现
+ */
+const GeneralSettings: React.FC<{
   autoStartOnBoot: boolean;
   systemTray: boolean;
   silentMode: boolean;
-}
-
-interface DataPrivacySettings {
-  dataDirectory: string;
-  logLevel: 'Debug' | 'Info' | 'Warning' | 'Error';
-}
-
-interface SettingsProps {
-  backendStatus?: {
-    isRunning: boolean;
-    port: number;
-  };
-}
-
-export const Settings: React.FC<SettingsProps> = ({ backendStatus }) => {
-  const [generalSettings, setGeneralSettings] = useState<GeneralSettings>({
-    autoStartOnBoot: true,
-    systemTray: true,
-    silentMode: true
-  });
-
-  const [dataPrivacySettings, setDataPrivacySettings] = useState<DataPrivacySettings>({
-    dataDirectory: '/ip4/0.0.0.0/tcp/4001',
-    logLevel: 'Info'
-  });
-
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // 获取设置
-  const fetchSettings = useCallback(async () => {
-    if (!backendStatus?.isRunning) return;
-
-    setError(null);
-    try {
-      const response = await fetch(`http://localhost:${backendStatus.port}/api/v1/settings`);
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          setGeneralSettings(result.data.general);
-          setDataPrivacySettings(result.data.dataPrivacy);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch settings:', error);
-      setError('Failed to load settings. Please check your connection.');
-    }
-  }, [backendStatus]);
-
-  // 更新通用设置
-  const updateGeneralSetting = useCallback(async (key: keyof GeneralSettings, value: boolean) => {
-    if (!backendStatus?.isRunning) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`http://localhost:${backendStatus.port}/api/v1/settings/general`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ [key]: value })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          setGeneralSettings(prev => ({
-            ...prev,
-            [key]: value
-          }));
-        } else {
-          throw new Error(result.error || 'Failed to update setting');
-        }
-      } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Failed to update general setting:', error);
-      setError('Failed to update setting. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [backendStatus]);
-
-  // 更新日志级别
-  const updateLogLevel = useCallback(async (logLevel: DataPrivacySettings['logLevel']) => {
-    if (!backendStatus?.isRunning) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`http://localhost:${backendStatus.port}/api/v1/settings/data-privacy`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ logLevel })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          setDataPrivacySettings(prev => ({
-            ...prev,
-            logLevel
-          }));
-        } else {
-          throw new Error(result.error || 'Failed to update log level');
-        }
-      } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Failed to update log level:', error);
-      setError('Failed to update log level. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [backendStatus]);
-
-  // 重启后端服务
-  const restartBackendService = useCallback(async () => {
-    if (!backendStatus?.isRunning) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`http://localhost:${backendStatus.port}/api/v1/settings/restart-backend`, {
-        method: 'POST'
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          console.log('Backend service restarted successfully');
-        } else {
-          throw new Error(result.error || 'Failed to restart backend service');
-        }
-      } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Failed to restart backend service:', error);
-      setError('Failed to restart backend service. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [backendStatus]);
-
-  // 重置所有设置
-  const resetAllSettings = useCallback(async () => {
-    if (!backendStatus?.isRunning) return;
-
-    const confirmed = window.confirm('Are you sure you want to reset all settings? This action cannot be undone.');
-    if (!confirmed) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`http://localhost:${backendStatus.port}/api/v1/settings/reset`, {
-        method: 'POST'
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          // 重新获取默认设置
-          fetchSettings();
-          console.log('All settings reset successfully');
-        } else {
-          throw new Error(result.error || 'Failed to reset settings');
-        }
-      } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Failed to reset settings:', error);
-      setError('Failed to reset settings. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [backendStatus, fetchSettings]);
-
-  useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
-
+  isLoading: boolean;
+  onToggle: (setting: string, value: boolean) => Promise<void>;
+}> = ({ autoStartOnBoot, systemTray, silentMode, isLoading, onToggle }) => {
   return (
-    <div className="min-h-screen bg-white">
-        <Card className="bg-white rounded-2xl p-6 shadow-lg">
-      <div className="max-w-7xl mx-auto space-y-12">
-        
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <div className="text-red-800 text-sm">{error}</div>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignSelf: 'stretch',
+      gap: '24px'
+    }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        alignSelf: 'stretch',
+        gap: '823px'
+      }}>
+        <h2 style={{
+          fontFamily: 'Inter',
+          fontWeight: 500,
+          fontSize: '24px',
+          lineHeight: '1.2em',
+          letterSpacing: '-2%',
+          color: '#000000'
+        }}>
+          General Settings
+        </h2>
+      </div>
+
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignSelf: 'stretch',
+        gap: '12px'
+      }}>
+        {/* Auto Start on Boot */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          alignSelf: 'stretch',
+          gap: '16px',
+          padding: '4px 8px',
+          borderRadius: '12px'
+        }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px',
+            width: '695px',
+            height: '45px'
+          }}>
+            <span style={{
+              fontFamily: 'Roboto',
+              fontWeight: 400,
+              fontSize: '18px',
+              lineHeight: '1.33em',
+              letterSpacing: '3.33%',
+              color: '#1D1B20'
+            }}>
+              Auto Start on Boot
+            </span>
+            <span style={{
+              fontFamily: 'Roboto',
+              fontWeight: 400,
+              fontSize: '15px',
+              lineHeight: '1.6em',
+              letterSpacing: '4%',
+              color: '#878787'
+            }}>
+              Automatically start client when system boots
+            </span>
           </div>
-        )}
 
-        {/* General Settings Section */}
-        <div className="space-y-6">
-          <h1 className="text-2xl font-medium text-black" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 500, fontSize: '24px', lineHeight: '1.2em', letterSpacing: '-2%' }}>
-            General Settings
-          </h1>
-          
-          <div className="space-y-3">
-            {/* Auto Start on Boot */}
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-2 rounded-xl min-h-[45px] gap-4">
-              <div className="flex-1 space-y-1">
-                <div className="text-lg text-[#1D1B20]" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '18px', lineHeight: '1.33em', letterSpacing: '3.33%' }}>
-                  Auto Start on Boot
-                </div>
-                <div className="text-sm text-[#878787]" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '15px', lineHeight: '1.6em', letterSpacing: '4%' }}>
-                  Automatically start client when system boots
-                </div>
+          {/* Switch */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'stretch',
+              alignItems: 'stretch',
+              padding: '2px 4px',
+              width: '52px',
+              height: '32px',
+              backgroundColor: autoStartOnBoot ? '#6750A4' : '#E0E0E0',
+              borderRadius: '100px',
+              cursor: isLoading ? 'default' : 'pointer',
+              transition: 'background-color 0.2s'
+            }}
+            onClick={() => !isLoading && onToggle('autoStartOnBoot', !autoStartOnBoot)}
+          >
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: '4px',
+              position: 'relative',
+              left: autoStartOnBoot ? '8px' : '-10px',
+              transition: 'left 0.2s'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  padding: '11px',
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: '24px',
+                  width: '2px',
+                  height: '2px'
+                }} />
               </div>
-              <Switch
-                checked={generalSettings.autoStartOnBoot}
-                onCheckedChange={(checked) => updateGeneralSetting('autoStartOnBoot', checked)}
-                disabled={isLoading}
-                className="data-[state=checked]:bg-[#6750A4] data-[state=unchecked]:bg-gray-200 w-[52px] h-[32px]"
-              />
-            </div>
-
-            {/* System Tray */}
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-2 rounded-xl min-h-[45px] gap-4">
-              <div className="flex-1 space-y-1">
-                <div className="text-lg text-[#1D1B20]" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '18px', lineHeight: '1.33em', letterSpacing: '3.33%' }}>
-                  System Tray
-                </div>
-                <div className="text-sm text-[#878787]" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '15px', lineHeight: '1.6em', letterSpacing: '4%' }}>
-                  Show in system tray when minimized
-                </div>
-              </div>
-              <Switch
-                checked={generalSettings.systemTray}
-                onCheckedChange={(checked) => updateGeneralSetting('systemTray', checked)}
-                disabled={isLoading}
-                className="data-[state=checked]:bg-[#6750A4] data-[state=unchecked]:bg-gray-200 w-[52px] h-[32px]"
-              />
-            </div>
-
-            {/* Silent Mode */}
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-2 rounded-xl min-h-[45px] gap-4">
-              <div className="flex-1 space-y-1">
-                <div className="text-lg text-[#1D1B20]" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '18px', lineHeight: '1.33em', letterSpacing: '3.33%' }}>
-                  Silent Mode
-                </div>
-                <div className="text-sm text-[#878787]" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '15px', lineHeight: '1.6em', letterSpacing: '4%' }}>
-                  Reduce notifications and prompts
-                </div>
-              </div>
-              <Switch
-                checked={generalSettings.silentMode}
-                onCheckedChange={(checked) => updateGeneralSetting('silentMode', checked)}
-                disabled={isLoading}
-                className="data-[state=checked]:bg-[#6750A4] data-[state=unchecked]:bg-gray-200 w-[52px] h-[32px]"
-              />
             </div>
           </div>
         </div>
 
-        {/* Data & Privacy Section */}
-        <div className="space-y-6">
-          <h2 className="text-2xl font-medium text-black" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 500, fontSize: '24px', lineHeight: '1.2em', letterSpacing: '-2%' }}>
-            Data & Privacy
-          </h2>
+        {/* System Tray */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          alignSelf: 'stretch',
+          gap: '16px',
+          padding: '4px 8px',
+          borderRadius: '12px'
+        }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px',
+            width: '695px',
+            height: '45px'
+          }}>
+            <span style={{
+              fontFamily: 'Roboto',
+              fontWeight: 400,
+              fontSize: '18px',
+              lineHeight: '1.33em',
+              letterSpacing: '3.33%',
+              color: '#1D1B20'
+            }}>
+              System Tray
+            </span>
+            <span style={{
+              fontFamily: 'Roboto',
+              fontWeight: 400,
+              fontSize: '15px',
+              lineHeight: '1.6em',
+              letterSpacing: '4%',
+              color: '#878787'
+            }}>
+              Show in system tray when minimized
+            </span>
+          </div>
 
-          <div className="space-y-3">
-            {/* Data Directory */}
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-2 rounded-xl gap-4">
-              <div className="text-lg text-[#49454F] flex-shrink-0" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '18px', lineHeight: '1.33em', letterSpacing: '3.33%' }}>
-                Data Directory
-              </div>
-              <div className="flex-1 max-w-xs bg-[#F9F9F9] rounded-lg px-2.5 py-2.5">
-                <div className="text-sm text-black" style={{ fontFamily: 'Menlo, monospace', fontWeight: 400, fontSize: '15px', lineHeight: '1.16em' }}>
-                  {dataPrivacySettings.dataDirectory}
-                </div>
-              </div>
-            </div>
-
-            {/* Log Level */}
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-2 rounded-xl gap-4">
-              <div className="text-lg text-[#49454F] flex-shrink-0" style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 400, fontSize: '18px', lineHeight: '1.33em', letterSpacing: '3.33%' }}>
-                Log Level
-              </div>
-              <div className="flex-1 max-w-xs">
-                <Select value={dataPrivacySettings.logLevel} onValueChange={updateLogLevel}>
-                  <SelectTrigger className="bg-white border-[#D9D9D9] rounded-lg px-4 py-3 h-auto">
-                    <SelectValue style={{ fontFamily: 'Inter, sans-serif', fontWeight: 400, fontSize: '16px', lineHeight: '1em', color: '#1E1E1E' }} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Debug">Debug</SelectItem>
-                    <SelectItem value="Info">Info</SelectItem>
-                    <SelectItem value="Warning">Warning</SelectItem>
-                    <SelectItem value="Error">Error</SelectItem>
-                  </SelectContent>
-                </Select>
+          {/* Switch */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'stretch',
+              alignItems: 'stretch',
+              padding: '2px 4px',
+              width: '52px',
+              height: '32px',
+              backgroundColor: systemTray ? '#6750A4' : '#E0E0E0',
+              borderRadius: '100px',
+              cursor: isLoading ? 'default' : 'pointer',
+              transition: 'background-color 0.2s'
+            }}
+            onClick={() => !isLoading && onToggle('systemTray', !systemTray)}
+          >
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: '4px',
+              position: 'relative',
+              left: systemTray ? '8px' : '-10px',
+              transition: 'left 0.2s'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  padding: '11px',
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: '24px',
+                  width: '2px',
+                  height: '2px'
+                }} />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Advanced Settings Section */}
-        <div className="space-y-3">
-          <h2 className="text-2xl font-medium text-black" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 500, fontSize: '24px', lineHeight: '1.2em', letterSpacing: '-2%' }}>
-            Advanced Settings
-          </h2>
+        {/* Silent Mode */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          alignSelf: 'stretch',
+          gap: '16px',
+          padding: '4px 8px',
+          borderRadius: '12px'
+        }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px',
+            width: '695px',
+            height: '45px'
+          }}>
+            <span style={{
+              fontFamily: 'Roboto',
+              fontWeight: 400,
+              fontSize: '18px',
+              lineHeight: '1.33em',
+              letterSpacing: '3.33%',
+              color: '#1D1B20'
+            }}>
+              Silent Mode
+            </span>
+            <span style={{
+              fontFamily: 'Roboto',
+              fontWeight: 400,
+              fontSize: '15px',
+              lineHeight: '1.6em',
+              letterSpacing: '4%',
+              color: '#878787'
+            }}>
+              Reduce notifications and prompts
+            </span>
+          </div>
 
-          <div className="space-y-3">
-            {/* Restart Backend Service */}
-            <Button
-              onClick={restartBackendService}
-              disabled={isLoading}
-              className="w-full bg-[#F0F0F0] hover:bg-gray-200 text-black px-3 py-3 rounded-lg flex items-center justify-center gap-2"
-              style={{ fontFamily: 'Inter, sans-serif', fontWeight: 400, fontSize: '16px', lineHeight: '1em' }}
-            >
-              <Download size={16} className="text-black" />
-              Restart Backend Service
-            </Button>
-
-            {/* Reset All */}
-            <Button
-              onClick={resetAllSettings}
-              disabled={isLoading}
-              className="w-full bg-[#FCF2F2] hover:bg-red-100 text-[#AA2E26] px-3 py-3 rounded-lg flex items-center justify-center gap-2"
-              style={{ fontFamily: 'Inter, sans-serif', fontWeight: 400, fontSize: '16px', lineHeight: '1em' }}
-            >
-              <AlertCircle size={16} className="text-[#AA2E26]" />
-              Reset All
-            </Button>
+          {/* Switch */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'stretch',
+              alignItems: 'stretch',
+              padding: '2px 4px',
+              width: '52px',
+              height: '32px',
+              backgroundColor: silentMode ? '#6750A4' : '#E0E0E0',
+              borderRadius: '100px',
+              cursor: isLoading ? 'default' : 'pointer',
+              transition: 'background-color 0.2s'
+            }}
+            onClick={() => !isLoading && onToggle('silentMode', !silentMode)}
+          >
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: '4px',
+              position: 'relative',
+              left: silentMode ? '8px' : '-10px',
+              transition: 'left 0.2s'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  padding: '11px',
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: '24px',
+                  width: '2px',
+                  height: '2px'
+                }} />
+              </div>
+            </div>
           </div>
         </div>
       </div>
-      </Card>
+    </div>
+  );
+};
+
+/**
+ * Data & Privacy组件 - 严格按照Figma设计实现
+ */
+const DataPrivacySettings: React.FC<{
+  dataDirectory: string;
+  logLevel: string;
+  isLoading: boolean;
+  onLogLevelChange: (level: string) => Promise<void>;
+}> = ({ dataDirectory, logLevel, isLoading, onLogLevelChange }) => {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const logLevelOptions = [
+    { value: 'debug', label: 'Debug' },
+    { value: 'info', label: 'Info' },
+    { value: 'warn', label: 'Warning' },
+    { value: 'error', label: 'Error' }
+  ];
+
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignSelf: 'stretch',
+      gap: '24px'
+    }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        alignSelf: 'stretch',
+        gap: '823px'
+      }}>
+        <h2 style={{
+          fontFamily: 'Inter',
+          fontWeight: 500,
+          fontSize: '24px',
+          lineHeight: '1.2em',
+          letterSpacing: '-2%',
+          color: '#000000'
+        }}>
+          Data & Privacy
+        </h2>
+      </div>
+
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignSelf: 'stretch',
+        gap: '12px'
+      }}>
+        {/* Data Directory */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          alignSelf: 'stretch',
+          gap: '16px',
+          padding: '4px 8px',
+          borderRadius: '12px'
+        }}>
+          <span style={{
+            fontFamily: 'Roboto',
+            fontWeight: 400,
+            fontSize: '18px',
+            lineHeight: '1.33em',
+            letterSpacing: '3.33%',
+            color: '#49454F'
+          }}>
+            Data Directory
+          </span>
+
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '10px',
+            backgroundColor: '#F9F9F9',
+            borderRadius: '8px'
+          }}>
+            <span style={{
+              fontFamily: 'Menlo',
+              fontWeight: 400,
+              fontSize: '15px',
+              lineHeight: '1.16em',
+              color: '#000000'
+            }}>
+              {dataDirectory}
+            </span>
+          </div>
+        </div>
+
+        {/* Log Level */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          alignSelf: 'stretch',
+          gap: '16px',
+          padding: '4px 8px',
+          borderRadius: '12px'
+        }}>
+          <span style={{
+            fontFamily: 'Roboto',
+            fontWeight: 400,
+            fontSize: '18px',
+            lineHeight: '1.33em',
+            letterSpacing: '3.33%',
+            color: '#49454F'
+          }}>
+            Log Level
+          </span>
+
+          <div style={{ position: 'relative' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '10px',
+                backgroundColor: '#F9F9F9',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                minWidth: '120px'
+              }}
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            >
+              <span style={{
+                fontFamily: 'Inter',
+                fontWeight: 400,
+                fontSize: '15px',
+                lineHeight: '1.16em',
+                color: '#000000'
+              }}>
+                {logLevelOptions.find(opt => opt.value === logLevel)?.label || 'Info'}
+              </span>
+              <ChevronDown style={{
+                width: '16px',
+                height: '16px',
+                color: '#1E1E1E',
+                transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s'
+              }} />
+            </div>
+
+            {isDropdownOpen && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                zIndex: 10,
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #E0E0E0',
+                borderRadius: '8px',
+                boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.1)',
+                minWidth: '120px'
+              }}>
+                {logLevelOptions.map((option) => (
+                  <div
+                    key={option.value}
+                    style={{
+                      padding: '10px',
+                      cursor: 'pointer',
+                      backgroundColor: logLevel === option.value ? '#F0F0F0' : 'transparent',
+                      borderRadius: option === logLevelOptions[0] ? '8px 8px 0 0' :
+                                   option === logLevelOptions[logLevelOptions.length - 1] ? '0 0 8px 8px' : '0'
+                    }}
+                    onClick={() => {
+                      onLogLevelChange(option.value);
+                      setIsDropdownOpen(false);
+                    }}
+                  >
+                    <span style={{
+                      fontFamily: 'Inter',
+                      fontWeight: 400,
+                      fontSize: '15px',
+                      lineHeight: '1.16em',
+                      color: '#000000'
+                    }}>
+                      {option.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Advanced Settings组件 - 严格按照Figma设计实现
+ */
+const AdvancedSettings: React.FC<{
+  onRestartService: () => Promise<void>;
+  onResetAll: () => Promise<void>;
+}> = ({ onRestartService, onResetAll }) => {
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignSelf: 'stretch',
+      gap: '24px'
+    }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        alignSelf: 'stretch',
+        gap: '823px'
+      }}>
+        <h2 style={{
+          fontFamily: 'Inter',
+          fontWeight: 500,
+          fontSize: '24px',
+          lineHeight: '1.2em',
+          letterSpacing: '-2%',
+          color: '#000000'
+        }}>
+          Advanced Settings
+        </h2>
+      </div>
+
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignSelf: 'stretch',
+        gap: '12px'
+      }}>
+        {/* Restart Backend Service Button */}
+        <button
+          onClick={onRestartService}
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            alignSelf: 'stretch',
+            gap: '8px',
+            padding: '12px',
+            backgroundColor: '#F8F5FF',
+            borderRadius: '8px',
+            border: 'none',
+            cursor: 'pointer'
+          }}
+        >
+          <Download style={{
+            width: '16px',
+            height: '16px',
+            color: '#6750A4',
+            strokeWidth: 1.6
+          }} />
+          <span style={{
+            fontFamily: 'Inter',
+            fontWeight: 400,
+            fontSize: '16px',
+            lineHeight: '1em',
+            color: '#6750A4'
+          }}>
+            Restart Backend Service
+          </span>
+        </button>
+
+        {/* Reset All Button */}
+        <button
+          onClick={onResetAll}
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            alignSelf: 'stretch',
+            gap: '8px',
+            padding: '16px 12px',
+            backgroundColor: '#FFF1F0',
+            borderRadius: '8px',
+            border: 'none',
+            cursor: 'pointer'
+          }}
+        >
+          <AlertCircle style={{
+            width: '16px',
+            height: '16px',
+            color: '#CF1322',
+            strokeWidth: 1.6
+          }} />
+          <span style={{
+            fontFamily: 'Inter',
+            fontWeight: 600,
+            fontSize: '14px',
+            lineHeight: '1em',
+            color: '#CF1322'
+          }}>
+            Reset All (Dangerous)
+          </span>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * 主Settings组件 - 严格按照Figma设计实现
+ */
+export const Settings: React.FC<SettingsProps> = ({ backendStatus }) => {
+  // 使用专用Settings Hook获取数据 - 依赖倒置原则
+  const {
+    data,
+    loading,
+    updateDataPrivacySettings,
+    restartBackendService,
+    resetAllSettings,
+    toggleSetting
+  } = useSettings(backendStatus);
+
+  // 成功消息状态
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // 切换通用设置
+  const handleToggleGeneralSetting = useCallback(async (setting: string, value: boolean) => {
+    try {
+      await toggleSetting('general', setting, value);
+      setSuccessMessage('Settings updated successfully');
+      setTimeout(() => setSuccessMessage(null), SETTINGS_CONSTANTS.SUCCESS_MESSAGE_DURATION);
+    } catch (error) {
+      console.error('Toggle general setting failed:', error);
+      // 这里可以显示错误提示
+    }
+  }, [toggleSetting]);
+
+  // 更改日志级别
+  const handleLogLevelChange = useCallback(async (level: string) => {
+    try {
+      await updateDataPrivacySettings({ logLevel: level as any });
+      setSuccessMessage('Log level updated successfully');
+      setTimeout(() => setSuccessMessage(null), SETTINGS_CONSTANTS.SUCCESS_MESSAGE_DURATION);
+    } catch (error) {
+      console.error('Update log level failed:', error);
+      // 这里可以显示错误提示
+    }
+  }, [updateDataPrivacySettings]);
+
+  // 重启后端服务
+  const handleRestartService = useCallback(async () => {
+    try {
+      await restartBackendService();
+      setSuccessMessage('Backend service restarted successfully');
+      setTimeout(() => setSuccessMessage(null), SETTINGS_CONSTANTS.SUCCESS_MESSAGE_DURATION);
+    } catch (error) {
+      console.error('Restart service failed:', error);
+      // 这里可以显示错误提示
+    }
+  }, [restartBackendService]);
+
+  // 重置所有设置
+  const handleResetAll = useCallback(async () => {
+    try {
+      await resetAllSettings();
+      setSuccessMessage('All settings reset successfully');
+      setTimeout(() => setSuccessMessage(null), SETTINGS_CONSTANTS.SUCCESS_MESSAGE_DURATION);
+    } catch (error) {
+      console.error('Reset all settings failed:', error);
+      // 这里可以显示错误提示
+    }
+  }, [resetAllSettings]);
+
+  // 错误状态处理
+  if (loading.error) {
+    return (
+      <div className="bg-white rounded-2xl p-6 shadow-lg">
+        <div className="flex items-center justify-center p-8">
+          <AlertCircle className="h-8 w-8 text-red-500 mr-3" />
+          <div>
+            <h3 className="text-lg font-medium text-red-800">Failed to load settings data</h3>
+            <p className="text-sm text-red-600 mt-1">{loading.error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-3 px-4 py-2 bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="bg-white rounded-2xl shadow-lg relative m-3"
+      style={{
+        width: '1225px',
+        height: '1050px',
+        borderRadius: '16px',
+        padding: '27px 26px',
+        boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)'
+      }}
+    >
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '48px',
+        // width: '1010px',
+        padding:'50px'
+        
+        // position: 'relative',
+        // left: '113px',
+        // top: '70px'
+      }}>
+        {/* General Settings */}
+        <GeneralSettings
+          autoStartOnBoot={data?.generalSettings.autoStartOnBoot || true}
+          systemTray={data?.generalSettings.systemTray || true}
+          silentMode={data?.generalSettings.silentMode || true}
+          isLoading={loading.isLoading}
+          onToggle={handleToggleGeneralSetting}
+        />
+
+        {/* Data & Privacy */}
+        <DataPrivacySettings
+          dataDirectory={data?.dataPrivacySettings.dataDirectory || '/ip4/0.0.0.0/tcp/4001'}
+          logLevel={data?.dataPrivacySettings.logLevel || 'info'}
+          isLoading={loading.isLoading}
+          onLogLevelChange={handleLogLevelChange}
+        />
+
+        {/* Advanced Settings */}
+        <AdvancedSettings
+          onRestartService={handleRestartService}
+          onResetAll={handleResetAll}
+        />
+      </div>
+
+      {/* 成功消息提示 */}
+      {successMessage && (
+        <div style={{
+          position: 'fixed',
+          bottom: '16px',
+          right: '16px',
+          backgroundColor: '#10B981',
+          color: '#FFFFFF',
+          padding: '8px 16px',
+          borderRadius: '8px',
+          boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.1)',
+          zIndex: 1000
+        }}>
+          {successMessage}
+        </div>
+      )}
     </div>
   );
 };

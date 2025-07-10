@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { createApiClient, handleApiError } from '../utils/api-client';
 
 // Import icons using require
 const ollamaLogo = require('../assets/icons/ollama-logo.png');
@@ -38,29 +39,180 @@ interface InferenceFramework {
 export const CyberModelInference: React.FC<CyberModelInferenceProps> = ({ backendStatus }) => {
   const [selectedMode, setSelectedMode] = useState<'Local Only' | 'Gateway Mode' | 'Benchmark Mode'>('Local Only');
   const [gpuInfo, setGpuInfo] = useState<GPUInfo>({
-    name: 'NVIDIA GeForce RTX 4090',
+    name: 'Loading...',
     memory: {
-      total: 24576,
-      used: 8192,
-      free: 16384
+      total: 0,
+      used: 0,
+      free: 0
     },
-    temperature: 65,
-    utilization: 45
+    temperature: 0,
+    utilization: 0
   });
 
-  const framework: InferenceFramework = {
+  const [framework, setFramework] = useState<InferenceFramework>({
     id: 'ollama',
     name: 'Ollama',
-    version: 'v0.9.5',
-    status: 'Running',
-    modelsLoaded: 2,
-    memoryUsage: '2.4 GB',
-    gpuUsage: '45%'
-  };
+    version: 'Loading...',
+    status: 'Stopped',
+    modelsLoaded: 0,
+    memoryUsage: '0 GB',
+    gpuUsage: '0%'
+  });
 
-  const handleServiceAction = (frameworkId: string, action: string) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // API 客户端实例
+  const apiClient = React.useMemo(() => {
+    if (!backendStatus?.isRunning) return null;
+    return createApiClient(backendStatus);
+  }, [backendStatus?.isRunning, backendStatus?.port]);
+
+  // 🆕 获取系统资源信息
+  const fetchSystemResources = useCallback(async () => {
+    if (!apiClient) return;
+
+    try {
+      const response = await apiClient.getSystemResources();
+      if (response.success && response.data) {
+        const data = response.data as any;
+
+        // 更新 GPU 信息
+        if (data.gpus && data.gpus.length > 0) {
+          const gpu = data.gpus[0];
+          setGpuInfo({
+            name: gpu.name || 'Unknown GPU',
+            memory: {
+              total: gpu.memory?.total || 0,
+              used: gpu.memory?.used || 0,
+              free: (gpu.memory?.total || 0) - (gpu.memory?.used || 0)
+            },
+            temperature: gpu.temperature || 0,
+            utilization: gpu.usage || 0
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch system resources:', error);
+      setError(handleApiError(error));
+    }
+  }, [apiClient]);
+
+  // 🆕 获取框架状态
+  const fetchFrameworkStatus = useCallback(async () => {
+    if (!apiClient) return;
+
+    try {
+      // 获取当前框架配置
+      const configResponse = await apiClient.getCurrentConfig();
+      if (configResponse.success && configResponse.data) {
+        const config = configResponse.data as any;
+        const currentFramework = config.currentFramework || 'ollama';
+
+        // 根据当前框架获取进程状态
+        let processResponse;
+        if (currentFramework === 'ollama') {
+          processResponse = await apiClient.getOllamaProcessStatus();
+        } else if (currentFramework === 'vllm') {
+          processResponse = await apiClient.getVllmProcessStatus();
+        }
+
+        if (processResponse?.success && processResponse.data) {
+          const processData = processResponse.data as any;
+
+          setFramework(prev => ({
+            ...prev,
+            id: currentFramework,
+            name: currentFramework === 'ollama' ? 'Ollama' : 'vLLM',
+            version: processData.version || 'Unknown',
+            status: processData.running ? 'Running' : 'Stopped',
+            modelsLoaded: processData.modelsLoaded || 0,
+            memoryUsage: processData.memoryUsage || '0 GB',
+            gpuUsage: processData.gpuUsage || '0%'
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch framework status:', error);
+      setError(handleApiError(error));
+    }
+  }, [apiClient]);
+
+  // 🆕 框架切换
+  const switchFramework = useCallback(async (targetFramework: 'ollama' | 'vllm') => {
+    if (!apiClient) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await apiClient.switchFramework({ framework: targetFramework });
+
+      if (response.success) {
+        // 刷新框架状态
+        await fetchFrameworkStatus();
+        setError(null);
+      } else {
+        setError(response.error || 'Failed to switch framework');
+      }
+    } catch (error) {
+      console.error('Failed to switch framework:', error);
+      setError(handleApiError(error));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [apiClient, fetchFrameworkStatus]);
+
+  // 🆕 服务操作处理
+  const handleServiceAction = useCallback(async (frameworkId: string, action: string) => {
     console.log(`${action} action for ${frameworkId}`);
-  };
+
+    if (action === 'stop') {
+      // TODO: 实现停止服务功能
+      setError('Stop service feature is not yet implemented');
+    } else if (action === 'restart') {
+      // TODO: 实现重启服务功能
+      setError('Restart service feature is not yet implemented');
+    } else if (action === 'settings') {
+      // TODO: 打开设置页面
+      setError('Settings feature is not yet implemented');
+    }
+  }, []);
+
+  // 🆕 刷新所有数据
+  const refreshAllData = useCallback(async () => {
+    if (!apiClient) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await Promise.all([
+        fetchSystemResources(),
+        fetchFrameworkStatus()
+      ]);
+    } catch (error) {
+      console.error('Failed to refresh data:', error);
+      setError(handleApiError(error));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [apiClient, fetchSystemResources, fetchFrameworkStatus]);
+
+  // 初始化数据
+  useEffect(() => {
+    if (backendStatus?.isRunning && apiClient) {
+      refreshAllData();
+
+      // 定期刷新状态（每30秒）
+      const interval = setInterval(() => {
+        fetchFrameworkStatus();
+        fetchSystemResources();
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }
+  }, [backendStatus?.isRunning, apiClient, refreshAllData, fetchFrameworkStatus, fetchSystemResources]);
 
   return (
     <div

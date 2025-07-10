@@ -271,6 +271,8 @@ export class ApiClient {
     return this.get(`/api/v1/miner/connect-task-list?${params}`);
   }
 
+
+
   /**
    * 获取当前配置
    */
@@ -281,8 +283,13 @@ export class ApiClient {
   /**
    * 切换推理框架
    */
-  async switchFramework(framework: 'ollama' | 'vllm') {
-    return this.post('/api/v1/config/switch-framework', { framework });
+  async switchFramework(options: {
+    framework: 'ollama' | 'vllm';
+    validateAvailability?: boolean;
+    stopOthers?: boolean;
+    restartRequired?: boolean;
+  }) {
+    return this.post('/api/v1/config/switch-framework', options);
   }
 
   /**
@@ -313,6 +320,124 @@ export class ApiClient {
     gatewayPath?: string;
   }) {
     return this.put('/api/v1/config/generic', config);
+  }
+
+  // ===== P2P 通信接口 =====
+
+  /**
+   * 获取邻居节点列表
+   */
+  async getPeerNeighbors() {
+    return this.get('/peer/neighbors');
+  }
+
+  /**
+   * 获取所有 DID 文档
+   */
+  async getAllPeerDocuments() {
+    return this.get('/peer/all-documents');
+  }
+
+  /**
+   * 添加节点
+   */
+  async addPeer(peerData: {
+    did?: string;
+    peerId?: string;
+    multiAddr?: string;
+  }) {
+    return this.post('/peer/add', peerData);
+  }
+
+  /**
+   * 发送测试消息
+   */
+  async sendTestMessage(data: {
+    peerId: string;
+    message: string;
+  }) {
+    return this.post('/peer/send-test-message', data);
+  }
+
+  /**
+   * 获取本地 DID
+   */
+  async getMyDid() {
+    return this.get('/did/my-did');
+  }
+
+  /**
+   * 获取本地公钥
+   */
+  async getMyPublicKey() {
+    return this.get('/did/my-public-key');
+  }
+
+  /**
+   * 获取 DID 文档
+   */
+  async getDidDocument() {
+    return this.get('/did/document');
+  }
+
+  // ===== 进程管理接口 =====
+
+  /**
+   * 获取 Ollama 进程状态
+   */
+  async getOllamaProcessStatus() {
+    return this.get('/api/v1/ollama-process/status');
+  }
+
+  /**
+   * 获取 Ollama 监控信息
+   */
+  async getOllamaProcessMonitoring() {
+    return this.get('/api/v1/ollama-process/monitoring');
+  }
+
+  /**
+   * 获取 vLLM 进程状态
+   */
+  async getVllmProcessStatus() {
+    return this.get('/api/v1/vllm-process/status');
+  }
+
+  /**
+   * 获取 vLLM 监控信息
+   */
+  async getVllmProcessMonitoring() {
+    return this.get('/api/v1/vllm-process/monitoring');
+  }
+
+  // ===== 框架配置接口 =====
+
+  /**
+   * 获取 vLLM 配置
+   */
+  async getVllmFrameworkConfig() {
+    return this.get('/api/v1/framework/config/vllm');
+  }
+
+  /**
+   * 更新 vLLM 框架配置
+   */
+  async updateVllmFrameworkConfig(config: any) {
+    return this.put('/api/v1/framework/config/vllm', config);
+  }
+
+  /**
+   * 获取 vLLM 推荐配置
+   */
+  async getVllmRecommendedConfig() {
+    return this.get('/api/v1/framework/config/vllm/recommended');
+  }
+
+  /**
+   * 分析 vLLM 错误
+   */
+  async analyzeVllmError(error: string) {
+    return this.post('/api/v1/framework/config/vllm/analyze-error', { error });
   }
 }
 

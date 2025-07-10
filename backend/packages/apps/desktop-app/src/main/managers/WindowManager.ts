@@ -18,7 +18,7 @@ export class WindowManager {
     this.logger.log(`Preload script path: ${preloadPath}`);
 
     this.mainWindow = new BrowserWindow({
-      width: 1200,
+      width: 1500,
       height: 800,
       minWidth: 800,
       minHeight: 600,
