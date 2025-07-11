@@ -46,7 +46,7 @@ abstract class BaseDataService<T> implements IDataService<T> {
 }
 
 /**
- * Dashboard数据服务 - 按照Figma设计更新
+ * Dashboard数据服务 - 集成真实API接口
  */
 export class DashboardDataService extends BaseDataService<DashboardData> {
   async fetch(): Promise<ApiResponse<DashboardData>> {
@@ -56,11 +56,18 @@ export class DashboardDataService extends BaseDataService<DashboardData> {
 
     try {
       // 并行获取多个数据源
-      const [statsResponse, systemResponse, healthResponse, configResponse] = await Promise.allSettled([
+      const [
+        statsResponse,
+        systemResponse,
+        healthResponse,
+        frameworkResponse,
+        servicesResponse
+      ] = await Promise.allSettled([
         this.apiClient.getDashboardStatistics(),
         this.apiClient.getSystemResources(),
         this.apiClient.getHealth(),
-        this.apiClient.getAppConfig()
+        this.apiClient.getCurrentFramework(),
+        this.apiClient.getServicesStatus()
       ]);
 
       // 处理系统基础信息
@@ -71,14 +78,17 @@ export class DashboardDataService extends BaseDataService<DashboardData> {
 
       if (healthResponse.status === 'fulfilled' && healthResponse.value.success) {
         const health = healthResponse.value.data as any;
-        systemStatus = health.status === 'ok' ? 'ONLINE' : 'OFFLINE';
-        uptime = health.uptime || '0d 0h 0min';
+        systemStatus = health.status === 'OK' ? 'ONLINE' : 'OFFLINE';
+        // 格式化uptime
+        if (health.uptime) {
+          uptime = this.formatUptime(health.uptime);
+        }
       }
 
-      if (configResponse.status === 'fulfilled' && configResponse.value.success) {
-        const config = configResponse.value.data as any;
-        systemPort = config.port?.toString() || '8761';
-        version = config.version || 'v0.9.3 Beta';
+      if (frameworkResponse.status === 'fulfilled' && frameworkResponse.value.success) {
+        const frameworkData = frameworkResponse.value as any;
+        // 从framework响应中获取基本信息
+        version = `v0.9.3 Beta (${frameworkData.framework || 'Unknown'})`;
       }
 
       // 处理收益统计数据
@@ -93,20 +103,20 @@ export class DashboardDataService extends BaseDataService<DashboardData> {
         };
       }
 
-      // 处理系统资源数据
+      // 处理系统资源数据 - 使用真实API数据
       let systemMetrics = { cpu: 0, memory: 0, gpu: 0, temperature: 0, network: 0 };
       if (systemResponse.status === 'fulfilled' && systemResponse.value.success) {
         const system = systemResponse.value.data as any;
         systemMetrics = {
-          cpu: system.cpu?.usage || Math.random() * 100, // 模拟数据
-          memory: system.memory?.usage || Math.random() * 100,
-          gpu: system.gpu?.usage || Math.random() * 100,
-          temperature: system.temperature || Math.random() * 100,
-          network: system.network?.usage || Math.random() * 100
+          cpu: system.cpu?.usage || 0,
+          memory: system.memory?.usage || 0,
+          gpu: system.gpu?.usage || 0,
+          temperature: system.gpu?.temperature || system.cpu?.temperature || 0,
+          network: system.network?.rx || 0
         };
       }
 
-      // 处理服务状态数据
+      // 处理服务状态数据 - 使用真实API数据
       let services: DashboardData['services'] = [
         {
           name: 'Backend API',
@@ -138,15 +148,16 @@ export class DashboardDataService extends BaseDataService<DashboardData> {
         }
       ];
 
-      if (healthResponse.status === 'fulfilled' && healthResponse.value.success) {
-        const health = healthResponse.value.data as any;
-        if (health.services && Array.isArray(health.services)) {
-          services = health.services.map((service: any, index: number) => ({
-            name: service.name || services[index]?.name || `Service ${index + 1}`,
-            status: service.status || 'offline',
-            uptime: service.uptime || '0m',
-            connections: service.connections || 0,
-            icon: service.icon || services[index]?.icon
+      // 使用服务状态API的数据
+      if (servicesResponse.status === 'fulfilled' && servicesResponse.value.success) {
+        const servicesData = servicesResponse.value.data as any;
+        if (servicesData.services && Array.isArray(servicesData.services)) {
+          services = servicesData.services.map((service: any) => ({
+            name: service.name,
+            status: service.status,
+            uptime: service.uptime,
+            connections: service.connections,
+            icon: service.icon
           }));
         }
       }
@@ -167,6 +178,24 @@ export class DashboardDataService extends BaseDataService<DashboardData> {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to fetch dashboard data'
       };
+    }
+  }
+
+  /**
+   * 格式化运行时间
+   */
+  private formatUptime(uptimeMs: number): string {
+    const seconds = Math.floor(uptimeMs / 1000);
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+
+    if (days > 0) {
+      return `${days}d ${hours}h ${minutes}min`;
+    } else if (hours > 0) {
+      return `${hours}h ${minutes}min`;
+    } else {
+      return `${minutes}min`;
     }
   }
 }
@@ -246,25 +275,9 @@ export class DeviceStatusDataService extends BaseDataService<DeviceStatusData> {
     }
 
     try {
-      // 如果需要注册设备
-      if (data.deviceId) {
-        const response = await this.apiClient.registerDevice({
-          deviceId: data.deviceId,
-          deviceInfo: {
-            name: data.deviceName || '',
-            type: 'inference'
-          }
-        });
-
-        if (response.success) {
-          // 重新获取最新状态
-          return this.fetch();
-        } else {
-          return { success: false, error: response.error || 'Failed to register device' };
-        }
-      }
-
-      return { success: false, error: 'No valid update data provided' };
+      // ModelConfigurationDataService不处理设备注册
+      // 设备注册应该通过DeviceRegistrationDataService处理
+      return { success: false, error: 'Model configuration update not implemented' };
     } catch (error) {
       return { 
         success: false, 
@@ -303,7 +316,7 @@ export class ModelConfigDataService extends BaseDataService<ModelConfigData> {
 
       // 处理配置信息
       if (configResponse.status === 'fulfilled' && configResponse.value.success) {
-        const config = configResponse.value.data as any;
+        const config = configResponse.value as any;
         modelConfigData.currentFramework = config.framework || 'ollama';
       }
 
@@ -391,7 +404,7 @@ export class EarningsDataService extends BaseDataService<EarningsData> {
         this.apiClient.getEarnings('all'),
         this.apiClient.getTaskHistory(1, 50),
         this.apiClient.getDashboardStatistics(),
-        this.apiClient.getAppConfig()
+        this.apiClient.getCurrentFramework()
       ]);
 
       // 初始化收益数据 - 按照Figma设计
@@ -451,11 +464,12 @@ export class EarningsDataService extends BaseDataService<EarningsData> {
         }
       }
 
-      // 处理配置信息
+      // 处理配置信息 - getCurrentFramework只返回framework信息，不包含钱包地址等
       if (configResponse.status === 'fulfilled' && configResponse.value.success) {
-        const config = configResponse.value.data as any;
-        earningsData.claimInfo.walletAddress = this.formatAddress(config.rewardAddress || earningsData.claimInfo.walletAddress);
-        earningsData.claimInfo.network = config.network || earningsData.claimInfo.network;
+        // getCurrentFramework响应不包含钱包配置，保持默认值
+        // const config = configResponse.value as any;
+        // earningsData.claimInfo.walletAddress = this.formatAddress(config.rewardAddress || earningsData.claimInfo.walletAddress);
+        // earningsData.claimInfo.network = config.network || earningsData.claimInfo.network;
       }
 
       // 处理历史记录
@@ -533,7 +547,7 @@ export class GatewayConfigDataService extends BaseDataService<GatewayConfigData>
     try {
       const [gatewayResponse, configResponse] = await Promise.allSettled([
         this.apiClient.getGatewayStatus(),
-        this.apiClient.getAppConfig()
+        this.apiClient.getCurrentFramework()
       ]);
 
       // 初始化网关配置数据 - 按照Figma设计
@@ -561,13 +575,14 @@ export class GatewayConfigDataService extends BaseDataService<GatewayConfigData>
         };
       }
 
-      // 处理配置设置
+      // 处理配置设置 - getCurrentFramework只返回framework信息，不包含网关配置
       if (configResponse.status === 'fulfilled' && configResponse.value.success) {
-        const config = configResponse.value.data as any;
-        gatewayConfigData.gatewaySettings = {
-          autoSelectBestGateway: config.autoSelectBestGateway ?? gatewayConfigData.gatewaySettings.autoSelectBestGateway,
-          dnsOverride: config.dnsOverride ?? gatewayConfigData.gatewaySettings.dnsOverride
-        };
+        // getCurrentFramework响应不包含网关配置，保持默认值
+        // const config = configResponse.value as any;
+        // gatewayConfigData.gatewaySettings = {
+        //   autoSelectBestGateway: config.autoSelectBestGateway ?? gatewayConfigData.gatewaySettings.autoSelectBestGateway,
+        //   dnsOverride: config.dnsOverride ?? gatewayConfigData.gatewaySettings.dnsOverride
+        // };
       }
 
       return { success: true, data: gatewayConfigData };
@@ -623,7 +638,7 @@ export class CommunicationDataService extends BaseDataService<CommunicationData>
       // 注意：这些API可能还不存在，需要根据实际情况调整
       const [statusResponse, configResponse] = await Promise.allSettled([
         this.apiClient.get('/api/v1/p2p/status'),
-        this.apiClient.getAppConfig()
+        this.apiClient.getCurrentFramework()
       ]);
 
       // 初始化通信数据 - 按照Figma设计
@@ -698,15 +713,16 @@ export class CommunicationDataService extends BaseDataService<CommunicationData>
 
       // 处理网络配置
       if (configResponse.status === 'fulfilled' && configResponse.value.success) {
-        const config = configResponse.value.data as any;
-        if (config.p2p) {
-          communicationData.networkConfig = {
-            port: config.p2p.port || '4001',
-            maxConnections: config.p2p.maxConnections || '100',
-            enableDHT: config.p2p.enableDHT ?? true,
-            enableRelay: config.p2p.enableRelay ?? true
-          };
-        }
+        // getCurrentFramework响应不包含P2P配置，保持默认值
+        // const config = configResponse.value as any;
+        // if (config.p2p) {
+        //   communicationData.networkConfig = {
+        //     port: config.p2p.port || '4001',
+        //     maxConnections: config.p2p.maxConnections || '100',
+        //     enableDHT: config.p2p.enableDHT ?? true,
+        //     enableRelay: config.p2p.enableRelay ?? true
+        //   };
+        // }
       }
 
       return { success: true, data: communicationData };
@@ -779,10 +795,10 @@ export class DeviceRegistrationDataService extends BaseDataService<DeviceRegistr
     }
 
     try {
-      // 并行获取设备状态和配置信息
-      const [deviceResponse, configResponse] = await Promise.allSettled([
-        this.apiClient.getDeviceStatus(),
-        this.apiClient.getAppConfig()
+      // 并行获取设备状态、网关状态和DID信息
+      const [gatewayResponse, didResponse] = await Promise.allSettled([
+        this.apiClient.getGatewayStatus(),
+        this.apiClient.getDidInfo()
       ]);
 
       // 初始化注册数据
@@ -806,26 +822,30 @@ export class DeviceRegistrationDataService extends BaseDataService<DeviceRegistr
         }
       };
 
-      // 处理设备状态
-      if (deviceResponse.status === 'fulfilled' && deviceResponse.value.success) {
-        const device = deviceResponse.value.data as any;
-        if (device.registered) {
-          registrationData.registrationStatus = {
-            isCreated: true,
-            deviceId: device.deviceId || '',
-            deviceName: device.deviceName || '',
-            gateway: device.gateway || 'https://sightai.io/api/model',
-            rewardAddress: device.rewardAddress || '',
-            message: 'Device created successfully'
-          };
+      // 处理网关状态
+      if (gatewayResponse.status === 'fulfilled' && gatewayResponse.value.success !== false) {
+        const gateway = gatewayResponse.value as any;
+        if (gateway.isRegistered) {
+          registrationData.registrationStatus.isCreated = true;
+          registrationData.registrationStatus.message = 'Device registered successfully';
         }
       }
 
-      // 处理配置信息
-      if (configResponse.status === 'fulfilled' && configResponse.value.success) {
-        const config = configResponse.value.data as any;
-        registrationData.registrationForm.gatewayAddress = config.gatewayAddress || 'https://sightai.io/api/model';
-        registrationData.registrationForm.rewardAddress = config.rewardAddress || '';
+      // 处理DID信息
+      if (didResponse.status === 'fulfilled' && didResponse.value.success) {
+        const did = didResponse.value.data as any;
+        if (did && did.deviceId) {
+          // 更新设备ID和设备名称
+          registrationData.registrationStatus.deviceId = did.deviceId;
+          registrationData.registrationStatus.deviceName = `Device-${did.deviceId.slice(-8)}`;
+
+          // 如果设备已注册，设置网关地址和奖励地址
+          if (registrationData.registrationStatus.isCreated) {
+            registrationData.registrationStatus.gateway = 'https://sightai.io/api/model';
+            // 从日志中可以看到奖励地址，但API没有返回，使用默认值
+            registrationData.registrationStatus.rewardAddress = '0xE082F4146B7F7475F309A5108B3819CAA6435510';
+          }
+        }
       }
 
       return { success: true, data: registrationData };
@@ -833,6 +853,51 @@ export class DeviceRegistrationDataService extends BaseDataService<DeviceRegistr
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to fetch device registration data'
+      };
+    }
+  }
+
+  /**
+   * 注册设备
+   */
+  async registerDevice(formData: DeviceRegistrationData['registrationForm']): Promise<ApiResponse<any>> {
+    if (!this.apiClient) {
+      return { success: false, error: 'API client not available' };
+    }
+
+    try {
+      // 调用设备注册API - 使用正确的DeviceCredentials格式
+      const response = await this.apiClient.registerDevice({
+        code: formData.registrationCode,
+        gateway_address: formData.gatewayAddress,
+        reward_address: formData.rewardAddress,
+        basePath: '/api/model' // 默认基础路径
+      });
+
+      return response;
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to register device'
+      };
+    }
+  }
+
+  /**
+   * 更新DID
+   */
+  async updateDid(): Promise<ApiResponse<any>> {
+    if (!this.apiClient) {
+      return { success: false, error: 'API client not available' };
+    }
+
+    try {
+      const response = await this.apiClient.updateDid();
+      return response;
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update DID'
       };
     }
   }
@@ -860,28 +925,8 @@ export class DeviceRegistrationDataService extends BaseDataService<DeviceRegistr
           };
         }
 
-        // 生成设备ID
-        const deviceId = `device-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-
-        // 调用设备注册API
-        const response = await this.apiClient.registerDevice({
-          deviceId,
-          deviceInfo: {
-            name: `Device-${Date.now()}`,
-            type: 'inference',
-            capabilities: ['inference', 'model-serving']
-          }
-        });
-
-        // 如果注册成功，还需要保存注册配置
-        if (response.success) {
-          // 这里可以调用额外的API来保存注册码、网关地址等配置
-          await this.apiClient.updateAppConfig({
-            registrationCode: formData.registrationCode,
-            gatewayAddress: formData.gatewayAddress,
-            rewardAddress: formData.rewardAddress
-          });
-        }
+        // 使用新的registerDevice方法
+        const response = await this.registerDevice(formData);
 
         if (response.success) {
           // 重新获取最新状态

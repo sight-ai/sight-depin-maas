@@ -40,6 +40,7 @@ import { FrameworkConfigController } from './controllers/framework-config.contro
 import { UnifiedConfigController } from './controllers/unified-config.controller';
 import { DidController } from './controllers/did.controller';
 import { PeerController } from './controllers/peer.controller';
+import { ServiceStatusController } from './controllers/service-status.controller';
 
 
 @Module({
@@ -64,6 +65,7 @@ import { PeerController } from './controllers/peer.controller';
     ModelsController,
     AppConfigController,
     DashboardController,
+    ServiceStatusController,
     Libp2pController,
     VllmProcessController,
     OllamaProcessController,

@@ -25,6 +25,7 @@ export function useDeviceRegistration(
 ): BaseHookReturn<DeviceRegistrationData> & {
   // 扩展的设备注册特定方法
   registerDevice: (formData: DeviceRegistrationData['registrationForm']) => Promise<void>;
+  updateDid: () => Promise<void>;
   validateForm: (formData: DeviceRegistrationData['registrationForm']) => DeviceRegistrationData['validation'];
   copyToClipboard: (text: string) => Promise<boolean>;
   resetForm: () => void;
@@ -49,12 +50,39 @@ export function useDeviceRegistration(
     }
 
     try {
-      const response = await dataService.update({
-        registrationForm: formData
-      });
+      // 先验证表单
+      const validation = validateForm(formData);
+      if (!validation.isValid) {
+        const errorMessages = Object.values(validation.errors).join(', ');
+        throw new Error(`Validation failed: ${errorMessages}`);
+      }
+
+      // 调用注册API
+      const response = await (dataService as any).registerDevice(formData);
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to register device');
+      }
+
+      // 更新本地数据
+      await baseHook.refresh();
+    } catch (error) {
+      throw error instanceof Error ? error : new Error('Unknown error occurred');
+    }
+  }, [dataService, baseHook]);
+
+  // 更新DID方法
+  const updateDid = useCallback(async (): Promise<void> => {
+    if (!dataService) {
+      throw new Error('Data service not available');
+    }
+
+    try {
+      // 调用更新DID API
+      const response = await (dataService as any).updateDid();
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to update DID');
       }
 
       // 更新本地数据
@@ -132,6 +160,7 @@ export function useDeviceRegistration(
   return {
     ...baseHook,
     registerDevice,
+    updateDid,
     validateForm,
     copyToClipboard,
     resetForm

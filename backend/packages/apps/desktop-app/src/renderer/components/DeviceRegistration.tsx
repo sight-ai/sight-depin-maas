@@ -667,7 +667,7 @@ export const DeviceRegistration: React.FC<DeviceRegistrationProps> = ({ backendS
       className="bg-white rounded-2xl shadow-lg relative m-3"
       style={{
         width: '1225px',
-        height: '1050px',
+        minHeight: '1250px',
         borderRadius: '16px',
         padding: '27px 26px',
         boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)'
@@ -680,7 +680,7 @@ export const DeviceRegistration: React.FC<DeviceRegistrationProps> = ({ backendS
           left: '84px',
           top: '39px',
           width: '1068px',
-          height: '500px'
+          minHeight: '500px'
         }}>
           <DeviceRegistrationStatus
             isCreated={data.registrationStatus.isCreated}
@@ -700,7 +700,7 @@ export const DeviceRegistration: React.FC<DeviceRegistrationProps> = ({ backendS
         left: '84px',
         top: data?.registrationStatus.isCreated ? '539px' : '39px',
         width: '1068px',
-        height: '480px'
+        minHeight: '480px'
       }}>
         <DeviceRegistrationForm
           formData={formData}

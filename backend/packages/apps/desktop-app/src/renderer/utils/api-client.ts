@@ -118,12 +118,7 @@ export class ApiClient {
     return this.get('/api/app/status', 5000);
   }
 
-  /**
-   * 获取应用配置 (已存在的接口)
-   */
-  async getAppConfig() {
-    return this.get('/api/app/config', 5000);
-  }
+
 
   /**
    * 更新应用配置 (已存在的接口)
@@ -187,6 +182,27 @@ export class ApiClient {
   }
 
   /**
+   * 获取服务状态
+   */
+  async getServicesStatus() {
+    return this.get('/api/v1/services/status');
+  }
+
+  /**
+   * 获取特定服务状态
+   */
+  async getServiceStatus(serviceName: string) {
+    return this.get(`/api/v1/services/${serviceName}/status`);
+  }
+
+  /**
+   * 获取当前推理框架
+   */
+  async getCurrentFramework() {
+    return this.get('/api/v1/config/framework');
+  }
+
+  /**
    * 获取设备状态
    */
   async getDeviceStatus() {
@@ -196,15 +212,13 @@ export class ApiClient {
   /**
    * 注册设备
    */
-  async registerDevice(deviceData: {
-    deviceId: string;
-    deviceInfo?: {
-      name?: string;
-      type?: string;
-      capabilities?: string[];
-    };
+  async registerDevice(credentials: {
+    code: string;
+    gateway_address: string;
+    reward_address: string;
+    basePath?: string;
   }) {
-    return this.post('/api/v1/device-status', deviceData);
+    return this.post('/api/v1/device-status/register', credentials);
   }
 
   /**

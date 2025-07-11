@@ -32,12 +32,12 @@ export function useDashboard(
     return backendStatus ? new DashboardDataService(backendStatus) : null;
   }, [backendStatus?.isRunning, backendStatus?.port]);
 
-  // 使用基础Hook获取数据
+  // 使用基础Hook获取数据 - 优化刷新频率
   const baseHook = useBaseData(dataService, {
     autoRefresh: true,
-    refreshInterval: 5000, // 5秒刷新一次
+    refreshInterval: 10000, // 10秒刷新一次，避免过于频繁的请求
     retryCount: 3,
-    timeout: 10000,
+    timeout: 15000, // 增加超时时间以适应多个API并行请求
     ...config
   });
 
@@ -185,27 +185,27 @@ export const dashboardUtils = {
  * Dashboard常量定义
  */
 export const DASHBOARD_CONSTANTS = {
-  // 刷新间隔（毫秒）
-  REFRESH_INTERVAL: 5000,
-  
+  // 刷新间隔（毫秒）- 优化为10秒
+  REFRESH_INTERVAL: 10000,
+
   // 重试次数
   RETRY_COUNT: 3,
-  
-  // 请求超时（毫秒）
-  TIMEOUT: 10000,
-  
+
+  // 请求超时（毫秒）- 增加超时时间
+  TIMEOUT: 15000,
+
   // 默认端口
   DEFAULT_PORT: '8761',
-  
+
   // 默认版本
   DEFAULT_VERSION: 'v0.9.3 Beta',
-  
+
   // 进度条动画持续时间（毫秒）
   PROGRESS_ANIMATION_DURATION: 300,
-  
+
   // 卡片阴影样式
   CARD_SHADOW: '0px 0px 24.8px 0px rgba(198, 198, 198, 0.51)',
-  
+
   // 主容器阴影样式
   CONTAINER_SHADOW: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)'
 } as const;
