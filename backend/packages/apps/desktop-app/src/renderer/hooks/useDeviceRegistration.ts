@@ -10,7 +10,7 @@
 import { useMemo, useCallback } from 'react';
 import { useBaseData } from './useBaseData';
 import { BackendStatus, DeviceRegistrationData, BaseHookReturn, FetchConfig } from './types';
-import { DeviceRegistrationDataService } from '../services/dataServices';
+import { DeviceRegistrationDataService } from '../services';
 
 /**
  * Device Registration页面数据Hook

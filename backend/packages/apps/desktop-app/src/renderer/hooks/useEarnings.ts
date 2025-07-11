@@ -10,7 +10,7 @@
 import { useMemo, useCallback } from 'react';
 import { useBaseData } from './useBaseData';
 import { BackendStatus, EarningsData, BaseHookReturn, FetchConfig } from './types';
-import { EarningsDataService } from '../services/dataServices';
+import { EarningsDataService } from '../services';
 
 /**
  * Earnings页面数据Hook
@@ -51,10 +51,8 @@ export function useEarnings(
     }
 
     try {
-      const response = await dataService.update({
-        currentBalance: baseHook.data.currentBalance,
-        claimInfo: baseHook.data.claimInfo
-      });
+      // 调用新的claimEarnings方法
+      const response = await (dataService as any).claimEarnings();
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to claim earnings');

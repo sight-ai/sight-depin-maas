@@ -10,7 +10,7 @@
 import { useMemo, useCallback } from 'react';
 import { useBaseData } from './useBaseData';
 import { BackendStatus, BaseHookReturn, FetchConfig, DIDManagementData } from './types';
-import { DIDManagementDataService } from '../services/dataServices';
+import { DIDManagementDataService } from '../services';
 
 /**
  * DID Management页面数据Hook

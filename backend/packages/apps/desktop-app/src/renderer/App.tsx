@@ -152,7 +152,7 @@ const App: React.FC = () => {
             } as React.CSSProperties}
           >
             <div className="relative z-10">
-              <div className="min-h-full">
+              <div className="responsive-container min-h-full py-4 lg:py-6">
                 {renderContent()}
               </div>
             </div>

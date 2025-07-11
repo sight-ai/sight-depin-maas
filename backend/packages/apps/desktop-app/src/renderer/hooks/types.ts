@@ -59,7 +59,7 @@ export interface IDataService<T> {
  * 状态管理抽象接口
  */
 export interface IStateManager<T> {
-  data: T | null;
+  data: T | any;
   loading: LoadingState;
   refresh(): Promise<void>;
   reset(): void;
@@ -80,10 +80,12 @@ export interface IErrorHandler {
  */
 export interface DashboardData {
   // 系统基础信息
-  systemStatus: string;
-  systemPort: string;
-  version: string;
-  uptime: string;
+  systemInfo: {
+    status: string;
+    port: string;
+    version: string;
+    uptime: string;
+  };
 
   // 收益统计
   earnings: {
@@ -94,12 +96,11 @@ export interface DashboardData {
   };
 
   // 系统资源指标
-  systemMetrics: {
-    cpu: number;
-    memory: number;
-    gpu: number;
-    temperature: number;
-    network: number;
+  systemResources: {
+    cpu: { usage: number; cores: number; model: string };
+    memory: { usage: number; total: number; used: number };
+    gpu: { usage: number; memory: number; temperature: number };
+    disk: { usage: number; total: number; used: number };
   };
 
   // 服务状态
@@ -110,6 +111,15 @@ export interface DashboardData {
     connections: number;
     icon?: string;
   }>;
+
+  // 最近活动记录
+  recentActivity: Array<{
+    id: string;
+    timestamp: string;
+    type: 'task' | 'system' | 'error';
+    message: string;
+    details?: string;
+  }>;
 }
 
 /**
@@ -119,15 +129,23 @@ export interface DeviceStatusData {
   deviceId: string;
   deviceName: string;
   status: 'registered' | 'unregistered' | 'pending';
-  gatewayConnection: {
-    connected: boolean;
-    latency: string;
-    lastPing: string;
+  lastSeen: string;
+  systemInfo: {
+    os: string;
+    cpu: string;
+    memory: string;
+    gpu: string;
   };
-  didInfo: {
-    did: string;
-    publicKey: string;
-    lastUpdated: string;
+  networkInfo: {
+    ipAddress: string;
+    port: number;
+    latency: number;
+  };
+  performance: {
+    cpuUsage: number;
+    memoryUsage: number;
+    gpuUsage: number;
+    diskUsage: number;
   };
 }
 
@@ -168,22 +186,28 @@ export interface DeviceRegistrationData {
  */
 export interface ModelConfigData {
   currentFramework: 'ollama' | 'vllm';
-  gpuStatus: {
-    name: string;
-    memory: {
-      total: number;
-      used: number;
-      free: number;
-    };
-    temperature: number;
-    utilization: number;
-  };
-  models: Array<{
+  availableModels: Array<{
     name: string;
     size: number;
-    status: 'available' | 'downloading' | 'error';
-    framework: string;
+    description: string;
+    tags: string[];
+    popularity: number;
   }>;
+  installedModels: Array<{
+    name: string;
+    size: number;
+    modified_at: string;
+    digest: string;
+    details: {
+      format: string;
+      family: string;
+      families: string[];
+      parameter_size: string;
+      quantization_level: string;
+    };
+  }>;
+  modelStatus: Record<string, 'ready' | 'downloading' | 'error'>;
+  downloadProgress: Record<string, number>;
 }
 
 /**
@@ -234,6 +258,25 @@ export interface GatewayConfigData {
     autoSelectBestGateway: boolean;
     dnsOverride: boolean;
   };
+
+  // 可用网关列表
+  availableGateways: Array<{
+    name: string;
+    url: string;
+    region: string;
+    latency: number;
+    status: 'online' | 'offline' | 'warning';
+    load: number;
+  }>;
+
+  // 连接历史
+  connectionHistory: Array<{
+    timestamp: string;
+    gateway: string;
+    status: 'connected' | 'disconnected';
+    latency: number;
+    duration: number;
+  }>;
 }
 
 /**
@@ -248,22 +291,6 @@ export interface CommunicationData {
     gatewayConnections: number;
   };
 
-  // Peer信息
-  peerInfo: {
-    peerId: string;
-    listeningAddress: string;
-  };
-
-  // 连接的Peers
-  connectedPeers: Array<{
-    id: string;
-    type: 'Gateway Node' | 'Peer Node' | 'Bootstrap Node';
-    name: string;
-    peerId: string;
-    status: 'connected' | 'unstable' | 'disconnected';
-    latency: number;
-  }>;
-
   // 网络配置
   networkConfig: {
     port: string;
@@ -271,6 +298,27 @@ export interface CommunicationData {
     enableDHT: boolean;
     enableRelay: boolean;
   };
+
+  // Peer连接
+  peerConnections: Array<{
+    peerId: string;
+    address: string;
+    status: 'connected' | 'disconnected';
+    latency: number;
+    lastSeen: string;
+    dataTransferred: number;
+  }>;
+
+  // 消息历史
+  messageHistory: Array<{
+    id: string;
+    timestamp: string;
+    type: string;
+    from: string;
+    to: string;
+    status: 'delivered' | 'pending' | 'failed';
+    size: number;
+  }>;
 }
 
 /**
@@ -280,29 +328,34 @@ export interface DIDManagementData {
   // DID信息
   didInfo: {
     did: string;
+    publicKey: string;
     controller: string;
     created: string;
+    updated: string;
     status: 'active' | 'inactive' | 'pending';
   };
+  data: any,
+  // 验证方法
+  verificationMethods: Array<{
+    id: string;
+    type: string;
+    controller: string;
+    publicKeyMultibase: string;
+  }>;
 
-  // DID操作
-  didOperations: {
-    canExportDocument: boolean;
-    canCopyDID: boolean;
-  };
+  // 服务
+  services: Array<{
+    id: string;
+    type: string;
+    serviceEndpoint: any;
+  }>;
 
-  // 网关设置
-  gatewaySettings: {
-    privateKey: string;
-    privateKeyVisible: boolean;
-    canExportPrivateKey: boolean;
-  };
-
-  // 验证状态
-  verificationStatus: {
-    didDocumentVerified: boolean;
-    controllerSignatureValid: boolean;
-    gatewayRegistered: boolean;
+  // 密钥管理
+  keyManagement: {
+    keyRotationEnabled: boolean;
+    lastRotation: string;
+    nextRotation: string;
+    backupStatus: string;
   };
 }
 
@@ -313,20 +366,57 @@ export interface SettingsData {
   // 通用设置
   generalSettings: {
     autoStartOnBoot: boolean;
-    systemTray: boolean;
-    silentMode: boolean;
+    minimizeToTray: boolean;
+    enableNotifications: boolean;
+    language: string;
+    theme: string;
+    autoUpdate: boolean;
   };
 
-  // 数据和隐私设置
-  dataPrivacySettings: {
-    dataDirectory: string;
-    logLevel: 'debug' | 'info' | 'warn' | 'error';
+  // 性能设置
+  performanceSettings: {
+    maxCpuUsage: number;
+    maxMemoryUsage: number;
+    maxGpuUsage: number;
+    enableGpuAcceleration: boolean;
+    modelCacheSize: number;
+    concurrentTasks: number;
+  };
+
+  // 网络设置
+  networkSettings: {
+    enableP2P: boolean;
+    p2pPort: number;
+    maxConnections: number;
+    enableUPnP: boolean;
+    bandwidthLimit: number;
+    enableProxy: boolean;
+    proxySettings: {
+      host: string;
+      port: number;
+      username: string;
+      password: string;
+    };
+  };
+
+  // 安全设置
+  securitySettings: {
+    enableEncryption: boolean;
+    requireAuthentication: boolean;
+    sessionTimeout: number;
+    enableLogging: boolean;
+    logLevel: string;
+    enableFirewall: boolean;
   };
 
   // 高级设置
   advancedSettings: {
-    canRestartService: boolean;
-    canResetSettings: boolean;
+    debugMode: boolean;
+    enableTelemetry: boolean;
+    customConfigPath: string;
+    enableExperimentalFeatures: boolean;
+    apiTimeout: number;
+    retryAttempts: number;
   };
 }
 
@@ -335,49 +425,53 @@ export interface SettingsData {
  */
 export interface ModelConfigurationData {
   // 当前模式
-  mode: 'local' | 'gateway' | 'benchmark';
+  mode: 'local' | 'cloud' | 'hybrid';
 
   // GPU状态
   gpuStatus: {
     name: string;
-    memoryUsed: number;
-    memoryTotal: number;
-    temperature: number;
+    memory: number;
     utilization: number;
-    memoryUtilization: number;
+    temperature: number;
+    powerDraw: number;
   };
 
-  // 当前选择的框架
-  currentFramework: 'ollama' | 'vllm';
-
-  // Ollama框架信息
-  ollama: {
-    version: string;
-    status: 'running' | 'stopped' | 'error';
-    modelsLoaded: number;
-    memoryUsage: number;
-    gpuUsage: number;
+  // 模型设置
+  modelSettings: {
+    defaultModel: string;
+    maxContextLength: number;
+    temperature: number;
+    topP: number;
+    topK: number;
+    repeatPenalty: number;
+    seed: number;
   };
 
-  // vLLM框架信息
-  vllm: {
-    version: string;
-    status: 'running' | 'stopped' | 'error';
-    modelsLoaded: number;
-    memoryUsage: number;
-    gpuUsage: number;
+  // 性能设置
+  performanceSettings: {
+    batchSize: number;
+    numThreads: number;
+    useGPU: boolean;
+    gpuLayers: number;
+    memoryMap: boolean;
+    lockMemory: boolean;
   };
 
-  // 模型列表（仅在vLLM状态下显示）
-  models?: Array<{
-    name: string;
-    size: string;
-    status: 'loaded' | 'loading' | 'unloaded' | 'error';
-    device: 'GPU' | 'CPU';
-    uptime: string;
-    errorRate: string;
-    selected: boolean;
-  }>;
+  // 资源限制
+  resourceLimits: {
+    maxMemoryUsage: number;
+    maxCpuUsage: number;
+    maxGpuUsage: number;
+    timeoutSeconds: number;
+  };
+
+  // 优化选项
+  optimizations: {
+    enableQuantization: boolean;
+    enableCaching: boolean;
+    enablePrefetch: boolean;
+    enableBatching: boolean;
+  };
 }
 
 

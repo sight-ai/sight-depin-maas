@@ -367,7 +367,7 @@ const DIDOperations: React.FC<{
  * Gateway Settings组件 - 严格按照Figma设计实现
  */
 const GatewaySettings: React.FC<{
-  privateKey: string;
+  privateKey: any;
   privateKeyVisible: boolean;
   onToggleVisibility: () => void;
   onExportPrivateKey: () => Promise<void>;

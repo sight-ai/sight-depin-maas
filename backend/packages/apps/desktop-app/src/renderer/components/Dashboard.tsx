@@ -63,9 +63,9 @@ const BasicInformation: React.FC<{
       </h2>
 
       {/* 系统信息输入框 - 按照Figma设计 */}
-      <div className="flex gap-11">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
         {/* SIGHTAI_SYSTEM_STATUS */}
-        <div className="w-80">
+        <div className="flex-1 min-w-0">
           <div className="relative">
             <div className="border border-gray-400 rounded-lg px-6 py-3 bg-white" style={{ borderRadius: '18px', borderColor: '#79747E', borderWidth: '1.5px' }}>
               <div className="text-base text-green-500 font-normal" style={{
@@ -102,7 +102,7 @@ const BasicInformation: React.FC<{
         </div>
 
         {/* Version */}
-        <div className="w-80">
+        <div className="flex-1 min-w-0">
           <div className="relative">
             <div className="border border-gray-400 rounded-lg px-6 py-3 bg-white" style={{ borderRadius: '18px', borderColor: '#79747E', borderWidth: '1.5px' }}>
               <div className="text-base text-gray-900 font-normal" style={{
@@ -128,7 +128,7 @@ const BasicInformation: React.FC<{
         </div>
 
         {/* Uptime */}
-        <div className="w-80">
+        <div className="flex-1 min-w-0">
           <div className="relative">
             <div className="border border-gray-400 rounded-lg px-6 py-3 bg-white" style={{ borderRadius: '18px', borderColor: '#79747E', borderWidth: '1.5px' }}>
               <div className="text-base text-gray-900 font-normal" style={{
@@ -155,9 +155,9 @@ const BasicInformation: React.FC<{
       </div>
 
       {/* 统计卡片 - 按照Figma设计 */}
-      <div className="flex gap-20">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
         {/* Task Completed */}
-        <div className="w-80 h-26 bg-white rounded-2xl flex items-center justify-center">
+        <div className="h-26 bg-white rounded-2xl flex items-center justify-center min-w-0">
           <div className="text-center">
             <div className="text-4xl font-normal text-gray-600 mb-1" style={{
               fontFamily: 'Aldrich',
@@ -181,7 +181,7 @@ const BasicInformation: React.FC<{
         </div>
 
         {/* Today Earnings */}
-        <div className="w-80 h-26 bg-white rounded-2xl flex items-center justify-center">
+        <div className="h-26 bg-white rounded-2xl flex items-center justify-center min-w-0">
           <div className="text-center">
             <div className="text-4xl font-normal text-gray-600 mb-1" style={{
               fontFamily: 'Aldrich',
@@ -205,7 +205,7 @@ const BasicInformation: React.FC<{
         </div>
 
         {/* Total Earnings */}
-        <div className="w-80 h-26 bg-white rounded-2xl flex items-center justify-center">
+        <div className="h-26 bg-white rounded-2xl flex items-center justify-center min-w-0">
           <div className="text-center">
             <div className="text-4xl font-normal text-gray-600 mb-1" style={{
               fontFamily: 'Aldrich',
@@ -279,11 +279,10 @@ const SystemResourcePerformance: React.FC<{
       </h2>
 
       {/* 系统指标网格 - 按照Figma设计 */}
-      <div className="flex justify-between gap-11">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         {/* CPU */}
-        <Card className="bg-white rounded-xl border-0 p-4 w-62" style={{
+        <Card className="bg-white rounded-xl border-0 p-4 min-w-0" style={{
           boxShadow: '0px 0px 24.8px 0px rgba(198, 198, 198, 0.51)',
-          width: '248px',
           borderRadius: '12px'
         }}>
           <CardContent className="p-0 space-y-2">
@@ -327,9 +326,8 @@ const SystemResourcePerformance: React.FC<{
         </Card>
 
         {/* Memory */}
-        <Card className="bg-white rounded-xl border-0 p-4 w-62" style={{
+        <Card className="bg-white rounded-xl border-0 p-4 min-w-0" style={{
           boxShadow: '0px 0px 24.8px 0px rgba(198, 198, 198, 0.51)',
-          width: '248px',
           borderRadius: '12px'
         }}>
           <CardContent className="p-0 space-y-2">
@@ -373,9 +371,8 @@ const SystemResourcePerformance: React.FC<{
         </Card>
 
         {/* GPU */}
-        <Card className="bg-white rounded-xl border-0 p-4 w-62" style={{
+        <Card className="bg-white rounded-xl border-0 p-4 min-w-0" style={{
           boxShadow: '0px 0px 24.8px 0px rgba(198, 198, 198, 0.51)',
-          width: '248px',
           borderRadius: '12px'
         }}>
           <CardContent className="p-0 space-y-2">
@@ -419,9 +416,8 @@ const SystemResourcePerformance: React.FC<{
         </Card>
 
         {/* Temperature */}
-        <Card className="bg-white rounded-xl border-0 p-4 w-62" style={{
+        <Card className="bg-white rounded-xl border-0 p-4 min-w-0" style={{
           boxShadow: '0px 0px 24.8px 0px rgba(198, 198, 198, 0.51)',
-          width: '248px',
           borderRadius: '12px'
         }}>
           <CardContent className="p-0 space-y-2">
@@ -478,9 +474,7 @@ const SystemResourcePerformance: React.FC<{
                 <div className="flex items-center justify-center gap-8 px-1.5 py-2">
                   <div className="flex items-center gap-3">
                     {/* 服务图标 */}
-                    <div className="w-8 h-8 bg-gray-200 rounded" style={{
-                      width: '32px',
-                      height: '32px',
+                    <div className="w-8 h-8 bg-gray-200 rounded flex-shrink-0" style={{
                       backgroundImage: service.icon ? `url(${service.icon})` : 'none',
                       backgroundSize: 'cover',
                       backgroundPosition: 'center'
@@ -584,10 +578,10 @@ export const CyberDashboard: React.FC<CyberDashboardProps> = ({ backendStatus })
       }}>
         <CardContent className="p-0">
           <BasicInformation
-            systemStatus={data?.systemStatus || 'OFFLINE'}
-            systemPort={data?.systemPort || '8761'}
-            version={data?.version || 'v0.9.3 Beta'}
-            uptime={data?.uptime || '0d 0h 0min'}
+            systemStatus={data?.systemInfo?.status || 'OFFLINE'}
+            systemPort={data?.systemInfo?.port || '8761'}
+            version={data?.systemInfo?.version || 'v0.9.3 Beta'}
+            uptime={data?.systemInfo?.uptime || '0d 0h 0min'}
             taskCompleted={data?.earnings?.tasks || 0}
             todayEarnings={data?.earnings?.today || 0}
             totalEarnings={data?.earnings?.total || 0}
@@ -599,10 +593,10 @@ export const CyberDashboard: React.FC<CyberDashboardProps> = ({ backendStatus })
       {/* System Resource Performance Section */}
       <div className="space-y-4">
         <SystemResourcePerformance
-          cpuUsage={data?.systemMetrics?.cpu || 0}
-          memoryUsage={data?.systemMetrics?.memory || 0}
-          gpuUsage={data?.systemMetrics?.gpu || 0}
-          temperatureUsage={data?.systemMetrics?.temperature || 0}
+          cpuUsage={data?.systemResources?.cpu?.usage || 0}
+          memoryUsage={data?.systemResources?.memory?.usage || 0}
+          gpuUsage={data?.systemResources?.gpu?.usage || 0}
+          temperatureUsage={data?.systemResources?.gpu?.temperature || 0}
           services={data?.services || [
             { name: 'Backend API', status: 'online', uptime: '24h+', connections: 1 },
             { name: 'Local Model Service', status: 'online', uptime: '12h+', connections: 2 },

@@ -10,7 +10,7 @@
 import { useMemo, useCallback } from 'react';
 import { useBaseData } from './useBaseData';
 import { BackendStatus, BaseHookReturn, FetchConfig, CommunicationData } from './types';
-import { CommunicationDataService } from '../services/dataServices';
+import { CommunicationDataService } from '../services';
 
 /**
  * Communication页面数据Hook

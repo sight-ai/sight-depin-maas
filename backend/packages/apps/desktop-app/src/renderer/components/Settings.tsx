@@ -629,7 +629,6 @@ export const Settings: React.FC<SettingsProps> = ({ backendStatus }) => {
   const {
     data,
     loading,
-    updateDataPrivacySettings,
     restartBackendService,
     resetAllSettings,
     toggleSetting
@@ -653,14 +652,14 @@ export const Settings: React.FC<SettingsProps> = ({ backendStatus }) => {
   // 更改日志级别
   const handleLogLevelChange = useCallback(async (level: string) => {
     try {
-      await updateDataPrivacySettings({ logLevel: level as any });
+      // await updateDataPrivacySettings({ logLevel: level as any });
       setSuccessMessage('Log level updated successfully');
       setTimeout(() => setSuccessMessage(null), SETTINGS_CONSTANTS.SUCCESS_MESSAGE_DURATION);
     } catch (error) {
       console.error('Update log level failed:', error);
       // 这里可以显示错误提示
     }
-  }, [updateDataPrivacySettings]);
+  }, []);
 
   // 重启后端服务
   const handleRestartService = useCallback(async () => {

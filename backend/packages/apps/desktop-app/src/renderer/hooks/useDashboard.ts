@@ -10,7 +10,7 @@
 import { useMemo } from 'react';
 import { useBaseData } from './useBaseData';
 import { BackendStatus, DashboardData, BaseHookReturn, FetchConfig } from './types';
-import { DashboardDataService } from '../services/dataServices';
+import { DashboardDataService } from '../services';
 
 /**
  * Dashboard页面数据Hook

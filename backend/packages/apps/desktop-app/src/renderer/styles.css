@@ -787,6 +787,65 @@
     100% { left: 100%; }
   }
 
+  /* 响应式布局工具类 */
+  .responsive-container {
+    width: 100%;
+    max-width: 1400px;
+    min-width: 320px;
+    margin: 0 auto;
+    padding: 0 1rem;
+  }
+
+  .responsive-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+
+  .responsive-flex {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .responsive-card {
+    flex: 1;
+    min-width: 280px;
+    max-width: 400px;
+  }
+
+  /* 响应式断点 */
+  @media (max-width: 640px) {
+    .responsive-container {
+      padding: 0 0.5rem;
+    }
+
+    .responsive-grid {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+
+    .responsive-card {
+      min-width: 100%;
+    }
+  }
+
+  @media (min-width: 641px) and (max-width: 1024px) {
+    .responsive-grid {
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+  }
+
+  @media (min-width: 1025px) {
+    .responsive-container {
+      padding: 0 2rem;
+    }
+
+    .responsive-grid {
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+  }
+
   /* Badge Status Variants */
   .cyber-badge.status-online {
     background: linear-gradient(135deg, #00ff88 0%, #00cc66 100%);

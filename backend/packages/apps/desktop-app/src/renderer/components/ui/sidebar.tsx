@@ -69,7 +69,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <div className={cn(
       "flex flex-col bg-white",
       className
-    )} style={{ width: '220px', height: '100vh' }}>
+    )} style={{ minWidth: '200px', maxWidth: '280px', width: '220px', height: '100vh' }}>
 
       {/* Sidebar Navigation Bar */}
       <div className="flex flex-col gap-4 px-4 pt-7 pb-1">
@@ -120,13 +120,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             SIGHT.AI
           </h1>
           <p
-            className="text-black text-left w-74 h-5.5"
+            className="text-black text-left truncate"
             style={{
               fontFamily: 'Menlo',
               fontWeight: 400,
               fontSize: '14px',
               lineHeight: '1.571em',
-              width: '296px',
+              maxWidth: '100%',
               height: '22px'
             }}
           >

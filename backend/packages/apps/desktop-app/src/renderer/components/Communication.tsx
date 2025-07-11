@@ -126,7 +126,9 @@ const ServiceControl: React.FC<{
       }}>
         {/* Service Status Card */}
         <div style={{
-          width: '315px',
+          minWidth: '280px',
+          maxWidth: '400px',
+          width: '100%',
           height: '103px',
           background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.04) 100%)',
           border: '1px solid',
@@ -345,8 +347,9 @@ const PeerInformationAndDeviceRegistration: React.FC<{
       display: 'flex',
       alignItems: 'center',
       alignSelf: 'stretch',
-      gap: '69px',
-      width: '519px'
+      gap: '2rem',
+      width: '100%',
+      maxWidth: '600px'
     }}>
       <div style={{
         display: 'flex',
@@ -436,7 +439,7 @@ const PeerInformationAndDeviceRegistration: React.FC<{
                   borderRadius: '8px',
                   cursor: 'pointer'
                 }}
-                onClick={() => onCopy(peerId)}
+                  onClick={() => onCopy(peerId)}
                 >
                   <Copy style={{
                     width: '14px',
@@ -596,14 +599,7 @@ const PeerInformationAndDeviceRegistration: React.FC<{
  * Connected Peers组件 - 严格按照Figma设计实现
  */
 const ConnectedPeers: React.FC<{
-  peers: Array<{
-    id: string;
-    type: string;
-    name: string;
-    peerId: string;
-    status: 'connected' | 'unstable' | 'disconnected';
-    latency: number;
-  }>;
+  peers: Array<any>;
   isLoading: boolean;
 }> = () => {
   return (
@@ -611,7 +607,8 @@ const ConnectedPeers: React.FC<{
       display: 'flex',
       flexDirection: 'column',
       gap: '24px',
-      width: '519px'
+      width: '100%',
+      maxWidth: '600px'
     }}>
       <div style={{
         display: 'flex',
@@ -1368,8 +1365,11 @@ export const Communication: React.FC<CommunicationProps> = ({ backendStatus }) =
     <div
       className="bg-white rounded-2xl shadow-lg relative m-3"
       style={{
-        width: '1225px',
-        height: '1050px',
+        width: '100%',
+        maxWidth: '1400px',
+        minWidth: '800px',
+        height: 'auto',
+        minHeight: '600px',
         borderRadius: '16px',
         padding: '27px 26px',
         boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)'
@@ -1395,20 +1395,19 @@ export const Communication: React.FC<CommunicationProps> = ({ backendStatus }) =
 
         <div className='flex justify-between'>
           {/* Peer Information and Device Registration */}
-        <PeerInformationAndDeviceRegistration
-          peerId={data?.peerInfo.peerId || 'ABC123DEF456'}
-          listeningAddress={data?.peerInfo.listeningAddress || '/ip4/0.0.0.0/tcp/4001'}
-          testMessage={testMessage}
-          onCopy={handleCopy}
-          onSendMessage={handleSendMessage}
-          onTestMessageChange={setTestMessage}
-        />
+          <PeerInformationAndDeviceRegistration
+            peerId={data?.peerConnections?.[0]?.peerId || 'ABC123DEF456'}
+            listeningAddress={data?.peerConnections?.[0]?.address || '/ip4/0.0.0.0/tcp/4001'}
+            testMessage={testMessage}
+            onCopy={handleCopy}
+            onSendMessage={handleSendMessage}
+            onTestMessageChange={setTestMessage}
+          />
 
-        {/* Connected Peers */}
-        <ConnectedPeers
-          peers={data?.connectedPeers || []}
-          isLoading={loading.isLoading}
-        />
+          {/* Connected Peers */}
+          <ConnectedPeers peers={data?.peerConnections || []}
+            isLoading={loading.isLoading}
+          />
         </div>
 
         {/* Network Configuration */}

@@ -10,7 +10,7 @@
 import { useMemo, useCallback } from 'react';
 import { useBaseData } from './useBaseData';
 import { BackendStatus, BaseHookReturn, FetchConfig, GatewayConfigData } from './types';
-import { GatewayConfigDataService } from '../services/dataServices';
+import { GatewayConfigDataService } from '../services';
 
 /**
  * Gateway Configuration页面数据Hook

@@ -29,7 +29,7 @@ import {
   GatewayConfigDataService,
   CommunicationDataService,
   SettingsDataService
-} from '../services/dataServices';
+} from '../services';
 
 /**
  * Dashboard页面数据Hook

@@ -10,7 +10,7 @@
 import { useMemo, useCallback } from 'react';
 import { useBaseData } from './useBaseData';
 import { BackendStatus, BaseHookReturn, FetchConfig, SettingsData } from './types';
-import { SettingsDataService } from '../services/dataServices';
+import { SettingsDataService } from '../services';
 
 /**
  * Settings页面数据Hook
@@ -25,10 +25,13 @@ export function useSettings(
 ): BaseHookReturn<SettingsData> & {
   // 扩展的设置特定方法
   updateGeneralSettings: (settings: Partial<SettingsData['generalSettings']>) => Promise<void>;
-  updateDataPrivacySettings: (settings: Partial<SettingsData['dataPrivacySettings']>) => Promise<void>;
+  updatePerformanceSettings: (settings: Partial<SettingsData['performanceSettings']>) => Promise<void>;
+  updateNetworkSettings: (settings: Partial<SettingsData['networkSettings']>) => Promise<void>;
+  updateSecuritySettings: (settings: Partial<SettingsData['securitySettings']>) => Promise<void>;
+  updateAdvancedSettings: (settings: Partial<SettingsData['advancedSettings']>) => Promise<void>;
   restartBackendService: () => Promise<void>;
   resetAllSettings: () => Promise<void>;
-  toggleSetting: (category: 'general' | 'dataPrivacy', setting: string, value: boolean) => Promise<void>;
+  toggleSetting: (category: 'general' | 'performance' | 'network' | 'security' | 'advanced', setting: string, value: boolean) => Promise<void>;
 } {
   // 创建数据服务实例
   const dataService = useMemo(() => {
@@ -70,8 +73,8 @@ export function useSettings(
     }
   }, [dataService, baseHook]);
 
-  // 更新数据隐私设置
-  const updateDataPrivacySettings = useCallback(async (settings: Partial<SettingsData['dataPrivacySettings']>): Promise<void> => {
+  // 更新性能设置
+  const updatePerformanceSettings = useCallback(async (settings: Partial<SettingsData['performanceSettings']>): Promise<void> => {
     if (!dataService || !baseHook.data) {
       throw new Error('Data service not available or no data');
     }
@@ -79,14 +82,92 @@ export function useSettings(
     try {
       const currentData = baseHook.data as SettingsData;
       const response = await dataService.update({
-        dataPrivacySettings: {
-          ...currentData.dataPrivacySettings,
+        performanceSettings: {
+          ...currentData.performanceSettings,
           ...settings
         }
       });
 
       if (!response.success) {
-        throw new Error(response.error || 'Failed to update data privacy settings');
+        throw new Error(response.error || 'Failed to update performance settings');
+      }
+
+      // 更新本地数据
+      await baseHook.refresh();
+    } catch (error) {
+      throw error instanceof Error ? error : new Error('Unknown error occurred');
+    }
+  }, [dataService, baseHook]);
+
+  // 更新网络设置
+  const updateNetworkSettings = useCallback(async (settings: Partial<SettingsData['networkSettings']>): Promise<void> => {
+    if (!dataService || !baseHook.data) {
+      throw new Error('Data service not available or no data');
+    }
+
+    try {
+      const currentData = baseHook.data as SettingsData;
+      const response = await dataService.update({
+        networkSettings: {
+          ...currentData.networkSettings,
+          ...settings
+        }
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to update network settings');
+      }
+
+      // 更新本地数据
+      await baseHook.refresh();
+    } catch (error) {
+      throw error instanceof Error ? error : new Error('Unknown error occurred');
+    }
+  }, [dataService, baseHook]);
+
+  // 更新安全设置
+  const updateSecuritySettings = useCallback(async (settings: Partial<SettingsData['securitySettings']>): Promise<void> => {
+    if (!dataService || !baseHook.data) {
+      throw new Error('Data service not available or no data');
+    }
+
+    try {
+      const currentData = baseHook.data as SettingsData;
+      const response = await dataService.update({
+        securitySettings: {
+          ...currentData.securitySettings,
+          ...settings
+        }
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to update security settings');
+      }
+
+      // 更新本地数据
+      await baseHook.refresh();
+    } catch (error) {
+      throw error instanceof Error ? error : new Error('Unknown error occurred');
+    }
+  }, [dataService, baseHook]);
+
+  // 更新高级设置
+  const updateAdvancedSettings = useCallback(async (settings: Partial<SettingsData['advancedSettings']>): Promise<void> => {
+    if (!dataService || !baseHook.data) {
+      throw new Error('Data service not available or no data');
+    }
+
+    try {
+      const currentData = baseHook.data as SettingsData;
+      const response = await dataService.update({
+        advancedSettings: {
+          ...currentData.advancedSettings,
+          ...settings
+        }
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to update advanced settings');
       }
 
       // 更新本地数据
@@ -155,19 +236,34 @@ export function useSettings(
   }, [dataService, baseHook]);
 
   // 切换设置开关
-  const toggleSetting = useCallback(async (category: 'general' | 'dataPrivacy', setting: string, value: boolean): Promise<void> => {
-    if (category === 'general') {
-      await updateGeneralSettings({ [setting]: value });
-    } else if (category === 'dataPrivacy') {
-      await updateDataPrivacySettings({ [setting]: value });
+  const toggleSetting = useCallback(async (category: 'general' | 'performance' | 'network' | 'security' | 'advanced', setting: string, value: boolean): Promise<void> => {
+    switch (category) {
+      case 'general':
+        await updateGeneralSettings({ [setting]: value });
+        break;
+      case 'performance':
+        await updatePerformanceSettings({ [setting]: value });
+        break;
+      case 'network':
+        await updateNetworkSettings({ [setting]: value });
+        break;
+      case 'security':
+        await updateSecuritySettings({ [setting]: value });
+        break;
+      case 'advanced':
+        await updateAdvancedSettings({ [setting]: value });
+        break;
     }
-  }, [updateGeneralSettings, updateDataPrivacySettings]);
+  }, [updateGeneralSettings, updatePerformanceSettings, updateNetworkSettings, updateSecuritySettings, updateAdvancedSettings]);
 
   return {
     ...baseHook,
     data: baseHook.data as SettingsData | null,
     updateGeneralSettings,
-    updateDataPrivacySettings,
+    updatePerformanceSettings,
+    updateNetworkSettings,
+    updateSecuritySettings,
+    updateAdvancedSettings,
     restartBackendService,
     resetAllSettings,
     toggleSetting
