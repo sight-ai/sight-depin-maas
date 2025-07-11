@@ -11,7 +11,7 @@ import { ApiResponse, CommunicationData } from '../../hooks/types';
 import { BaseDataService } from '../base/BaseDataService';
 
 /**
- * 通信数据服务 - 按照Figma设计实现
+ * 通信数据服务 
  */
 export class CommunicationDataService extends BaseDataService<CommunicationData> {
   async fetch(): Promise<ApiResponse<CommunicationData>> {
@@ -27,7 +27,7 @@ export class CommunicationDataService extends BaseDataService<CommunicationData>
         this.apiClient.getCurrentFramework()
       ]);
 
-      // 初始化通信数据 - 按照Figma设计
+      // 初始化通信数据 
       let communicationData: CommunicationData = {
         serviceStatus: {
           libp2pService: true,

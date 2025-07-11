@@ -1,5 +1,5 @@
 /**
- * Earnings页面组件 - 严格按照Figma设计实现
+ * Earnings页面组件 
  *
  * 遵循SOLID原则：
  * - 单一职责原则：UI组件只负责展示，业务逻辑由Hook处理
@@ -18,7 +18,7 @@ interface EarningsProps {
 }
 
 /**
- * Current Balance组件 - 按照Figma设计实现
+ * Current Balance组件 
  */
 const CurrentBalance: React.FC<{
   totalEarnings: number;
@@ -54,15 +54,14 @@ const CurrentBalance: React.FC<{
         Current Balance
       </h2>
 
-      <div className="flex justify-between gap-12" style={{ gap: '49px' }}>
+      <div className="flex w-full justify-between pr-7">
         {/* Total Earnings */}
         <div
-          className="rounded-2xl border"
+          className=" rounded-2xl border w-1/4"
           style={{
             background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.04) 100%)',
             borderImage: 'linear-gradient(90deg, #AAAAAA 0%, #FFFFFF 5.29%, #FFFFFF 94.03%, #AAAAAA 100%) 1',
             borderRadius: '16px',
-            width: '315px',
             height: '103px',
             boxShadow: '0px 0px 46.5px 0px rgba(242, 242, 242, 1)'
           }}
@@ -77,7 +76,7 @@ const CurrentBalance: React.FC<{
                 lineHeight: '24px',
                 letterSpacing: '1.67%',
                 color: '#49454F',
-                width: '141px',
+                // width: '141px',
                 height: '30px'
               }}
             >
@@ -92,7 +91,7 @@ const CurrentBalance: React.FC<{
                 lineHeight: '24px',
                 letterSpacing: '3.33%',
                 color: '#49454F',
-                width: '141px'
+                // width: '141px'
               }}
             >
               Total Earnings
@@ -102,12 +101,11 @@ const CurrentBalance: React.FC<{
 
         {/* Available to Claim */}
         <div
-          className="rounded-2xl border"
+          className="rounded-2xl border w-1/4"
           style={{
             background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.04) 100%)',
             borderImage: 'linear-gradient(90deg, #AAAAAA 0%, #FFFFFF 5.29%, #FFFFFF 94.03%, #AAAAAA 100%) 1',
             borderRadius: '16px',
-            width: '315px',
             height: '103px',
             boxShadow: '0px 0px 46.5px 0px rgba(242, 242, 242, 1)'
           }}
@@ -122,7 +120,7 @@ const CurrentBalance: React.FC<{
                 lineHeight: '24px',
                 letterSpacing: '1.67%',
                 color: '#49454F',
-                width: '141px',
+                // width: '141px',
                 height: '30px'
               }}
             >
@@ -146,12 +144,11 @@ const CurrentBalance: React.FC<{
 
         {/* Pending */}
         <div
-          className="rounded-2xl border"
+          className="w-1/4 rounded-2xl border"
           style={{
             background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.04) 100%)',
             borderImage: 'linear-gradient(90deg, #AAAAAA 0%, #FFFFFF 5.29%, #FFFFFF 94.03%, #AAAAAA 100%) 1',
             borderRadius: '16px',
-            width: '315px',
             height: '103px',
             boxShadow: '0px 0px 46.5px 0px rgba(242, 242, 242, 1)'
           }}
@@ -194,7 +191,7 @@ const CurrentBalance: React.FC<{
 };
 
 /**
- * Claim Earnings组件 - 按照Figma设计实现
+ * Claim Earnings组件 
  */
 const ClaimEarnings: React.FC<{
   walletAddress: string;
@@ -334,7 +331,7 @@ const ClaimEarnings: React.FC<{
 };
 
 /**
- * Earnings History组件 - 按照Figma设计实现
+ * Earnings History组件 
  */
 const EarningsHistory: React.FC<{
   history: Array<{
@@ -386,7 +383,7 @@ const EarningsHistory: React.FC<{
         Earnings History
       </h2>
 
-      <div style={{ width: '1081px' }}>
+      <div className="w-full overflow-x-auto">
         {/* 表格头部 */}
         <div
           className="flex justify-between items-center border-b"
@@ -398,7 +395,7 @@ const EarningsHistory: React.FC<{
             padding: '0px 12px'
           }}
         >
-          <div className="flex items-center" style={{ width: '1002px' }}>
+          <div className="flex items-center min-w-max">
             <div className="flex items-center gap-1 px-4 py-4" style={{
               width: '164px',
               height: '53px',
@@ -824,22 +821,16 @@ export const Earnings: React.FC<EarningsProps> = ({ backendStatus }) => {
 
   return (
     <div
-      className="bg-white rounded-2xl shadow-lg relative m-3"
+      className="bg-white rounded-2xl shadow-lg w-full max-w-7xl mx-auto sm:p-6 lg:p-8"
       style={{
-        width: '1225px',
-        height: '1050px',
         borderRadius: '16px',
-        padding: '27px 26px',
-        boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)'
+        padding: '16px 12px',
+        boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)',
+        minHeight: 'auto'
       }}
     >
       <div
-        className="flex flex-col items-center gap-12 p-14"
-        style={{
-          padding: '51px 54px',
-          gap: '48px',
-          width: '1129px'
-        }}
+        className="responsive-container space-y-6 lg:space-y-12 py-4 lg:py-8"
       >
         {/* Current Balance */}
         <div style={{ width: '1107px' }}>

@@ -148,4 +148,32 @@ export class DeviceStatusController {
     }
   }
 
+  @Get('/registration-info')
+  async getRegistrationInfo() {
+    try {
+      const registrationInfo = await this.deviceStatusService.getRegistrationInfo();
+
+      if (registrationInfo.success) {
+        return {
+          success: true,
+          data: registrationInfo.data,
+          timestamp: new Date().toISOString()
+        };
+      } else {
+        return {
+          success: false,
+          error: registrationInfo.error || 'Failed to get registration info',
+          timestamp: new Date().toISOString()
+        };
+      }
+    } catch (error) {
+      this.logger.error('Get registration info error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
 }

@@ -1,8 +1,9 @@
 /**
  * API 客户端工具
- * 
+ *
  * 提供统一的 API 调用接口，支持错误处理、超时控制和重试机制
  */
+
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -240,6 +241,13 @@ export class ApiClient {
    */
   async getDidInfo() {
     return this.get('/api/v1/device-status/did-info');
+  }
+
+  /**
+   * 获取注册信息
+   */
+  async getRegistrationInfo() {
+    return this.get('/api/v1/device-status/registration-info');
   }
 
   /**

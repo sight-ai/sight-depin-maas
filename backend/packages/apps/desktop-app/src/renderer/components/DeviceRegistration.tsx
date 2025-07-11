@@ -1,5 +1,5 @@
 /**
- * Device Registration页面组件 - 严格按照Figma设计实现
+ * Device Registration页面组件 
  *
  * 遵循SOLID原则：
  * - 单一职责原则：UI组件只负责展示，业务逻辑由Hook处理
@@ -7,7 +7,7 @@
  * - 接口隔离原则：使用专门的Hook接口
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import {
@@ -24,7 +24,7 @@ interface DeviceRegistrationProps {
 }
 
 /**
- * 设备注册状态组件 - 按照Figma设计实现
+ * 设备注册状态组件 
  */
 const DeviceRegistrationStatus: React.FC<{
   isCreated: boolean;
@@ -53,17 +53,15 @@ const DeviceRegistrationStatus: React.FC<{
         Device Registration Status
       </h2>
 
-      {/* 成功状态卡片 - 按照Figma设计 */}
+      {/* 成功状态卡片  */}
       <Card
-        className="border rounded-lg"
+        className="border rounded-lg w-full"
         style={{
           backgroundColor: '#E8FAEB',
           borderColor: '#ABDE9E',
           borderWidth: '1px',
           borderRadius: '8px',
-          padding: '8px 16px',
-          width: '1068px',
-          height: '57px'
+          padding: '8px 16px'
         }}
       >
         <CardContent className="p-0 flex flex-col gap-1">
@@ -106,7 +104,7 @@ const DeviceRegistrationStatus: React.FC<{
         </CardContent>
       </Card>
 
-      {/* 设备信息列表 - 按照Figma设计 */}
+      {/* 设备信息列表  */}
       <div className="space-y-6" style={{ marginTop: '24px' }}>
         {/* Device ID */}
         <div className="space-y-2">
@@ -120,13 +118,11 @@ const DeviceRegistrationStatus: React.FC<{
             Device ID
           </h3>
           <div
-            className="flex items-center justify-between bg-gray-50 rounded-lg p-2.5"
+            className="flex items-center justify-between bg-gray-50 rounded-lg p-2.5 w-full"
             style={{
               backgroundColor: '#F9F9F9',
               borderRadius: '8px',
-              padding: '10px',
-              width: '1068px',
-              height: '40px'
+              padding: '10px'
             }}
           >
             <span
@@ -300,8 +296,9 @@ const DeviceRegistrationStatus: React.FC<{
   );
 };
 
+
 /**
- * 设备注册表单组件 - 按照Figma设计实现
+ * 设备注册表单组件 
  */
 const DeviceRegistrationForm: React.FC<{
   formData: {
@@ -330,12 +327,12 @@ const DeviceRegistrationForm: React.FC<{
         fontWeight: 500,
         lineHeight: '28.8px',
         letterSpacing: '-2%',
-        width: '480px'
+        // width: '480px'
       }}>
         Device Registration
       </h2>
 
-      {/* 表单字段 - 按照Figma设计 */}
+      {/* 表单字段  */}
       <div className="space-y-6" style={{ marginTop: '24px' }}>
         {/* Registration Code */}
         <div className="space-y-2">
@@ -344,7 +341,7 @@ const DeviceRegistrationForm: React.FC<{
             fontSize: '16px',
             fontWeight: 600,
             lineHeight: '19.36px',
-            width: '480px'
+            // width: '480px'
           }}>
             Registration Code *
           </h3>
@@ -355,7 +352,7 @@ const DeviceRegistrationForm: React.FC<{
               borderRadius: '8px',
               padding: '10px',
               borderWidth: '1px',
-              width: '1068px',
+              // width: '1068px',
               height: '40px'
             }}
           >
@@ -386,7 +383,7 @@ const DeviceRegistrationForm: React.FC<{
             fontSize: '16px',
             fontWeight: 600,
             lineHeight: '19.36px',
-            width: '480px'
+            // width: '480px'
           }}>
             Gateway Address *
           </h3>
@@ -397,7 +394,7 @@ const DeviceRegistrationForm: React.FC<{
               borderRadius: '8px',
               padding: '10px',
               borderWidth: '1px',
-              width: '1068px',
+              // width: '1068px',
               height: '40px'
             }}
           >
@@ -428,7 +425,7 @@ const DeviceRegistrationForm: React.FC<{
             fontSize: '16px',
             fontWeight: 600,
             lineHeight: '19.36px',
-            width: '480px'
+            // width: '480px'
           }}>
             Reward Address *
           </h3>
@@ -439,7 +436,7 @@ const DeviceRegistrationForm: React.FC<{
               borderRadius: '8px',
               padding: '10px',
               borderWidth: '1px',
-              width: '1068px',
+              // width: '1068px',
               height: '40px'
             }}
           >
@@ -464,7 +461,7 @@ const DeviceRegistrationForm: React.FC<{
         </div>
       </div>
 
-      {/* 按钮组 - 按照Figma设计 */}
+      {/* 按钮组  */}
       <div className="flex justify-end" style={{ marginTop: '24px' }}>
         <div className="flex gap-4" style={{ width: '240px' }}>
           <Button
@@ -577,12 +574,12 @@ const DeviceRegistrationForm: React.FC<{
  */
 export const DeviceRegistration: React.FC<DeviceRegistrationProps> = ({ backendStatus }) => {
   // 使用专用Device Registration Hook获取数据 - 依赖倒置原则
-  const { data, loading, registerDevice, validateForm, copyToClipboard, resetForm } = useDeviceRegistration(backendStatus);
+  const { data, loading, registerDevice, validateForm, copyToClipboard, resetForm, refresh, getRegistrationInfo } = useDeviceRegistration(backendStatus);
 
   // 本地表单状态
   const [formData, setFormData] = useState({
     registrationCode: '',
-    gatewayAddress: DEVICE_REGISTRATION_CONSTANTS.DEFAULT_GATEWAY,
+    gatewayAddress: '',
     rewardAddress: ''
   });
 
@@ -595,31 +592,114 @@ export const DeviceRegistration: React.FC<DeviceRegistrationProps> = ({ backendS
   // 复制成功状态
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
 
+  // 注册成功状态
+  const [registrationSuccess, setRegistrationSuccess] = useState<any | null>(null);
+
+  // 注册信息状态
+  const [registrationInfo, setRegistrationInfo] = useState<any>({
+    deviceId: '',
+    deviceName: '',
+    gatewayAddress: '',
+    rewardAddress: '',
+    code: ''
+  });
+  const [registrationInfoLoading, setRegistrationInfoLoading] = useState(false);
+
+  // 获取注册信息
+  const handleGetRegistrationInfo = useCallback(async () => {
+    if (!getRegistrationInfo) return;
+
+    setRegistrationInfoLoading(true);
+    try {
+      const result = await getRegistrationInfo();
+      if(result.success) {
+        setRegistrationInfo(result.data);
+        setFormData({...result.data, registrationCode: result.data.code});
+      }
+      console.log('Registration info loaded:', result);
+    } catch (error) {
+      console.error('Failed to get registration info:', error);
+      setRegistrationInfo(null);
+    } finally {
+      setRegistrationInfoLoading(false);
+    }
+  }, []);
+
+  // 组件初始化时获取注册信息
+  useEffect(() => {
+    handleGetRegistrationInfo();
+  }, []);
+
   // 表单字段变化处理
   const handleFormChange = useCallback((field: string, value: string) => {
     const newFormData = { ...formData, [field]: value };
     setFormData(newFormData);
-    
+
     // 实时验证
     const newValidation = validateForm(newFormData);
     setValidation(newValidation);
   }, [formData, validateForm]);
 
+  // 监听注册状态变化，实现数据回显
+  useEffect(() => {
+    if (data?.registrationStatus.isCreated) {
+      console.log('Device registration status updated:', data.registrationStatus);
+
+      // 如果设备已注册，将注册信息回显到表单中
+      if (data.registrationStatus.deviceId) {
+        console.log('Updating form with registered device data:', {
+          gateway: data.registrationStatus.gateway,
+          rewardAddress: data.registrationStatus.rewardAddress
+        });
+
+        // 更新表单数据以反映已注册的设备信息
+        setFormData(prev => ({
+          ...prev,
+          gatewayAddress: data.registrationStatus.gateway || prev.gatewayAddress,
+          rewardAddress: data.registrationStatus.rewardAddress || prev.rewardAddress
+        }));
+      }
+    }
+  }, [data?.registrationStatus.isCreated, data?.registrationStatus.deviceId, data?.registrationStatus.gateway, data?.registrationStatus.rewardAddress]);
+
   // 提交注册
   const handleSubmit = useCallback(async () => {
     try {
-      await registerDevice(formData);
-      // 注册成功后重置表单
-      setFormData({
-        registrationCode: '',
-        gatewayAddress: DEVICE_REGISTRATION_CONSTANTS.DEFAULT_GATEWAY,
-        rewardAddress: ''
-      });
+      console.log('Starting device registration with form data:', formData);
+
+      const result = await registerDevice(formData);
+
+      // 保存注册成功的结果
+      setRegistrationSuccess(result);
+      console.log('Registration result saved to state:', result);
+
+      // 注册成功后刷新数据以获取最新状态（触发数据回显）
+      console.log('Refreshing data to get updated device status...');
+      await refresh();
+
+      // 刷新注册信息
+      await handleGetRegistrationInfo();
+
+      // 显示成功消息
+      console.log('Registration successful, data refreshed');
+
+      // 清除成功状态（3秒后）
+      setTimeout(() => {
+        console.log('Clearing registration success notification');
+        setRegistrationSuccess(null);
+      }, 3000);
+
+      // 注册成功后不重置表单，让用户看到注册状态
+      // 表单会根据 data?.registrationStatus.isCreated 状态自动隐藏
+      // 数据回显会在useEffect中处理
     } catch (error) {
       console.error('Registration failed:', error);
+      // 清除任何之前的成功状态
+      setRegistrationSuccess(null);
       // 这里可以显示错误提示
+      // 可以添加错误状态管理来显示用户友好的错误消息
     }
-  }, [formData, registerDevice]);
+  }, [formData, registerDevice, refresh]);
 
   // 取消操作
   const handleCancel = useCallback(() => {
@@ -664,44 +744,61 @@ export const DeviceRegistration: React.FC<DeviceRegistrationProps> = ({ backendS
 
   return (
     <div
-      className="bg-white rounded-2xl shadow-lg relative m-3"
+      className="bg-white rounded-2xl shadow-lg w-full max-w-7xl mx-auto sm:p-6 lg:p-8"
       style={{
-        width: '1225px',
-        minHeight: '1250px',
         borderRadius: '16px',
-        padding: '27px 26px',
-        boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)'
+        padding: '16px 12px',
+        boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)',
+        minHeight: 'auto'
       }}
     >
       {/* Device Registration Status - 按照Figma位置 */}
       {data?.registrationStatus.isCreated && (
-        <div style={{
-          position: 'absolute',
-          left: '84px',
-          top: '39px',
-          width: '1068px',
-          minHeight: '500px'
-        }}>
+        <div className="responsive-container space-y-6 lg:space-y-8">
           <DeviceRegistrationStatus
             isCreated={data.registrationStatus.isCreated}
-            deviceId={data.registrationStatus.deviceId}
-            deviceName={data.registrationStatus.deviceName}
-            gateway={data.registrationStatus.gateway}
-            rewardAddress={data.registrationStatus.rewardAddress}
-            message={data.registrationStatus.message}
+            deviceId={registrationInfo.deviceId}
+            deviceName={registrationInfo.deviceName}
+            gateway={registrationInfo.gatewayAddress}
+            rewardAddress={registrationInfo.rewardAddress}
+            message={registrationInfo.message}
             onCopy={handleCopy}
           />
         </div>
       )}
 
+      {/* 注册成功提示 */}
+      {registrationSuccess && (
+        <div className="responsive-container">
+          <div className="bg-green-100 border border-green-300 rounded-lg p-4 w-full" style={{
+            borderColor: '#ABDE9E',
+            borderWidth: '1px',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            backgroundColor: '#E8FAEB'
+          }}>
+            <div className="flex items-center gap-3">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              <div>
+                <h3 className="text-sm font-medium text-green-800">
+                  Registration Successful!
+                </h3>
+                <p className="text-sm text-green-700 mt-1">
+                  {registrationSuccess.message || 'Device has been registered successfully.'}
+                </p>
+                {registrationSuccess.deviceId && (
+                  <p className="text-xs text-green-600 mt-1 font-mono">
+                    Device ID: {registrationSuccess.deviceId}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Device Registration Form - 按照Figma位置 */}
-      <div style={{
-        position: 'absolute',
-        left: '84px',
-        top: data?.registrationStatus.isCreated ? '539px' : '39px',
-        width: '1068px',
-        minHeight: '480px'
-      }}>
+      <div className="responsive-container space-y-6 lg:space-y-8 mt-6">
         <DeviceRegistrationForm
           formData={formData}
           validation={validation}

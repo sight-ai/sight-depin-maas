@@ -11,12 +11,12 @@ import { ApiResponse, DIDManagementData } from '../../hooks/types';
 import { BaseDataService } from '../base/BaseDataService';
 
 /**
- * DID管理数据服务 - 按照Figma设计实现
+ * DID管理数据服务 
  */
 export class DIDManagementDataService extends BaseDataService<DIDManagementData> {
   async fetch(): Promise<ApiResponse<DIDManagementData>> {
     try {
-      // 初始化DID管理数据 - 按照Figma设计（使用模拟数据）
+      // 初始化DID管理数据 （使用模拟数据）
       const didManagementData: DIDManagementData = this.getDefaultDIDManagementData();
 
       return this.createSuccessResponse(didManagementData);

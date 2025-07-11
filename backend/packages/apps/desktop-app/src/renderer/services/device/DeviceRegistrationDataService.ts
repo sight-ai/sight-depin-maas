@@ -11,7 +11,7 @@ import { ApiResponse, DeviceRegistrationData } from '../../hooks/types';
 import { BaseDataService } from '../base/BaseDataService';
 
 /**
- * 设备注册数据服务 - 按照Figma设计实现
+ * 设备注册数据服务 
  */
 export class DeviceRegistrationDataService extends BaseDataService<DeviceRegistrationData> {
   async fetch(): Promise<ApiResponse<DeviceRegistrationData>> {
@@ -62,8 +62,8 @@ export class DeviceRegistrationDataService extends BaseDataService<DeviceRegistr
         if (did && did.deviceId) {
           // 更新设备ID和设备名称
           registrationData.registrationStatus.deviceId = did.deviceId;
-          registrationData.registrationStatus.deviceName = `Device-${did.deviceId.slice(-8)}`;
-          
+          registrationData.registrationStatus.deviceName = did.deviceName || `SightAI Device`;
+
           // 如果设备已注册，设置网关地址和奖励地址
           if (registrationData.registrationStatus.isCreated) {
             registrationData.registrationStatus.gateway = 'https://sightai.io/api/model';
@@ -71,6 +71,14 @@ export class DeviceRegistrationDataService extends BaseDataService<DeviceRegistr
             registrationData.registrationStatus.rewardAddress = '0xE082F4146B7F7475F309A5108B3819CAA6435510';
           }
         }
+      }
+
+      // 检查是否有设备ID但没有注册状态（可能是刚注册成功的情况）
+      if (registrationData.registrationStatus.deviceId && !registrationData.registrationStatus.isCreated) {
+        // 如果有设备ID，说明设备已经存在，应该标记为已创建
+        registrationData.registrationStatus.isCreated = true;
+        registrationData.registrationStatus.message = 'Registration successful, starting heartbeat';
+        registrationData.registrationStatus.gateway = 'https://sightai.io/api/model';
       }
 
       return this.createSuccessResponse(registrationData);
@@ -98,6 +106,14 @@ export class DeviceRegistrationDataService extends BaseDataService<DeviceRegistr
         basePath: '/api/model' // 默认基础路径
       });
 
+      // 如果注册成功，记录成功信息
+      if (response.success && response.data) {
+        console.log('Device registration successful:', response.data);
+
+        // 可以在这里处理成功响应的特定逻辑
+        // 例如：更新本地缓存、触发状态更新等
+      }
+
       return response;
     } catch (error) {
       return this.createErrorResponse(
@@ -120,6 +136,47 @@ export class DeviceRegistrationDataService extends BaseDataService<DeviceRegistr
     } catch (error) {
       return this.createErrorResponse(
         error instanceof Error ? error.message : 'Failed to update DID'
+      );
+    }
+  }
+
+  /**
+   * 获取注册信息
+   */
+  async getRegistrationInfo(): Promise<ApiResponse<{
+    deviceId: string;
+    deviceName: string;
+    gatewayAddress: string;
+    rewardAddress: string;
+    code: string;
+    isRegistered: boolean;
+    registrationStatus: string;
+    registrationError?: string;
+    lastRegistrationAttempt?: string;
+    timestamp?: string;
+    reportedModels?: string[];
+    basePath?: string;
+    didDoc?: any;
+    systemInfo?: {
+      os: string;
+      cpu: string;
+      memory: string;
+      graphics: any[];
+      ipAddress?: string;
+      deviceType?: string;
+      deviceModel?: string;
+    };
+  } | any>> {
+    if (!this.apiClient) {
+      return this.createErrorResponse('API client not available');
+    }
+
+    try {
+      const response = await this.apiClient.getRegistrationInfo();
+      return response;
+    } catch (error) {
+      return this.createErrorResponse(
+        error instanceof Error ? error.message : 'Failed to get registration info'
       );
     }
   }

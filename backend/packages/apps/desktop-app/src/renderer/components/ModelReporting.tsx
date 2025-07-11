@@ -204,13 +204,12 @@ export const ModelReporting: React.FC = () => {
 
   return (
     <div
-      className="bg-white rounded-2xl shadow-lg relative m-3"
+      className="bg-white rounded-2xl shadow-lg relative m-3 w-full max-w-7xl mx-auto sm:p-6 lg:p-8"
       style={{
-        width: '1225px',
-        height: '1050px',
         borderRadius: '16px',
-        padding: '27px 26px',
-        boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)'
+        padding: '16px 12px',
+        boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)',
+        minHeight: 'auto'
       }}
     >
       <div className='space-y-6'>
@@ -248,7 +247,7 @@ export const ModelReporting: React.FC = () => {
               }}
             >
               {/* GPU Name */}
-              <div style={{ width: '194px' }}>
+              <div className="flex-1 min-w-0">
                 <div
                   style={{
                     fontFamily: 'Inter',

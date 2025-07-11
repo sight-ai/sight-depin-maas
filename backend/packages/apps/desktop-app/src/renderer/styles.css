@@ -799,7 +799,7 @@
   .responsive-grid {
     display: grid;
     gap: 1rem;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   }
 
   .responsive-flex {
@@ -810,8 +810,173 @@
 
   .responsive-card {
     flex: 1;
-    min-width: 280px;
-    max-width: 400px;
+    margin: 0 10px;
+    /* min-width: 280px; */
+    /* max-width: 400px; */
+  }
+
+  /* 增强的响应式工具类 */
+  .responsive-grid-auto {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
+
+  .responsive-grid-2 {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+
+  .responsive-grid-3 {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+
+  .responsive-grid-4 {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
+
+  /* 响应式间距工具类 */
+  .responsive-spacing-sm {
+    padding: 0.5rem;
+  }
+
+  .responsive-spacing-md {
+    padding: 1rem;
+  }
+
+  .responsive-spacing-lg {
+    padding: 1.5rem;
+  }
+
+  /* 响应式文本工具类 */
+  .responsive-text-xs {
+    font-size: 0.75rem;
+  }
+
+  .responsive-text-sm {
+    font-size: 0.875rem;
+  }
+
+  .responsive-text-base {
+    font-size: 1rem;
+  }
+
+  .responsive-text-lg {
+    font-size: 1.125rem;
+  }
+
+  .responsive-text-xl {
+    font-size: 1.25rem;
+  }
+
+  .responsive-text-2xl {
+    font-size: 1.5rem;
+  }
+
+  /* 响应式断点媒体查询 */
+  @media (min-width: 640px) {
+    .responsive-container {
+      padding: 0 1.5rem;
+    }
+
+    .responsive-grid {
+      gap: 1.5rem;
+    }
+
+    .responsive-spacing-sm {
+      padding: 1rem;
+    }
+
+    .responsive-spacing-md {
+      padding: 1.5rem;
+    }
+
+    .responsive-spacing-lg {
+      padding: 2rem;
+    }
+
+    .responsive-text-xs {
+      font-size: 0.875rem;
+    }
+
+    .responsive-text-sm {
+      font-size: 1rem;
+    }
+
+    .responsive-text-base {
+      font-size: 1.125rem;
+    }
+
+    .responsive-text-lg {
+      font-size: 1.25rem;
+    }
+
+    .responsive-text-xl {
+      font-size: 1.5rem;
+    }
+
+    .responsive-text-2xl {
+      font-size: 1.75rem;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .responsive-container {
+      padding: 0 2rem;
+    }
+
+    .responsive-grid {
+      gap: 2rem;
+    }
+
+    .responsive-grid-2 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .responsive-grid-3 {
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+
+    .responsive-grid-4 {
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .responsive-container {
+      padding: 0 2.5rem;
+    }
+
+    .responsive-grid {
+      gap: 2.5rem;
+    }
+
+    .responsive-grid-3 {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .responsive-grid-4 {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .responsive-spacing-lg {
+      padding: 3rem;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .responsive-container {
+      padding: 0 3rem;
+    }
+
+    .responsive-grid {
+      gap: 3rem;
+    }
   }
 
   /* 响应式断点 */
@@ -832,7 +997,7 @@
 
   @media (min-width: 641px) and (max-width: 1024px) {
     .responsive-grid {
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     }
   }
 
@@ -842,7 +1007,7 @@
     }
 
     .responsive-grid {
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     }
   }
 

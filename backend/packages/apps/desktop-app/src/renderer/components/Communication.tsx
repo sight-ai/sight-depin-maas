@@ -1,5 +1,5 @@
 /**
- * Communication页面组件 - 严格按照Figma设计实现
+ * Communication页面组件 
  *
  * 遵循SOLID原则：
  * - 单一职责原则：UI组件只负责展示，业务逻辑由Hook处理
@@ -17,7 +17,7 @@ interface CommunicationProps {
 }
 
 /**
- * Service Control组件 - 严格按照Figma设计实现
+ * Service Control组件 
  */
 const ServiceControl: React.FC<{
   libp2pService: boolean;
@@ -27,44 +27,15 @@ const ServiceControl: React.FC<{
   onToggle: () => Promise<void>;
 }> = ({ libp2pService, availableToClaim, gatewayConnections, isLoading, onToggle }) => {
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignSelf: 'stretch',
-      gap: '17px'
-    }}>
+    <div className="space-y-4 lg:space-y-6">
       {/* Header with title and switch */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignSelf: 'stretch',
-        gap: '744px'
-      }}>
-        <h2 style={{
-          fontFamily: 'Inter',
-          fontWeight: 500,
-          fontSize: '24px',
-          lineHeight: '1.2em',
-          letterSpacing: '-2%',
-          color: '#000000'
-        }}>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <h2 className="text-xl lg:text-2xl font-medium text-black">
           Service Control
         </h2>
 
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px'
-        }}>
-          <span style={{
-            fontFamily: 'Roboto',
-            fontWeight: 400,
-            fontSize: '17px',
-            lineHeight: '1.33em',
-            letterSpacing: '3.33%',
-            color: '#49454F',
-            textAlign: 'center'
-          }}>
+        <div className="flex items-center gap-3">
+          <span className="text-sm lg:text-base text-gray-600">
             LibP2P Service
           </span>
 
@@ -117,18 +88,9 @@ const ServiceControl: React.FC<{
       </div>
 
       {/* Status Cards */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        alignSelf: 'stretch',
-        gap: '49px'
-      }}>
+      <div className="responsive-grid">
         {/* Service Status Card */}
-        <div style={{
-          minWidth: '280px',
-          maxWidth: '400px',
-          width: '100%',
+        <div className="responsive-card" style={{
           height: '103px',
           background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.04) 100%)',
           border: '1px solid',
@@ -206,8 +168,7 @@ const ServiceControl: React.FC<{
         </div>
 
         {/* Available to claim Card */}
-        <div style={{
-          width: '315px',
+        <div className="responsive-card" style={{
           height: '103px',
           background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.04) 100%)',
           border: '1px solid',
@@ -268,8 +229,7 @@ const ServiceControl: React.FC<{
         </div>
 
         {/* Gateway Connections Card */}
-        <div style={{
-          width: '315px',
+        <div className="responsive-card" style={{
           height: '103px',
           background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.04) 100%)',
           border: '1px solid',
@@ -332,7 +292,7 @@ const ServiceControl: React.FC<{
 };
 
 /**
- * Peer Information和Device Registration组件 - 严格按照Figma设计实现
+ * Peer Information和Device Registration组件 
  */
 const PeerInformationAndDeviceRegistration: React.FC<{
   peerId: string;
@@ -343,20 +303,8 @@ const PeerInformationAndDeviceRegistration: React.FC<{
   onTestMessageChange: (message: string) => void;
 }> = ({ peerId, listeningAddress, testMessage, onCopy, onSendMessage, onTestMessageChange }) => {
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      alignSelf: 'stretch',
-      gap: '2rem',
-      width: '100%',
-      maxWidth: '600px'
-    }}>
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '46px',
-        width: '519px'
-      }}>
+    <div className="w-full space-y-6 lg:space-y-8">
+      <div className="space-y-6 lg:space-y-12">
         {/* Peer Information Section */}
         <div style={{
           display: 'flex',
@@ -390,44 +338,13 @@ const PeerInformationAndDeviceRegistration: React.FC<{
             width: '519px'
           }}>
             {/* Peer ID Row */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              alignSelf: 'stretch',
-              gap: '16px',
-              padding: '4px 8px',
-              borderRadius: '12px'
-            }}>
-              <span style={{
-                fontFamily: 'Roboto',
-                fontWeight: 400,
-                fontSize: '18px',
-                lineHeight: '1.33em',
-                letterSpacing: '3.33%',
-                color: '#49454F',
-                width: '141px'
-              }}>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-2 rounded-lg">
+              <span className="text-sm lg:text-base text-gray-600 font-medium min-w-0 sm:w-32">
                 Peer ID
               </span>
 
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '10px',
-                width: '238px',
-                backgroundColor: '#F9F9F9',
-                borderRadius: '8px'
-              }}>
-                <span style={{
-                  fontFamily: 'Menlo',
-                  fontWeight: 400,
-                  fontSize: '15px',
-                  lineHeight: '1.16em',
-                  color: '#000000'
-                }}>
+              <div className="flex justify-between items-center gap-2 p-2 lg:p-3 bg-gray-50 rounded-lg flex-1 sm:max-w-xs">
+                <span className="text-xs lg:text-sm font-mono text-gray-900 truncate flex-1">
                   {peerId}
                 </span>
 
@@ -478,7 +395,7 @@ const PeerInformationAndDeviceRegistration: React.FC<{
                 alignItems: 'center',
                 gap: '10px',
                 padding: '10px',
-                width: '238px',
+                width: '300px',
                 backgroundColor: '#F9F9F9',
                 borderRadius: '8px'
               }}>
@@ -596,7 +513,7 @@ const PeerInformationAndDeviceRegistration: React.FC<{
 };
 
 /**
- * Connected Peers组件 - 严格按照Figma设计实现
+ * Connected Peers组件 
  */
 const ConnectedPeers: React.FC<{
   peers: Array<any>;
@@ -948,7 +865,7 @@ const ConnectedPeers: React.FC<{
 };
 
 /**
- * Network Configuration组件 - 严格按照Figma设计实现
+ * Network Configuration组件 
  */
 const NetworkConfiguration: React.FC<{
   port: string;
@@ -1287,7 +1204,7 @@ const NetworkConfiguration: React.FC<{
 };
 
 /**
- * 主Communication组件 - 严格按照Figma设计实现
+ * 主Communication组件 
  */
 export const Communication: React.FC<CommunicationProps> = ({ backendStatus }) => {
   // 使用专用Communication Hook获取数据 - 依赖倒置原则
@@ -1363,26 +1280,18 @@ export const Communication: React.FC<CommunicationProps> = ({ backendStatus }) =
 
   return (
     <div
-      className="bg-white rounded-2xl shadow-lg relative m-3"
+      className="bg-white rounded-2xl shadow-lg w-full max-w-7xl mx-auto"
       style={{
-        width: '100%',
-        maxWidth: '1400px',
-        minWidth: '800px',
-        height: 'auto',
-        minHeight: '600px',
         borderRadius: '16px',
-        padding: '27px 26px',
-        boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)'
+        padding: '16px 12px',
+        boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)',
+        minHeight: 'auto'
       }}
     >
-      <div className='' style={{
+      <div className="responsive-container space-y-6 lg:space-y-12 py-4 lg:py-8" style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: '48px',
-        width: '1107px',
-        position: 'relative',
-        left: '64px',
-        top: '65px'
+        width: '100%'
       }}>
         {/* Service Control */}
         <ServiceControl
@@ -1393,7 +1302,7 @@ export const Communication: React.FC<CommunicationProps> = ({ backendStatus }) =
           onToggle={handleToggleService}
         />
 
-        <div className='flex justify-between'>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
           {/* Peer Information and Device Registration */}
           <PeerInformationAndDeviceRegistration
             peerId={data?.peerConnections?.[0]?.peerId || 'ABC123DEF456'}

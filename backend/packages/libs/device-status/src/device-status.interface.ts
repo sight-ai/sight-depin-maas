@@ -142,6 +142,7 @@ export interface TDeviceStatusService {
 export abstract class DeviceStatusService implements TDeviceStatusService {
   abstract register(credentials: DeviceCredentials): Promise<RegistrationResponse>;
   abstract getDeviceStatus(deviceId: string): Promise<DeviceStatusData | null>;
+  abstract getRegistrationInfo(): Promise<any>;
   abstract updateDeviceStatus(deviceId: string, name: string, status: DeviceStatus, rewardAddress: string): Promise<DeviceStatusData>;
   abstract markInactiveDevicesOffline(inactiveDuration: number): Promise<DeviceStatusData[]>;
   abstract getDeviceList(): Promise<DeviceListItem[]>;

@@ -1,5 +1,5 @@
 /**
- * Dashboard页面组件 - 严格按照Figma设计实现
+ * Dashboard页面组件 
  *
  * 遵循SOLID原则：
  * - 单一职责原则：UI组件只负责展示，业务逻辑由Hook处理
@@ -14,11 +14,14 @@ import {
   Cpu,
   HardDrive,
   Monitor,
-  Server,
   Zap,
-  AlertCircle
+  AlertCircle,
+  WifiOff,
+  CheckCircle,
+  Copy
 } from 'lucide-react';
 import { useDashboard } from '../hooks/useDashboard';
+import { useDeviceRegistration } from '../hooks/useDeviceRegistration';
 import { BackendStatus } from '../hooks/types';
 
 interface CyberDashboardProps {
@@ -26,7 +29,75 @@ interface CyberDashboardProps {
 }
 
 /**
- * 基础信息组件 - 严格按照Figma设计实现
+ * 设备注册状态组件
+ */
+const DeviceRegistrationStatus: React.FC<{
+  isRegistered: boolean;
+  deviceId: string;
+  deviceName: string;
+  onCopyToClipboard: (text: string) => void;
+}> = ({ isRegistered, deviceId, deviceName, onCopyToClipboard }) => {
+  const formatAddress = (address: string) => {
+    if (!address) return '';
+    if (address.length <= 20) return address;
+    return `${address.slice(0, 10)}...${address.slice(-8)}`;
+  };
+
+  if (!isRegistered) {
+    return (
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+        <div className="flex items-center gap-3">
+          <WifiOff className="h-5 w-5 text-yellow-600" />
+          <div>
+            <h3 className="font-medium text-yellow-800">Device Not Registered</h3>
+            <p className="text-sm text-yellow-600">Register your device to start earning rewards</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <CheckCircle className="h-5 w-5 text-green-600" />
+          <div>
+            <h3 className="font-medium text-green-800">Device Registered Successfully</h3>
+            <p className="text-sm text-green-600">Your device is connected and earning rewards</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-gray-600">Device ID:</span>
+            <div className="flex items-center gap-2">
+              <code className="bg-gray-100 px-2 py-1 rounded text-xs">
+                {formatAddress(deviceId)}
+              </code>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onCopyToClipboard(deviceId)}
+                className="h-6 w-6 p-0"
+              >
+                <Copy className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-gray-600">Device Name:</span>
+            <span className="font-medium">{deviceName}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * 基础信息组件 
  */
 const BasicInformation: React.FC<{
   systemStatus: string;
@@ -37,6 +108,14 @@ const BasicInformation: React.FC<{
   todayEarnings: number;
   totalEarnings: number;
   isLoading: boolean;
+  deviceRegistrationData?: {
+    isRegistered: boolean;
+    deviceId: string;
+    deviceName: string;
+    gateway: string;
+    rewardAddress: string;
+  };
+  onCopyToClipboard: (text: string) => void;
 }> = ({
   systemStatus,
   systemPort,
@@ -45,7 +124,9 @@ const BasicInformation: React.FC<{
   taskCompleted,
   todayEarnings,
   totalEarnings,
-  isLoading
+  isLoading,
+  deviceRegistrationData,
+  onCopyToClipboard
 }) => {
   // if (isLoading) {
   //   return (
@@ -57,20 +138,29 @@ const BasicInformation: React.FC<{
   // }
 
   return (
-    <div className="space-y-9">
-      <h2 className="text-2xl font-medium text-black" style={{ fontSize: '24px', fontWeight: 500, lineHeight: '28.8px', letterSpacing: '-0.48px' }}>
+    <div className="space-y-6 lg:space-y-9">
+      <h2 className="text-xl lg:text-2xl font-medium text-black" style={{ fontWeight: 500, lineHeight: '28.8px', letterSpacing: '-0.48px' }}>
         Basic Information
       </h2>
 
-      {/* 系统信息输入框 - 按照Figma设计 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+      {/* 设备注册状态显示 */}
+      {deviceRegistrationData && (
+        <DeviceRegistrationStatus
+          isRegistered={deviceRegistrationData.isRegistered}
+          deviceId={deviceRegistrationData.deviceId}
+          deviceName={deviceRegistrationData.deviceName}
+          onCopyToClipboard={onCopyToClipboard}
+        />
+      )}
+
+      {/* 系统信息输入框 - 响应式网格布局 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
         {/* SIGHTAI_SYSTEM_STATUS */}
-        <div className="flex-1 min-w-0">
+        <div className="responsive-card">
           <div className="relative">
-            <div className="border border-gray-400 rounded-lg px-6 py-3 bg-white" style={{ borderRadius: '18px', borderColor: '#79747E', borderWidth: '1.5px' }}>
-              <div className="text-base text-green-500 font-normal" style={{
+            <div className="border border-gray-400 rounded-lg px-4 lg:px-6 py-3 bg-white" style={{ borderRadius: '18px', borderColor: '#79747E', borderWidth: '1.5px' }}>
+              <div className="text-sm lg:text-base text-green-500 font-normal truncate" style={{
                 fontFamily: 'Roboto',
-                fontSize: '16px',
                 lineHeight: '24px',
                 letterSpacing: '0.5px',
                 color: '#00C13A',
@@ -88,7 +178,7 @@ const BasicInformation: React.FC<{
                 SIGHTAI_SYSTEM_STATUS
               </div>
             </div>
-            <div className="mt-1.5 px-6 text-xs text-green-500" style={{
+            <div className="mt-1.5 px-4 lg:px-6 text-xs text-green-500" style={{
               fontFamily: 'Roboto',
               fontSize: '12px',
               lineHeight: '16px',
@@ -102,12 +192,11 @@ const BasicInformation: React.FC<{
         </div>
 
         {/* Version */}
-        <div className="flex-1 min-w-0">
+        <div className="responsive-card">
           <div className="relative">
-            <div className="border border-gray-400 rounded-lg px-6 py-3 bg-white" style={{ borderRadius: '18px', borderColor: '#79747E', borderWidth: '1.5px' }}>
-              <div className="text-base text-gray-900 font-normal" style={{
+            <div className="border border-gray-400 rounded-lg px-4 lg:px-6 py-3 bg-white" style={{ borderRadius: '18px', borderColor: '#79747E', borderWidth: '1.5px' }}>
+              <div className="text-sm lg:text-base text-gray-900 font-normal truncate" style={{
                 fontFamily: 'Roboto',
-                fontSize: '16px',
                 lineHeight: '24px',
                 letterSpacing: '0.5px',
                 color: '#1D1B20'
@@ -128,12 +217,11 @@ const BasicInformation: React.FC<{
         </div>
 
         {/* Uptime */}
-        <div className="flex-1 min-w-0">
+        <div className="responsive-card">
           <div className="relative">
-            <div className="border border-gray-400 rounded-lg px-6 py-3 bg-white" style={{ borderRadius: '18px', borderColor: '#79747E', borderWidth: '1.5px' }}>
-              <div className="text-base text-gray-900 font-normal" style={{
+            <div className="border border-gray-400 rounded-lg px-4 lg:px-6 py-3 bg-white" style={{ borderRadius: '18px', borderColor: '#79747E', borderWidth: '1.5px' }}>
+              <div className="text-sm lg:text-base text-gray-900 font-normal truncate" style={{
                 fontFamily: 'Roboto',
-                fontSize: '16px',
                 lineHeight: '24px',
                 letterSpacing: '0.5px',
                 color: '#1D1B20'
@@ -154,23 +242,21 @@ const BasicInformation: React.FC<{
         </div>
       </div>
 
-      {/* 统计卡片 - 按照Figma设计 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+      {/* 统计卡片 - 响应式网格布局 */}
+      <div className="flex">
         {/* Task Completed */}
-        <div className="h-26 bg-white rounded-2xl flex items-center justify-center min-w-0">
-          <div className="text-center">
-            <div className="text-4xl font-normal text-gray-600 mb-1" style={{
+        <div className="responsive-card h-24 lg:h-26 bg-white rounded-2xl flex items-center justify-center shadow-sm">
+          <div className="text-center px-4">
+            <div className="text-2xl lg:text-4xl font-normal text-gray-600 mb-1" style={{
               fontFamily: 'Aldrich',
-              fontSize: '36px',
               lineHeight: '24px',
               letterSpacing: '0.6px',
               color: '#49454F'
             }}>
               {taskCompleted}
             </div>
-            <div className="text-lg font-normal text-gray-600" style={{
+            <div className="text-sm lg:text-lg font-normal text-gray-600" style={{
               fontFamily: 'Roboto',
-              fontSize: '18px',
               lineHeight: '24px',
               letterSpacing: '0.6px',
               color: '#49454F'
@@ -181,20 +267,18 @@ const BasicInformation: React.FC<{
         </div>
 
         {/* Today Earnings */}
-        <div className="h-26 bg-white rounded-2xl flex items-center justify-center min-w-0">
-          <div className="text-center">
-            <div className="text-4xl font-normal text-gray-600 mb-1" style={{
+        <div className="responsive-card h-24 lg:h-26 bg-white rounded-2xl flex items-center justify-center shadow-sm">
+          <div className="text-center px-4">
+            <div className="text-2xl lg:text-4xl font-normal text-gray-600 mb-1" style={{
               fontFamily: 'Aldrich',
-              fontSize: '36px',
               lineHeight: '24px',
               letterSpacing: '0.6px',
               color: '#49454F'
             }}>
               $ {todayEarnings.toFixed(2)}
             </div>
-            <div className="text-lg font-normal text-gray-600" style={{
+            <div className="text-sm lg:text-lg font-normal text-gray-600" style={{
               fontFamily: 'Roboto',
-              fontSize: '18px',
               lineHeight: '24px',
               letterSpacing: '0.6px',
               color: '#49454F'
@@ -205,20 +289,18 @@ const BasicInformation: React.FC<{
         </div>
 
         {/* Total Earnings */}
-        <div className="h-26 bg-white rounded-2xl flex items-center justify-center min-w-0">
-          <div className="text-center">
-            <div className="text-4xl font-normal text-gray-600 mb-1" style={{
+        <div className="responsive-card h-24 lg:h-26 bg-white rounded-2xl flex items-center justify-center shadow-sm">
+          <div className="text-center px-4">
+            <div className="text-2xl lg:text-4xl font-normal text-gray-600 mb-1" style={{
               fontFamily: 'Aldrich',
-              fontSize: '36px',
               lineHeight: '24px',
               letterSpacing: '0.6px',
               color: '#49454F'
             }}>
               $ {totalEarnings.toFixed(2)}
             </div>
-            <div className="text-lg font-normal text-gray-600" style={{
+            <div className="text-sm lg:text-lg font-normal text-gray-600" style={{
               fontFamily: 'Roboto',
-              fontSize: '18px',
               lineHeight: '24px',
               letterSpacing: '0.6px',
               color: '#49454F'
@@ -233,7 +315,7 @@ const BasicInformation: React.FC<{
 };
 
 /**
- * 系统资源性能组件 - 严格按照Figma设计实现
+ * 系统资源性能组件 
  */
 const SystemResourcePerformance: React.FC<{
   cpuUsage: number;
@@ -273,26 +355,25 @@ const SystemResourcePerformance: React.FC<{
   );
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-medium text-black" style={{ fontSize: '24px', fontWeight: 500, lineHeight: '28.8px', letterSpacing: '-0.48px' }}>
+    <div className="space-y-4 lg:space-y-6">
+      <h2 className="text-xl lg:text-2xl font-medium text-black" style={{ fontWeight: 500, lineHeight: '28.8px', letterSpacing: '-0.48px' }}>
         System Resource Performance
       </h2>
 
-      {/* 系统指标网格 - 按照Figma设计 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+      {/* 系统指标网格 - 响应式布局 */}
+      <div className="responsive-grid">
         {/* CPU */}
-        <Card className="bg-white rounded-xl border-0 p-4 min-w-0" style={{
+        <Card className="responsive-card bg-white rounded-xl border-0 p-3 lg:p-4" style={{
           boxShadow: '0px 0px 24.8px 0px rgba(198, 198, 198, 0.51)',
           borderRadius: '12px'
         }}>
           <CardContent className="p-0 space-y-2">
             <div className="flex items-center gap-2">
-              <Cpu className="h-7 w-7 text-gray-800" strokeWidth={2} style={{ width: '26px', height: '26px', color: '#1E1E1E' }} />
-              <div className="flex-1">
+              <Cpu className="h-6 w-6 lg:h-7 lg:w-7 text-gray-800" strokeWidth={2} style={{ color: '#1E1E1E' }} />
+              <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-center mb-1">
-                  <span className="text-base text-gray-800" style={{
+                  <span className="text-sm lg:text-base text-gray-800 truncate" style={{
                     fontFamily: 'Roboto',
-                    fontSize: '16px',
                     lineHeight: '24px',
                     letterSpacing: '0.5px',
                     color: 'rgba(0, 0, 0, 0.85)'
@@ -461,26 +542,25 @@ const SystemResourcePerformance: React.FC<{
         </Card>
       </div>
 
-      {/* 服务状态 - 按照Figma设计 */}
+      {/* 服务状态 - 响应式布局 */}
       <div className="space-y-3 mt-3 pt-4">
         <div className="space-y-3">
           {services.map((service, index) => (
-            <Card key={index} className="bg-white rounded-lg border-0 p-2" style={{
+            <Card key={index} className="bg-white rounded-lg border-0 p-2 w-full max-w-md mx-auto lg:mx-0" style={{
               boxShadow: '0px 0px 40px 0px rgba(213, 213, 213, 0.57)',
-              borderRadius: '8px',
-              width: '400px'
+              borderRadius: '8px'
             }}>
               <CardContent className="p-0">
-                <div className="flex items-center justify-center gap-8 px-1.5 py-2">
-                  <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between gap-4 px-3 py-2">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
                     {/* 服务图标 */}
                     <div className="w-8 h-8 bg-gray-200 rounded flex-shrink-0" style={{
                       backgroundImage: service.icon ? `url(${service.icon})` : 'none',
                       backgroundSize: 'cover',
                       backgroundPosition: 'center'
                     }} />
-                    <div style={{ width: '221px' }}>
-                      <div className="font-normal text-black text-sm" style={{
+                    <div className="flex-1 min-w-0">
+                      <div className="font-normal text-black text-sm truncate" style={{
                         fontFamily: 'Roboto',
                         fontSize: '14px',
                         lineHeight: '20px',
@@ -532,11 +612,20 @@ const SystemResourcePerformance: React.FC<{
 };
 
 /**
- * 主Dashboard组件 - 遵循依赖倒置原则，严格按照Figma设计实现
+ * 主Dashboard组件 - 遵循依赖倒置原则
  */
 export const CyberDashboard: React.FC<CyberDashboardProps> = ({ backendStatus }) => {
   // 使用专用Dashboard Hook获取数据 - 依赖倒置原则
   const { data, loading, refresh } = useDashboard(backendStatus);
+
+  // 复制到剪贴板功能
+  const handleCopyToClipboard = (text: string) => {
+    if (window.electronAPI?.clipboard) {
+      window.electronAPI.clipboard.writeText(text);
+    } else {
+      navigator.clipboard.writeText(text);
+    }
+  };
 
   // 错误状态处理
   if (loading.error) {
@@ -561,13 +650,12 @@ export const CyberDashboard: React.FC<CyberDashboardProps> = ({ backendStatus })
 
   return (
     <div
-      className="bg-white rounded-2xl shadow-lg space-y-9 m-3"
+      className="bg-white rounded-2xl shadow-lg space-y-6 lg:space-y-9 w-full max-w-7xl mx-auto sm:p-6 lg:p-8"
       style={{
-        width: '1225px',
-        height: '1050px',
         borderRadius: '16px',
         boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)',
-        padding: '27px 26px'
+        padding: '16px 12px',
+        minHeight: 'auto'
       }}
     >
       {/* Basic Information Section */}
@@ -586,6 +674,7 @@ export const CyberDashboard: React.FC<CyberDashboardProps> = ({ backendStatus })
             todayEarnings={data?.earnings?.today || 0}
             totalEarnings={data?.earnings?.total || 0}
             isLoading={loading.isLoading}
+            onCopyToClipboard={handleCopyToClipboard}
           />
         </CardContent>
       </Card>

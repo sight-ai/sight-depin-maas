@@ -11,12 +11,12 @@ import { ApiResponse, ModelConfigurationData } from '../../hooks/types';
 import { BaseDataService } from '../base/BaseDataService';
 
 /**
- * 模型配置数据服务 - 按照Figma设计实现
+ * 模型配置数据服务 
  */
 export class ModelConfigurationDataService extends BaseDataService<ModelConfigurationData> {
   async fetch(): Promise<ApiResponse<ModelConfigurationData>> {
     try {
-      // 初始化模型配置数据 - 按照Figma设计（使用模拟数据）
+      // 初始化模型配置数据 （使用模拟数据）
       const modelConfigurationData: ModelConfigurationData = this.getDefaultModelConfigurationData();
 
       return this.createSuccessResponse(modelConfigurationData);

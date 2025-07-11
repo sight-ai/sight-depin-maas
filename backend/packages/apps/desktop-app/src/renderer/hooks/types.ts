@@ -76,7 +76,7 @@ export interface IErrorHandler {
 // ============= 业务数据类型定义 =============
 
 /**
- * Dashboard相关数据类型 - 按照Figma设计更新
+ * Dashboard相关数据类型 更新
  */
 export interface DashboardData {
   // 系统基础信息
@@ -150,7 +150,7 @@ export interface DeviceStatusData {
 }
 
 /**
- * 设备注册数据类型 - 按照Figma设计
+ * 设备注册数据类型 
  */
 export interface DeviceRegistrationData {
   // 设备注册状态
@@ -211,7 +211,7 @@ export interface ModelConfigData {
 }
 
 /**
- * 收益数据类型 - 按照Figma设计更新
+ * 收益数据类型 更新
  */
 export interface EarningsData {
   // 当前余额信息
@@ -280,7 +280,7 @@ export interface GatewayConfigData {
 }
 
 /**
- * 通信数据类型 - 按照Figma设计更新
+ * 通信数据类型 更新
  */
 export interface CommunicationData {
   // 服务状态
@@ -322,7 +322,7 @@ export interface CommunicationData {
 }
 
 /**
- * DID管理数据类型 - 按照Figma设计
+ * DID管理数据类型 
  */
 export interface DIDManagementData {
   // DID信息
@@ -360,7 +360,7 @@ export interface DIDManagementData {
 }
 
 /**
- * 设置数据类型 - 按照Figma设计
+ * 设置数据类型 
  */
 export interface SettingsData {
   // 通用设置
@@ -421,7 +421,7 @@ export interface SettingsData {
 }
 
 /**
- * 模型配置数据类型 - 按照Figma设计
+ * 模型配置数据类型 
  */
 export interface ModelConfigurationData {
   // 当前模式

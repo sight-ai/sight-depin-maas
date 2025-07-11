@@ -1,5 +1,5 @@
 /**
- * Settings页面组件 - 严格按照Figma设计实现
+ * Settings页面组件 
  *
  * 遵循SOLID原则：
  * - 单一职责原则：UI组件只负责展示，业务逻辑由Hook处理
@@ -17,7 +17,7 @@ interface SettingsProps {
 }
 
 /**
- * General Settings组件 - 严格按照Figma设计实现
+ * General Settings组件 
  */
 const GeneralSettings: React.FC<{
   autoStartOnBoot: boolean;
@@ -68,13 +68,7 @@ const GeneralSettings: React.FC<{
           padding: '4px 8px',
           borderRadius: '12px'
         }}>
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '4px',
-            width: '695px',
-            height: '45px'
-          }}>
+          <div className="flex flex-col gap-1 flex-1">
             <span style={{
               fontFamily: 'Roboto',
               fontWeight: 400,
@@ -154,13 +148,7 @@ const GeneralSettings: React.FC<{
           padding: '4px 8px',
           borderRadius: '12px'
         }}>
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '4px',
-            width: '695px',
-            height: '45px'
-          }}>
+          <div className="flex flex-col gap-1 flex-1">
             <span style={{
               fontFamily: 'Roboto',
               fontWeight: 400,
@@ -240,13 +228,7 @@ const GeneralSettings: React.FC<{
           padding: '4px 8px',
           borderRadius: '12px'
         }}>
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '4px',
-            width: '695px',
-            height: '45px'
-          }}>
+          <div className="flex flex-col gap-1 flex-1">
             <span style={{
               fontFamily: 'Roboto',
               fontWeight: 400,
@@ -321,7 +303,7 @@ const GeneralSettings: React.FC<{
 };
 
 /**
- * Data & Privacy组件 - 严格按照Figma设计实现
+ * Data & Privacy组件 
  */
 const DataPrivacySettings: React.FC<{
   dataDirectory: string;
@@ -513,7 +495,7 @@ const DataPrivacySettings: React.FC<{
 };
 
 /**
- * Advanced Settings组件 - 严格按照Figma设计实现
+ * Advanced Settings组件 
  */
 const AdvancedSettings: React.FC<{
   onRestartService: () => Promise<void>;
@@ -622,7 +604,7 @@ const AdvancedSettings: React.FC<{
 };
 
 /**
- * 主Settings组件 - 严格按照Figma设计实现
+ * 主Settings组件 
  */
 export const Settings: React.FC<SettingsProps> = ({ backendStatus }) => {
   // 使用专用Settings Hook获取数据 - 依赖倒置原则
@@ -708,39 +690,28 @@ export const Settings: React.FC<SettingsProps> = ({ backendStatus }) => {
 
   return (
     <div
-      className="bg-white rounded-2xl shadow-lg relative m-3"
+      className="bg-white rounded-2xl shadow-lg w-full max-w-7xl mx-auto sm:p-6 lg:p-8"
       style={{
-        width: '1225px',
-        height: '1050px',
         borderRadius: '16px',
-        padding: '27px 26px',
-        boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)'
+        padding: '16px 12px',
+        boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)',
+        minHeight: 'auto'
       }}
     >
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '48px',
-        // width: '1010px',
-        padding:'50px'
-        
-        // position: 'relative',
-        // left: '113px',
-        // top: '70px'
-      }}>
+      <div className="responsive-container space-y-6 lg:space-y-12 py-4 lg:py-8">
         {/* General Settings */}
         <GeneralSettings
-          autoStartOnBoot={data?.generalSettings.autoStartOnBoot || true}
-          systemTray={data?.generalSettings.systemTray || true}
-          silentMode={data?.generalSettings.silentMode || true}
+          autoStartOnBoot={data?.generalSettings?.autoStartOnBoot || true}
+          systemTray={data?.generalSettings?.systemTray || true}
+          silentMode={data?.generalSettings?.silentMode || true}
           isLoading={loading.isLoading}
           onToggle={handleToggleGeneralSetting}
         />
 
         {/* Data & Privacy */}
         <DataPrivacySettings
-          dataDirectory={data?.dataPrivacySettings.dataDirectory || '/ip4/0.0.0.0/tcp/4001'}
-          logLevel={data?.dataPrivacySettings.logLevel || 'info'}
+          dataDirectory={data?.dataPrivacySettings?.dataDirectory || '/ip4/0.0.0.0/tcp/4001'}
+          logLevel={data?.dataPrivacySettings?.logLevel || 'info'}
           isLoading={loading.isLoading}
           onLogLevelChange={handleLogLevelChange}
         />

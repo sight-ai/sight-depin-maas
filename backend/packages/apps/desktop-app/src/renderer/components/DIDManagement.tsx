@@ -1,5 +1,5 @@
 /**
- * DID Management页面组件 - 严格按照Figma设计实现
+ * DID Management页面组件 
  *
  * 遵循SOLID原则：
  * - 单一职责原则：UI组件只负责展示，业务逻辑由Hook处理
@@ -17,7 +17,7 @@ interface DIDManagementProps {
 }
 
 /**
- * My DID Information组件 - 严格按照Figma设计实现
+ * My DID Information组件 
  */
 const MyDIDInformation: React.FC<{
   did: string;
@@ -262,19 +262,14 @@ const MyDIDInformation: React.FC<{
 };
 
 /**
- * DID Operations组件 - 严格按照Figma设计实现
+ * DID Operations组件 
  */
 const DIDOperations: React.FC<{
   onExportDocument: () => Promise<void>;
   onCopyDID: () => Promise<void>;
 }> = ({ onExportDocument, onCopyDID }) => {
   return (
-    <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      gap: '13px',
-      width: '456px'
-    }}>
+    <div className="flex flex-col gap-3 w-full max-w-md">
       <div style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -364,7 +359,7 @@ const DIDOperations: React.FC<{
 };
 
 /**
- * Gateway Settings组件 - 严格按照Figma设计实现
+ * Gateway Settings组件 
  */
 const GatewaySettings: React.FC<{
   privateKey: any;
@@ -373,12 +368,7 @@ const GatewaySettings: React.FC<{
   onExportPrivateKey: () => Promise<void>;
 }> = ({ privateKey, privateKeyVisible, onToggleVisibility, onExportPrivateKey }) => {
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '13px',
-      width: '456px'
-    }}>
+    <div className="flex flex-col gap-3 w-full max-w-md">
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -531,7 +521,7 @@ const GatewaySettings: React.FC<{
 };
 
 /**
- * Verification Status组件 - 严格按照Figma设计实现
+ * Verification Status组件 
  */
 const VerificationStatus: React.FC<{
   didDocumentVerified: boolean;
@@ -577,13 +567,7 @@ const VerificationStatus: React.FC<{
         boxShadow: '0px 0px 35.6px 0px rgba(235, 235, 235, 0.13)',
         backdropFilter: 'blur(34.1px)'
       }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: '10px',
-          width: '755px'
-        }}>
+        <div className="flex justify-center items-center gap-2 w-3/4">
           <CheckCircle style={{
             width: '20px',
             height: '20px',
@@ -656,7 +640,7 @@ const VerificationStatus: React.FC<{
           alignItems: 'center',
           gap: '10px',
           width: '755px'
-        }}>
+        }} className=' w-3/4'>
           <CheckCircle style={{
             width: '20px',
             height: '20px',
@@ -729,7 +713,7 @@ const VerificationStatus: React.FC<{
           alignItems: 'center',
           gap: '10px',
           width: '755px'
-        }}>
+        }} className=' w-3/4'>
           <Shield style={{
             width: '20px',
             height: '20px',
@@ -787,7 +771,7 @@ const VerificationStatus: React.FC<{
 };
 
 /**
- * 主DIDManagement组件 - 严格按照Figma设计实现
+ * 主DIDManagement组件 
  */
 export const DIDManagement: React.FC<DIDManagementProps> = ({ backendStatus }) => {
   // 使用专用DID Management Hook获取数据 - 依赖倒置原则
@@ -877,25 +861,15 @@ export const DIDManagement: React.FC<DIDManagementProps> = ({ backendStatus }) =
 
   return (
  <div
-      className="bg-white rounded-2xl shadow-lg relative m-3"
+      className="bg-white rounded-2xl shadow-lg w-full max-w-7xl mx-auto sm:p-6 lg:p-8"
       style={{
-        width: '1225px',
-        height: '1050px',
         borderRadius: '16px',
-        padding: '27px 26px',
-        boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)'
+        padding: '16px 12px',
+        boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)',
+        minHeight: 'auto'
       }}
     >
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '48px',
-        padding:'50px'
-        // width: '1010px',
-        // position: 'relative',
-        // left: '113px',
-        // top: '70px'
-      }}>
+      <div className="responsive-container space-y-6 lg:space-y-12 py-4 lg:py-8">
         {/* My DID Information */}
         <MyDIDInformation
           did={data?.didInfo.did || 'did:sightai:1234567890abcdef'}
@@ -917,7 +891,7 @@ export const DIDManagement: React.FC<DIDManagementProps> = ({ backendStatus }) =
           />
 
           <GatewaySettings
-            privateKey={data?.gatewaySettings.privateKey || '0x1234567890abcdef...'}
+            privateKey={data?.gatewaySettings?.privateKey || '0x1234567890abcdef...'}
             privateKeyVisible={privateKeyVisible}
             onToggleVisibility={handleTogglePrivateKeyVisibility}
             onExportPrivateKey={handleExportPrivateKey}
@@ -926,9 +900,9 @@ export const DIDManagement: React.FC<DIDManagementProps> = ({ backendStatus }) =
 
         {/* Verification Status */}
         <VerificationStatus
-          didDocumentVerified={data?.verificationStatus.didDocumentVerified || true}
-          controllerSignatureValid={data?.verificationStatus.controllerSignatureValid || true}
-          gatewayRegistered={data?.verificationStatus.gatewayRegistered || true}
+          didDocumentVerified={data?.verificationStatus?.didDocumentVerified || true}
+          controllerSignatureValid={data?.verificationStatus?.controllerSignatureValid || true}
+          gatewayRegistered={data?.verificationStatus?.gatewayRegistered || true}
         />
       </div>
 

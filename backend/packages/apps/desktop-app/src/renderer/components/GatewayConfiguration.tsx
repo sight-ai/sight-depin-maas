@@ -1,5 +1,5 @@
 /**
- * Gateway Configuration页面组件 - 严格按照Figma设计实现
+ * Gateway Configuration页面组件 
  *
  * 遵循SOLID原则：
  * - 单一职责原则：UI组件只负责展示，业务逻辑由Hook处理
@@ -18,7 +18,7 @@ interface GatewayConfigurationProps {
 }
 
 /**
- * Connection Status组件 - 按照Figma设计实现
+ * Connection Status组件 
  */
 const ConnectionStatus: React.FC<{
   currentGateway: string;
@@ -229,7 +229,7 @@ const ConnectionStatus: React.FC<{
 };
 
 /**
- * Gateway Settings组件 - 按照Figma设计实现
+ * Gateway Settings组件 
  */
 const GatewaySettings: React.FC<{
   autoSelectBestGateway: boolean;
@@ -238,8 +238,8 @@ const GatewaySettings: React.FC<{
   onToggle: (setting: 'autoSelectBestGateway' | 'dnsOverride', value: boolean) => Promise<void>;
 }> = ({ autoSelectBestGateway, dnsOverride, isLoading, onToggle }) => {
   return (
-    <div className="space-y-6" style={{ width: '1107px' }}>
-      <div className="flex justify-between items-center" style={{ gap: '823px' }}>
+    <div className="space-y-6 w-full">
+      <div className="flex justify-between items-center">
         <h2 className="text-black" style={{
           fontFamily: 'Inter',
           fontSize: '24px',
@@ -260,10 +260,7 @@ const GatewaySettings: React.FC<{
             padding: '4px 8px'
           }}
         >
-          <div className="flex flex-col" style={{
-            width: '695px',
-            height: '45px'
-          }}>
+          <div className="flex flex-col flex-1">
             <span style={{
               fontFamily: 'Roboto',
               fontSize: '18px',
@@ -318,10 +315,7 @@ const GatewaySettings: React.FC<{
             padding: '4px 8px'
           }}
         >
-          <div className="flex flex-col" style={{
-            width: '695px',
-            height: '45px'
-          }}>
+          <div className="flex flex-col flex-1">
             <span style={{
               fontFamily: 'Roboto',
               fontSize: '18px',
@@ -425,21 +419,16 @@ export const GatewayConfiguration: React.FC<GatewayConfigurationProps> = ({ back
 
   return (
     <div
-      className="bg-white rounded-2xl shadow-lg relative m-3"
+      className="bg-white rounded-2xl shadow-lg w-full max-w-7xl mx-auto sm:p-6 lg:p-8"
       style={{
-        width: '1225px',
-        height: '1050px',
         borderRadius: '16px',
         boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)',
-        padding: '27px 26px'
+        padding: '16px 12px',
+        minHeight: 'auto'
       }}
     >
       <div
-        className="flex flex-col items-center gap-12"
-        style={{
-          gap: '48px',
-          width: '1129px'
-        }}
+        className="responsive-container space-y-6 lg:space-y-12 py-4 lg:py-8"
       >
         {/* Connection Status */}
         <ConnectionStatus

@@ -22,6 +22,7 @@ import {
   DeviceStatusService
 } from "./device-status.interface";
 import { RegistrationStatus } from './registration-storage';
+import { DidIntegrationService } from './services/did-integration.service';
 
 /**
  * 优化的设备状态服务
@@ -42,7 +43,8 @@ export class DefaultDeviceStatusService implements TDeviceStatusService, OnModul
     @Inject(DEVICE_HEARTBEAT_SERVICE)
     private readonly heartbeatService: TDeviceHeartbeat,
     @Inject(DEVICE_SYSTEM_SERVICE)
-    private readonly systemService: TDeviceSystem
+    private readonly systemService: TDeviceSystem,
+    private readonly didIntegrationService?: DidIntegrationService
   ) {
     this.initializeService();
   }
@@ -287,6 +289,86 @@ export class DefaultDeviceStatusService implements TDeviceStatusService, OnModul
 
   async getDeviceInfo(): Promise<string> {
     return this.systemService.getDeviceInfo();
+  }
+
+  /**
+   * 获取完整的注册信息
+   */
+  async getRegistrationInfo(): Promise<{
+    success: boolean;
+    data?: {
+      deviceId: string;
+      deviceName: string;
+      gatewayAddress: string;
+      rewardAddress: string;
+      code: string;
+      isRegistered: boolean;
+      registrationStatus: RegistrationStatus;
+      registrationError?: string;
+      lastRegistrationAttempt?: string;
+      timestamp?: string;
+      reportedModels?: string[];
+      basePath?: string;
+      didDoc?: any;
+      systemInfo?: {
+        os: string;
+        cpu: string;
+        memory: string;
+        graphics: any[];
+        ipAddress?: string;
+        deviceType?: string;
+        deviceModel?: string;
+      };
+    };
+    error?: string;
+  }> {
+    try {
+      // 获取配置信息
+      const config = this.configService.getCurrentConfig();
+      const statusInfo = this.configService.getRegistrationStatusInfo();
+
+      // 获取系统信息
+      const systemInfo = await this.systemService.collectSystemInfo();
+
+      // 获取DID信息
+      const didInfo = this.didIntegrationService?.getCurrentDidInfo() || { hasRealDid: false };
+
+      // 获取已上报的模型列表
+      const reportedModels = await this.getLocalModels();
+
+      return {
+        success: true,
+        data: {
+          deviceId: config.deviceId,
+          deviceName: config.deviceName,
+          gatewayAddress: config.gatewayAddress,
+          rewardAddress: config.rewardAddress,
+          code: config.code || '',
+          isRegistered: config.isRegistered,
+          registrationStatus: statusInfo.status,
+          registrationError: statusInfo.error,
+          lastRegistrationAttempt: statusInfo.lastAttempt,
+          basePath: config.basePath,
+          didDoc: didInfo.didDoc,
+          reportedModels: reportedModels?.map(model => model.name || model.model) || [],
+          systemInfo: {
+            os: systemInfo.os,
+            cpu: systemInfo.cpu,
+            memory: systemInfo.memory,
+            graphics: systemInfo.graphics,
+            ipAddress: systemInfo.ipAddress,
+            deviceType: await this.getDeviceType(),
+            deviceModel: await this.getDeviceModel()
+          }
+        }
+      };
+    } catch (error) {
+      this.logger.error('Failed to get registration info:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get registration info'
+      };
+    }
   }
 
   // ========================================

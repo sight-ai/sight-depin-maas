@@ -11,7 +11,7 @@ import { ApiResponse, GatewayConfigData } from '../../hooks/types';
 import { BaseDataService } from '../base/BaseDataService';
 
 /**
- * 网关配置数据服务 - 按照Figma设计实现
+ * 网关配置数据服务 
  */
 export class GatewayConfigDataService extends BaseDataService<GatewayConfigData> {
   async fetch(): Promise<ApiResponse<GatewayConfigData>> {
@@ -26,7 +26,7 @@ export class GatewayConfigDataService extends BaseDataService<GatewayConfigData>
         this.apiClient.getCurrentFramework()
       ]);
 
-      // 初始化网关配置数据 - 按照Figma设计
+      // 初始化网关配置数据 
       let gatewayConfigData: GatewayConfigData = {
         connectionStatus: {
           currentGateway: 'gateway.sightai.com',

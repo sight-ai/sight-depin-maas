@@ -216,11 +216,12 @@ export const CyberModelInference: React.FC<CyberModelInferenceProps> = ({ backen
 
   return (
     <div
-      className="bg-white relative"
+      className="bg-white relative w-full max-w-7xl mx-auto sm:p-6 lg:p-8"
       style={{
-        height: '1050px',
         borderRadius: '16px',
-        boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)'
+        padding: '16px 12px',
+        boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)',
+        minHeight: 'auto'
       }}
     >
       {/* Segmented Control */}

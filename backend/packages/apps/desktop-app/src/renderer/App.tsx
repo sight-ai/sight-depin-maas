@@ -114,20 +114,20 @@ const App: React.FC = () => {
       </div>
 
       <div className="flex h-screen bg-background relative z-10">
-        {/* Clean Sidebar */}
-          <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-            <Sidebar
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              className="cyber-sidebar"
-            />
-          </div>
+        {/* Responsive Sidebar */}
+        <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          <Sidebar
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            className="cyber-sidebar"
+          />
+        </div>
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col">
-          {/* Draggable Header */}
+        {/* Main Content Area - 响应式适配 */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Draggable Header - 响应式适配 */}
           <div
-            className="h-8 bg-white border-b border-gray-100 flex items-center justify-between px-4"
+            className="h-8 bg-white border-b border-gray-100 flex items-center justify-between px-4 md:px-6"
             style={{
               WebkitAppRegion: 'drag',
               userSelect: 'none'
@@ -135,7 +135,7 @@ const App: React.FC = () => {
           >
             <div className="flex items-center space-x-2">
               <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-              <span className="text-xs text-gray-600 font-medium">SIGHT.AI</span>
+              <span className="text-xs text-gray-600 font-medium hidden sm:inline">SIGHT.AI</span>
             </div>
             <div className="flex items-center space-x-2">
               <span className="text-xs text-gray-500">
@@ -144,15 +144,15 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Main Content with clean styling */}
+          {/* Main Content with responsive styling */}
           <main
             className="flex-1 overflow-auto relative"
             style={{
               WebkitAppRegion: 'no-drag'
             } as React.CSSProperties}
           >
-            <div className="relative z-10">
-              <div className="responsive-container min-h-full py-4 lg:py-6">
+            <div className="relative z-10 w-full">
+              <div className="responsive-container min-h-full py-2 sm:py-4 lg:py-6">
                 {renderContent()}
               </div>
             </div>

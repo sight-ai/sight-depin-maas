@@ -24,11 +24,12 @@ export function useDeviceRegistration(
   config?: Partial<FetchConfig>
 ): BaseHookReturn<DeviceRegistrationData> & {
   // 扩展的设备注册特定方法
-  registerDevice: (formData: DeviceRegistrationData['registrationForm']) => Promise<void>;
+  registerDevice: (formData: DeviceRegistrationData['registrationForm']) => Promise<any>;
   updateDid: () => Promise<void>;
   validateForm: (formData: DeviceRegistrationData['registrationForm']) => DeviceRegistrationData['validation'];
   copyToClipboard: (text: string) => Promise<boolean>;
   resetForm: () => void;
+  getRegistrationInfo: () => Promise<any>;
 } {
   // 创建数据服务实例
   const dataService = useMemo(() => {
@@ -44,7 +45,7 @@ export function useDeviceRegistration(
   });
 
   // 注册设备方法
-  const registerDevice = useCallback(async (formData: DeviceRegistrationData['registrationForm']): Promise<void> => {
+  const registerDevice = useCallback(async (formData: DeviceRegistrationData['registrationForm']): Promise<any> => {
     if (!dataService) {
       throw new Error('Data service not available');
     }
@@ -64,8 +65,14 @@ export function useDeviceRegistration(
         throw new Error(response.error || 'Failed to register device');
       }
 
-      // 更新本地数据
+      // 注册成功，返回响应数据
+      console.log('Device registration successful:', response.data);
+
+      // 更新本地数据以反映新的注册状态
       await baseHook.refresh();
+
+      // 返回成功响应数据
+      return response.data;
     } catch (error) {
       throw error instanceof Error ? error : new Error('Unknown error occurred');
     }
@@ -157,13 +164,22 @@ export function useDeviceRegistration(
     baseHook.refresh();
   }, [baseHook]);
 
+  // 获取注册信息方法
+  const getRegistrationInfo = useCallback(async () => {
+    if (!dataService) {
+      throw new Error('Data service not available');
+    }
+    return await dataService.getRegistrationInfo();
+  }, [dataService]);
+
   return {
     ...baseHook,
     registerDevice,
     updateDid,
     validateForm,
     copyToClipboard,
-    resetForm
+    resetForm,
+    getRegistrationInfo
   };
 }
 

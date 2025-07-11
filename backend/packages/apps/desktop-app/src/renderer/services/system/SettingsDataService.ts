@@ -11,12 +11,12 @@ import { ApiResponse, SettingsData } from '../../hooks/types';
 import { BaseDataService } from '../base/BaseDataService';
 
 /**
- * 设置数据服务 - 按照Figma设计实现
+ * 设置数据服务 
  */
 export class SettingsDataService extends BaseDataService<SettingsData> {
   async fetch(): Promise<ApiResponse<SettingsData>> {
     try {
-      // 初始化设置数据 - 按照Figma设计（使用模拟数据）
+      // 初始化设置数据 （使用模拟数据）
       const settingsData: SettingsData = this.getDefaultSettingsData();
 
       return this.createSuccessResponse(settingsData);
