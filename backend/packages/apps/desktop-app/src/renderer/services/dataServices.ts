@@ -17,7 +17,8 @@ import {
   GatewayConfigData,
   CommunicationData,
   DIDManagementData,
-  SettingsData
+  SettingsData,
+  ModelConfigurationData
 } from '../hooks/types';
 import { createApiClient } from '../utils/api-client';
 
@@ -1167,6 +1168,148 @@ export class SettingsDataService extends BaseDataService<SettingsData> {
       advancedSettings: {
         canRestartService: true,
         canResetSettings: true
+      }
+    };
+  }
+}
+
+/**
+ * 模型配置数据服务
+ *
+ * 遵循单一职责原则：只负责模型配置相关数据的获取和处理
+ */
+export class ModelConfigurationDataService extends BaseDataService<ModelConfigurationData> {
+  async fetch(): Promise<ApiResponse<ModelConfigurationData>> {
+    try {
+      // 初始化模型配置数据 - 按照Figma设计（使用模拟数据）
+      let modelConfigData: ModelConfigurationData = {
+        mode: 'local',
+        gpuStatus: {
+          name: 'Unknown GPU',
+          memoryUsed: 0.00,
+          memoryTotal: 0,
+          temperature: 0,
+          utilization: 0,
+          memoryUtilization: 89
+        },
+        currentFramework: 'ollama',
+        ollama: {
+          version: 'v0.9.5',
+          status: 'running',
+          modelsLoaded: 2,
+          memoryUsage: 2.4,
+          gpuUsage: 45
+        },
+        vllm: {
+          version: 'v0.9.5',
+          status: 'stopped',
+          modelsLoaded: 0,
+          memoryUsage: 0.0,
+          gpuUsage: 0
+        }
+      };
+
+      // 如果当前框架是vLLM，添加模型列表
+      if (modelConfigData.currentFramework === 'vllm') {
+        modelConfigData.models = [
+          {
+            name: 'llama2-7b-chat',
+            size: '14.2 GB / 16GB',
+            status: 'loaded',
+            device: 'GPU',
+            uptime: '2d 14h',
+            errorRate: '4.5% errors',
+            selected: false
+          }
+        ];
+      }
+
+      // 如果有API客户端，可以尝试获取真实数据
+      if (this.apiClient) {
+        try {
+          // 这里可以调用相关的API获取模型配置信息
+          // 目前使用模拟数据
+          console.log('Model configuration data service initialized with mock data');
+        } catch (apiError) {
+          console.warn('Failed to fetch model configuration data from API, using mock data:', apiError);
+        }
+      }
+
+      return { success: true, data: modelConfigData };
+    } catch (error) {
+      console.error('Failed to fetch model configuration data:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
+    }
+  }
+
+  async update(data: Partial<ModelConfigurationData>): Promise<ApiResponse<ModelConfigurationData>> {
+    try {
+      // 如果需要切换模式
+      if (data.mode) {
+        // 这里可以调用切换模式的API
+        const response = { success: true };
+
+        if (response.success) {
+          console.log('Mode switched to:', data.mode);
+        } else {
+          return { success: false, error: 'Failed to switch mode' };
+        }
+      }
+
+      // 如果需要切换框架
+      if (data.currentFramework) {
+        // 这里可以调用切换框架的API
+        const response = { success: true };
+
+        if (response.success) {
+          console.log('Framework switched to:', data.currentFramework);
+        } else {
+          return { success: false, error: 'Failed to switch framework' };
+        }
+      }
+
+      // 重新获取最新状态
+      return this.fetch();
+    } catch (error) {
+      console.error('Failed to update model configuration data:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
+    }
+  }
+
+  /**
+   * 获取默认的模型配置数据
+   */
+  private getDefaultModelConfigurationData(): ModelConfigurationData {
+    return {
+      mode: 'local',
+      gpuStatus: {
+        name: 'Unknown GPU',
+        memoryUsed: 0.00,
+        memoryTotal: 0,
+        temperature: 0,
+        utilization: 0,
+        memoryUtilization: 0
+      },
+      currentFramework: 'ollama',
+      ollama: {
+        version: 'v0.9.5',
+        status: 'stopped',
+        modelsLoaded: 0,
+        memoryUsage: 0.0,
+        gpuUsage: 0
+      },
+      vllm: {
+        version: 'v0.9.5',
+        status: 'stopped',
+        modelsLoaded: 0,
+        memoryUsage: 0.0,
+        gpuUsage: 0
       }
     };
   }

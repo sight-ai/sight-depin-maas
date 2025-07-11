@@ -1412,14 +1412,14 @@ export const Communication: React.FC<CommunicationProps> = ({ backendStatus }) =
         </div>
 
         {/* Network Configuration */}
-        <NetworkConfiguration
+        {/* <NetworkConfiguration
           port={data?.networkConfig.port || '4001'}
           maxConnections={data?.networkConfig.maxConnections || '100'}
           enableDHT={data?.networkConfig.enableDHT || true}
           enableRelay={data?.networkConfig.enableRelay || true}
           isLoading={loading.isLoading}
           onToggle={handleToggleNetworkSetting}
-        />
+        /> */}
       </div>
 
       {/* 复制成功提示 */}

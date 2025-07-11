@@ -330,6 +330,56 @@ export interface SettingsData {
   };
 }
 
+/**
+ * 模型配置数据类型 - 按照Figma设计
+ */
+export interface ModelConfigurationData {
+  // 当前模式
+  mode: 'local' | 'gateway' | 'benchmark';
+
+  // GPU状态
+  gpuStatus: {
+    name: string;
+    memoryUsed: number;
+    memoryTotal: number;
+    temperature: number;
+    utilization: number;
+    memoryUtilization: number;
+  };
+
+  // 当前选择的框架
+  currentFramework: 'ollama' | 'vllm';
+
+  // Ollama框架信息
+  ollama: {
+    version: string;
+    status: 'running' | 'stopped' | 'error';
+    modelsLoaded: number;
+    memoryUsage: number;
+    gpuUsage: number;
+  };
+
+  // vLLM框架信息
+  vllm: {
+    version: string;
+    status: 'running' | 'stopped' | 'error';
+    modelsLoaded: number;
+    memoryUsage: number;
+    gpuUsage: number;
+  };
+
+  // 模型列表（仅在vLLM状态下显示）
+  models?: Array<{
+    name: string;
+    size: string;
+    status: 'loaded' | 'loading' | 'unloaded' | 'error';
+    device: 'GPU' | 'CPU';
+    uptime: string;
+    errorRate: string;
+    selected: boolean;
+  }>;
+}
+
 
 
 // ============= Hook返回类型定义 =============

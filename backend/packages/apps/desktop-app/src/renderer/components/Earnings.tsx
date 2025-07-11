@@ -852,7 +852,7 @@ export const Earnings: React.FC<EarningsProps> = ({ backendStatus }) => {
         </div>
  
         {/* Claim Earnings */}
-        <div style={{ width: '1107px' }}>
+        {/* <div style={{ width: '1107px' }}>
           <ClaimEarnings
             walletAddress="0x1234...5678"
             network="Ethereum Mainnet"
@@ -863,7 +863,7 @@ export const Earnings: React.FC<EarningsProps> = ({ backendStatus }) => {
             onClaim={handleClaim}
             onCopy={handleCopy}
           />
-        </div>
+        </div> */}
 
         {/* Earnings History */}
         <EarningsHistory

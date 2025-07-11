@@ -86,10 +86,8 @@ const App: React.FC = () => {
         return <CyberDashboard backendStatus={backendStatus} />;
       case 'device-registration':
         return <DeviceRegistration backendStatus={backendStatus}/>;
-      case 'model-configuration'://
-        return <ModelReporting/>;
-      case 'tasks'://
-        return <ModelReporting/>;
+      case 'model-configuration':
+        return <ModelReporting />;
       case 'earnings':
         return <Earnings backendStatus={backendStatus} />;
       case 'gateway-configuration':
