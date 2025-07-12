@@ -56,6 +56,9 @@ export class DataServiceFactory {
    * 创建Dashboard数据服务
    */
   static createDashboardService(backendStatus: BackendStatus | null) {
+    if (!backendStatus) {
+      throw new Error('Backend status is required for Dashboard service');
+    }
     return new DashboardDataService(backendStatus);
   }
 

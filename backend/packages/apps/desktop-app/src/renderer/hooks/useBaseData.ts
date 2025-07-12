@@ -199,7 +199,7 @@ export function useBaseData<T>(
   }, []);
 
   /**
-   * 设置自动刷新
+   * 设置自动刷新 - 移除fetchData依赖避免频繁重设定时器
    */
   useEffect(() => {
     if (config.autoRefresh && config.refreshInterval && dataService) {
@@ -212,7 +212,7 @@ export function useBaseData<T>(
     }
 
     return clearRefreshInterval;
-  }, [config.autoRefresh, config.refreshInterval, dataService, fetchData, clearRefreshInterval]);
+  }, [config.autoRefresh, config.refreshInterval, dataService, clearRefreshInterval]); // 移除fetchData依赖
 
   /**
    * 初始数据获取

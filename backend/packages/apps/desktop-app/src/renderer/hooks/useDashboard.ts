@@ -7,10 +7,12 @@
  * - 接口隔离原则：提供Dashboard特定的接口
  */
 
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef, useCallback } from 'react';
 import { useBaseData } from './useBaseData';
 import { BackendStatus, DashboardData, BaseHookReturn, FetchConfig } from './types';
 import { DashboardDataService } from '../services';
+import { systemResourcesService } from '../services/system/SystemResourcesService';
+import { serviceStatusService } from '../services/system/ServiceStatusService';
 
 /**
  * Dashboard页面数据Hook
@@ -27,6 +29,12 @@ export function useDashboard(
   refreshSystemMetrics: () => Promise<void>;
   refreshServices: () => Promise<void>;
 } {
+  // 定时器引用
+  const systemResourcesTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const servicesTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSystemResourcesUpdate = useRef<number>(0);
+  const lastServicesUpdate = useRef<number>(0);
+
   // 创建数据服务实例
   const dataService = useMemo(() => {
     return backendStatus ? new DashboardDataService(backendStatus) : null;
@@ -34,24 +42,124 @@ export function useDashboard(
 
   // 使用基础Hook获取数据 - 优化刷新频率
   const baseHook = useBaseData(dataService, {
-    autoRefresh: true,
-    refreshInterval: 10000, // 10秒刷新一次，避免过于频繁的请求
+    autoRefresh: false, // 禁用自动刷新，使用自定义定时器
     retryCount: 3,
     timeout: 15000, // 增加超时时间以适应多个API并行请求
     ...config
   });
 
-  // 扩展方法：刷新系统指标
-  const refreshSystemMetrics = async (): Promise<void> => {
-    // 这里可以实现特定的系统指标刷新逻辑
-    await baseHook.refresh();
-  };
+  // 使用ref存储最新的值，避免闭包问题
+  const baseHookRef = useRef(baseHook);
+  const backendStatusRef = useRef(backendStatus);
 
-  // 扩展方法：刷新服务状态
-  const refreshServices = async (): Promise<void> => {
-    // 这里可以实现特定的服务状态刷新逻辑
-    await baseHook.refresh();
-  };
+  // 更新ref值 - 每次渲染都更新，无需依赖数组
+  baseHookRef.current = baseHook;
+  backendStatusRef.current = backendStatus;
+
+  // 系统资源刷新方法 - 使用ref避免依赖循环，不触发完整刷新
+  const refreshSystemMetrics = useCallback(async (): Promise<void> => {
+    const now = Date.now();
+    // 防抖：如果距离上次更新不到1000ms，则跳过（增加防抖时间）
+    if (now - lastSystemResourcesUpdate.current < 1000) {
+      return;
+    }
+
+    try {
+      lastSystemResourcesUpdate.current = now;
+      const currentBackendStatus = backendStatusRef.current;
+      if (currentBackendStatus) {
+        // 设置API客户端
+        systemResourcesService.setApiClient(currentBackendStatus);
+        // 只刷新系统资源数据，不触发完整的数据刷新
+        await systemResourcesService.getSystemResources();
+      }
+      // 不再调用baseHook.refresh()，避免触发所有API调用
+    } catch (error) {
+      console.error('Failed to refresh system metrics:', error);
+    }
+  }, []); // 无依赖，使用ref访问最新值
+
+  // 服务状态刷新方法 - 使用ref避免依赖循环，不触发完整刷新
+  const refreshServices = useCallback(async (): Promise<void> => {
+    const now = Date.now();
+    // 防抖：如果距离上次更新不到3000ms，则跳过（增加防抖时间）
+    if (now - lastServicesUpdate.current < 3000) {
+      return;
+    }
+
+    try {
+      lastServicesUpdate.current = now;
+      const currentBackendStatus = backendStatusRef.current;
+      if (currentBackendStatus) {
+        serviceStatusService.setApiClient(currentBackendStatus);
+        await serviceStatusService.getServicesStatus();
+        // 不再调用baseHook.refresh()，避免触发所有API调用
+      }
+    } catch (error) {
+      console.error('Failed to refresh services:', error);
+    }
+  }, []); // 无依赖，使用ref访问最新值
+
+  // 设置定时器 - 使用ref避免依赖循环
+  useEffect(() => {
+    if (!backendStatus?.isRunning) {
+      // 清理现有定时器
+      if (systemResourcesTimerRef.current) {
+        clearInterval(systemResourcesTimerRef.current);
+        systemResourcesTimerRef.current = null;
+      }
+      if (servicesTimerRef.current) {
+        clearInterval(servicesTimerRef.current);
+        servicesTimerRef.current = null;
+      }
+      return;
+    }
+
+    // 清理现有定时器，避免重复设置
+    if (systemResourcesTimerRef.current) {
+      clearInterval(systemResourcesTimerRef.current);
+    }
+    if (servicesTimerRef.current) {
+      clearInterval(servicesTimerRef.current);
+    }
+
+    // 初始加载 - 使用ref中的最新值
+    baseHookRef.current.refresh();
+
+    // 系统资源监控：每3秒刷新（减少频率）
+    systemResourcesTimerRef.current = setInterval(() => {
+      refreshSystemMetrics();
+    }, 3000);
+
+    // 服务状态监控：每10秒刷新（减少频率）
+    servicesTimerRef.current = setInterval(() => {
+      refreshServices();
+    }, 10000);
+
+    // 清理函数
+    return () => {
+      if (systemResourcesTimerRef.current) {
+        clearInterval(systemResourcesTimerRef.current);
+        systemResourcesTimerRef.current = null;
+      }
+      if (servicesTimerRef.current) {
+        clearInterval(servicesTimerRef.current);
+        servicesTimerRef.current = null;
+      }
+    };
+  }, [backendStatus?.isRunning, backendStatus?.port]); // 添加port依赖，确保端口变化时重新设置
+
+  // 组件卸载时清理定时器
+  useEffect(() => {
+    return () => {
+      if (systemResourcesTimerRef.current) {
+        clearInterval(systemResourcesTimerRef.current);
+      }
+      if (servicesTimerRef.current) {
+        clearInterval(servicesTimerRef.current);
+      }
+    };
+  }, []);
 
   return {
     ...baseHook,

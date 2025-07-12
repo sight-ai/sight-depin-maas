@@ -107,10 +107,21 @@ export interface DashboardData {
   services: Array<{
     name: string;
     status: 'online' | 'offline' | 'warning';
-    uptime: string;
-    connections: number;
+    port?: number;
+    responseTime?: number;
+    uptime?: string;
+    connections?: number;
     icon?: string;
   }>;
+
+  // 设备注册信息
+  deviceInfo?: {
+    isRegistered: boolean;
+    deviceId: string;
+    deviceName: string;
+    gatewayAddress?: string;
+    rewardAddress?: string;
+  };
 
   // 最近活动记录
   recentActivity: Array<{

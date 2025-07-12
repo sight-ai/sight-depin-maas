@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/ui/sidebar';
 import { CyberModelInference } from './components/CyberModelInference';
 import { ModelReporting } from './components/ModelReporting';
-import { CyberDashboard } from './components/Dashboard';
+import { Dashboard } from './components/Dashboard';
 import { Earnings } from './components/Earnings';
 import { GatewayConfiguration } from './components/GatewayConfiguration';
 import { Communication } from './components/Communication';
 import { Settings } from './components/Settings';
 import { DeviceRegistration } from './components/DeviceRegistration';
 import { DIDManagement } from './components/DIDManagement';
+import { getBackendStatus, onBackendStatusChange } from './utils/electron-api';
 
 interface BackendStatus {
   isRunning: boolean;
@@ -27,14 +28,12 @@ const App: React.FC = () => {
     // Check backend status
     const checkBackendStatus = async () => {
       try {
-        if (window.electronAPI) {
-          const status = await window.electronAPI.getBackendStatus();
-          setBackendStatus(status);
+        const status = await getBackendStatus();
+        setBackendStatus(status);
 
-          // End initialization state if backend service is started
-          if (status.isRunning && isInitializing) {
-            setIsInitializing(false);
-          }
+        // End initialization state if backend service is started
+        if (status.isRunning && isInitializing) {
+          setIsInitializing(false);
         }
       } catch (error) {
         console.error('Failed to get backend status:', error);
@@ -45,14 +44,12 @@ const App: React.FC = () => {
     checkBackendStatus();
 
     // Listen for backend status change events
-    if (window.electronAPI) {
-      window.electronAPI.onBackendStatusChange((status) => {
-        setBackendStatus(status);
-        if (status.isRunning && isInitializing) {
-          setIsInitializing(false);
-        }
-      });
-    }
+    onBackendStatusChange((status) => {
+      setBackendStatus(status);
+      if (status.isRunning && isInitializing) {
+        setIsInitializing(false);
+      }
+    });
 
     // 🚨 修复：减少后端状态检查频率，从5秒改为15秒
     const interval = setInterval(checkBackendStatus, 15000);
@@ -83,7 +80,7 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <CyberDashboard backendStatus={backendStatus} />;
+        return <Dashboard  backendStatus={backendStatus}/>;
       case 'device-registration':
         return <DeviceRegistration backendStatus={backendStatus}/>;
       case 'model-configuration':
@@ -101,7 +98,7 @@ const App: React.FC = () => {
       case 'inference': //
         return <CyberModelInference backendStatus={backendStatus} />;
       default:
-        return <CyberDashboard backendStatus={backendStatus} />;
+        return <Dashboard backendStatus={backendStatus}/>;
     }
   };
 
