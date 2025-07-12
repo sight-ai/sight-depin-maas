@@ -84,21 +84,21 @@ const App: React.FC = () => {
       case 'device-registration':
         return <DeviceRegistration backendStatus={backendStatus}/>;
       case 'model-configuration':
-        return <ModelReporting />;
-      case 'earnings':
-        return <Earnings backendStatus={backendStatus} />;
-      case 'gateway-configuration':
-        return <GatewayConfiguration backendStatus={backendStatus} />;
-      case 'communication':
-        return <Communication backendStatus={backendStatus} />;
-      case 'did-management':
-        return <DIDManagement backendStatus={backendStatus} />;
-      case 'settings':
-        return <Settings backendStatus={backendStatus} />;
-      case 'inference': //
-        return <CyberModelInference backendStatus={backendStatus} />;
-      default:
-        return <Dashboard backendStatus={backendStatus}/>;
+        return <ModelReporting backendStatus={backendStatus} />;
+      // case 'earnings':
+      //   return <Earnings backendStatus={backendStatus} />;
+      // case 'gateway-configuration':
+      //   return <GatewayConfiguration backendStatus={backendStatus} />;
+      // case 'communication':
+      //   return <Communication backendStatus={backendStatus} />;
+      // case 'did-management':
+      //   return <DIDManagement backendStatus={backendStatus} />;
+      // case 'settings':
+      //   return <Settings backendStatus={backendStatus} />;
+      // case 'inference': //
+      //   return <CyberModelInference backendStatus={backendStatus} />;
+      // default:
+      //   return <Dashboard backendStatus={backendStatus}/>;
     }
   };
 

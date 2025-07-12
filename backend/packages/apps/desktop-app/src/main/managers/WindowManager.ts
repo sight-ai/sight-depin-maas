@@ -6,10 +6,15 @@ export class WindowManager {
   private mainWindow: BrowserWindow | null = null;
   private isDev: boolean;
   private logger: LogManager;
+  private onAppExit?: () => void;
 
   constructor(logger: LogManager, isDev: boolean = false) {
     this.logger = logger;
     this.isDev = isDev;
+  }
+
+  public setExitCallback(callback: () => void): void {
+    this.onAppExit = callback;
   }
 
   public createWindow(): BrowserWindow {
@@ -135,12 +140,19 @@ export class WindowManager {
           },
           { type: 'separator' },
           {
-            label: 'Quit',
+            label: 'Quit SightAI',
             accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
             click: () => {
-              // 这里需要通过回调通知主应用退出
-              if (this.mainWindow) {
-                this.mainWindow.webContents.send('app-quit-requested');
+              this.logger.log('Quit requested from menu');
+              if (this.onAppExit) {
+                this.onAppExit();
+              } else {
+                // 发送退出请求到渲染进程
+                if (this.mainWindow) {
+                  this.mainWindow.webContents.send('app-quit-requested');
+                }
+                // 同时尝试直接退出
+                require('electron').app.quit();
               }
             },
           },

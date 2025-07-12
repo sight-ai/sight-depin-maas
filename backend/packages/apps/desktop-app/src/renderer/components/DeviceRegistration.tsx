@@ -31,6 +31,7 @@ export const DeviceRegistration: React.FC<DeviceRegistrationProps> = ({ backendS
     error: registrationError,
     isSubmitting,
     registerDevice,
+    unregisterDevice,
     updateDid,
     refreshData,
     copyToClipboard
@@ -69,6 +70,17 @@ export const DeviceRegistration: React.FC<DeviceRegistrationProps> = ({ backendS
       setTimeout(() => setCopySuccess(null), 3000);
     } catch (error) {
       console.error('DID update failed:', error);
+    }
+  };
+
+  // 处理设备取消注册
+  const handleUnregisterDevice = async () => {
+    try {
+      await unregisterDevice();
+      setCopySuccess('Device unregistered successfully! DID configuration preserved.');
+      setTimeout(() => setCopySuccess(null), 4000);
+    } catch (error) {
+      console.error('Device unregistration failed:', error);
     }
   };
 
@@ -154,6 +166,7 @@ export const DeviceRegistration: React.FC<DeviceRegistrationProps> = ({ backendS
           isRegistered={registrationData.isRegistered}
           onRefresh={refreshData}
           onUpdateDid={handleUpdateDid}
+          onUnregister={handleUnregisterDevice}
           isLoading={isSubmitting}
         />
 

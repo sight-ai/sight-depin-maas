@@ -6,6 +6,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { BackendStatus } from './types';
 import { createApiClient } from '../utils/api-client';
+import { DataPersistenceManager } from '../utils/data-persistence';
+import { deviceInfoManager } from '../utils/device-info-manager';
 
 interface DashboardData {
   systemInfo: {
@@ -61,11 +63,15 @@ export const useDashboardData = (backendStatus: BackendStatus | null): UseDashbo
         version: 'v0.9.3 Beta',
         uptime: '0min'
       },
-      deviceInfo: {
-        isRegistered: false,
-        deviceId: '',
-        deviceName: 'Unknown Device'
-      },
+      deviceInfo: (() => {
+        // 尝试从缓存获取设备信息
+        const cachedDeviceInfo = DataPersistenceManager.getDashboardDeviceInfo();
+        return cachedDeviceInfo || {
+          isRegistered: false,
+          deviceId: '',
+          deviceName: 'Unknown Device'
+        };
+      })(),
       earnings: {
         taskCompleted: 0,
         todayEarnings: 0,
@@ -137,19 +143,21 @@ export const useDashboardData = (backendStatus: BackendStatus | null): UseDashbo
           }
         }
 
-        // 获取设备信息
+        // 使用全局设备信息管理器获取设备信息
         try {
-          const deviceResult = await apiClient.getDeviceInfo();
-          if (deviceResult.success && deviceResult.data) {
-            const deviceData = deviceResult.data as any;
-            systemData.deviceInfo = {
-              isRegistered: deviceData?.isRegistered || false,
-              deviceId: deviceData?.deviceId || '',
-              deviceName: deviceData?.deviceName || 'Unknown Device'
-            };
-          }
+          const deviceInfo = await deviceInfoManager.getDeviceInfo(backendStatus?.port);
+          systemData.deviceInfo = {
+            isRegistered: deviceInfo.isRegistered,
+            deviceId: deviceInfo.deviceId,
+            deviceName: deviceInfo.deviceName
+          };
         } catch (deviceError) {
           console.warn('Failed to get device info:', deviceError);
+          // 使用缓存的设备信息作为后备
+          const cachedDeviceInfo = DataPersistenceManager.getDashboardDeviceInfo();
+          if (cachedDeviceInfo) {
+            systemData.deviceInfo = cachedDeviceInfo;
+          }
         }
 
       } catch (apiError) {
@@ -189,7 +197,7 @@ export const useDashboardData = (backendStatus: BackendStatus | null): UseDashbo
     }
 
     return systemData;
-  }, [backendStatus]);
+  }, []);
 
   // 使用状态存储当前数据
   const [data, setData] = useState<DashboardData>(() => {
@@ -232,7 +240,7 @@ export const useDashboardData = (backendStatus: BackendStatus | null): UseDashbo
       setError(errorMessage);
       console.error('Dashboard data fetch error:', err);
     }
-  }, [getRealSystemData]);
+  }, []);
 
   // 初始加载数据
   useEffect(() => {
@@ -246,13 +254,6 @@ export const useDashboardData = (backendStatus: BackendStatus | null): UseDashbo
     }, 10000); // 每10秒刷新一次
 
     return () => clearInterval(interval);
-  }, []);
-
-  // 监听后端状态变化
-  useEffect(() => {
-    if (backendStatus) {
-      refresh();
-    }
   }, []);
 
   return {

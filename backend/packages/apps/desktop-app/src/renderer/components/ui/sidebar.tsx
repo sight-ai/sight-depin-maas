@@ -27,11 +27,11 @@ const mainNavItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', level: 0 },
   { id: 'device-registration', label: 'Device Registration', level: 0 },
   { id: 'model-configuration', label: 'Model Configuration', level: 0 },
-  { id: 'earnings', label: 'Earnings', level: 1 },
-  { id: 'gateway-configuration', label: 'Gateway Configuration', level: 1 },
-  { id: 'communication', label: 'Communication', level: 1 },
-  { id: 'did-management', label: 'DID Management', level: 1 },
-  { id: 'settings', label: 'Settings', level: 1 },
+  // { id: 'earnings', label: 'Earnings', level: 1 },
+  // { id: 'gateway-configuration', label: 'Gateway Configuration', level: 1 },
+  // { id: 'communication', label: 'Communication', level: 1 },
+  // { id: 'did-management', label: 'DID Management', level: 1 },
+  // { id: 'settings', label: 'Settings', level: 1 },
 ];
 
 // const modularConfigSection: NavSection = {

@@ -92,8 +92,29 @@ export class ServiceManager {
 
   public async stopAllServices(): Promise<void> {
     this.logger.log('Stopping all services...');
-    await this.stopLibp2pService();
-    this.stopBackendService();
+
+    // 并行停止所有服务
+    const stopPromises = [
+      this.stopLibp2pService(),
+      this.stopBackendServiceAsync()
+    ];
+
+    try {
+      await Promise.all(stopPromises);
+      this.logger.log('All services stopped successfully');
+    } catch (error) {
+      this.logger.log(`Error stopping some services: ${error}`, 'ERROR');
+    }
+  }
+
+  private async stopBackendServiceAsync(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      this.stopBackendService();
+      // 等待一段时间确保服务完全停止
+      setTimeout(() => {
+        resolve();
+      }, 2000);
+    });
   }
 
   public async restartAllServices(): Promise<void> {
@@ -189,11 +210,25 @@ export class ServiceManager {
       this.logger.log('Stopping backend service...');
 
       try {
-        // 如果后端应用有 close 或 stop 方法，调用它
+        // 尝试优雅关闭
         if (typeof this.backendService.instance.close === 'function') {
           this.backendService.instance.close();
         } else if (typeof this.backendService.instance.stop === 'function') {
           this.backendService.instance.stop();
+        }
+
+        // 如果是子进程，强制终止
+        if (this.backendService.instance && typeof this.backendService.instance.kill === 'function') {
+          this.logger.log('Force killing backend process...');
+          this.backendService.instance.kill('SIGTERM');
+
+          // 如果SIGTERM不起作用，使用SIGKILL
+          setTimeout(() => {
+            if (this.backendService.instance && !this.backendService.instance.killed) {
+              this.logger.log('Force killing backend process with SIGKILL...');
+              this.backendService.instance.kill('SIGKILL');
+            }
+          }, 3000);
         }
       } catch (error) {
         this.logger.log(`Error stopping backend service: ${error}`, 'ERROR');

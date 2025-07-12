@@ -244,6 +244,13 @@ export class ApiClient {
   }
 
   /**
+   * 取消注册设备
+   */
+  async unregisterDevice() {
+    return this.post('/api/v1/device-status/unregister', {});
+  }
+
+  /**
    * 获取 DID 信息
    */
   async getDidInfo() {

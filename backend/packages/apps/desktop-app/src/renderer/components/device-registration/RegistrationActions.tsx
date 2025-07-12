@@ -12,7 +12,7 @@ interface RegistrationActionsProps {
   isRegistered: boolean;
   onRefresh: () => Promise<void>;
   onUpdateDid: () => Promise<void>;
-  onUnregister?: () => Promise<void>;
+  onUnregister: () => Promise<void>;
   isLoading?: boolean;
 }
 
@@ -53,13 +53,12 @@ export const RegistrationActions: React.FC<RegistrationActionsProps> = ({
 
   // 取消注册确认
   const handleUnregisterConfirm = async () => {
-    if (onUnregister) {
-      try {
-        await onUnregister();
-        setShowUnregisterConfirm(false);
-      } catch (error) {
-        console.error('Failed to unregister device:', error);
-      }
+    try {
+      await onUnregister();
+      setShowUnregisterConfirm(false);
+    } catch (error) {
+      console.error('Failed to unregister device:', error);
+      // 错误会在父组件中处理和显示
     }
   };
 
@@ -117,8 +116,11 @@ export const RegistrationActions: React.FC<RegistrationActionsProps> = ({
                     <AlertTriangle className="h-5 w-5 text-red-600" />
                     <div>
                       <h4 className="font-medium text-red-800">Confirm Unregistration</h4>
-                      <p className="text-sm text-red-600">
-                        This action will remove your device from the network. You will stop earning rewards.
+                      <p className="text-sm text-red-600 mb-2">
+                        This action will remove your device from the network and clear all registration information.
+                      </p>
+                      <p className="text-sm text-blue-600">
+                        <strong>Note:</strong> Your DID (Decentralized Identifier) will be preserved and can be reused for future registrations.
                       </p>
                     </div>
                   </div>
