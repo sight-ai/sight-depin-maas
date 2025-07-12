@@ -18,6 +18,10 @@ module.exports = {
     },
     'package.json'
   ],
+
+  // 原生模块配置
+  nodeGypRebuild: false,
+  buildDependenciesFromSource: false,
   
   // 额外资源
   extraResources: [

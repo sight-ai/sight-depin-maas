@@ -49,7 +49,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
 
     if (!formData.gateway.trim()) {
       errors.gateway = 'Gateway is required';
-    } else if (!/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.gateway)) {
+    } else if (!/^https?:\/\/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/.test(formData.gateway)) {
       errors.gateway = 'Please enter a valid gateway address';
     }
 

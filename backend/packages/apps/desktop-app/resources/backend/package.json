@@ -1,17 +1,5 @@
 {
   "name": "api-server",
   "version": "0.0.1",
-  "main": "main.js",
-  "dependencies": {
-    "level": "latest",
-    "classic-level": "latest",
-    "abstract-level": "latest",
-    "level-supports": "latest",
-    "level-transcoder": "latest",
-    "module-error": "latest",
-    "queue-microtask": "latest",
-    "maybe-combine-errors": "latest",
-    "node-gyp-build": "latest",
-    "catering": "latest"
-  }
+  "main": "main.js"
 }
