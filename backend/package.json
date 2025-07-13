@@ -14,7 +14,6 @@
     "fix": "eslint --fix ./packages/**/*.ts",
     "desktop:dev": "nx electron-dev desktop-app",
     "desktop:copy-backend": "node packages/apps/desktop-app/scripts/copy-backend.js",
-    "desktop:fix-level": "node packages/apps/desktop-app/scripts/fix-level-dependency.js",
     "desktop:package": "nx run desktop-app:package-mac"
   },
   "private": true,

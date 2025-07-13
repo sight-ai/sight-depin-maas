@@ -220,4 +220,36 @@ export class DeviceStatusController {
     }
   }
 
+  @Post('/unregister')
+  async unregister(@Res() res: Response) {
+    try {
+      this.logger.log('Starting device unregistration process - clearing local data');
+
+      // 执行本地取消注册逻辑：清理本地数据并重置为未注册状态
+      const result = await this.deviceStatusService.unregister();
+
+      if (result.success) {
+        this.logger.log('Device unregistered successfully - local data cleared');
+        res.status(200).json({
+          success: true,
+          message: 'Device unregistered successfully. Local registration data has been cleared.',
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: result.error || 'Failed to clear local registration data',
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      this.logger.error('Unregistration error:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
 }

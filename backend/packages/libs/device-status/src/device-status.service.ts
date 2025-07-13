@@ -102,6 +102,57 @@ export class DefaultDeviceStatusService implements TDeviceStatusService, OnModul
   }
 
   /**
+   * 取消注册设备 - 清理本地数据并重置为未注册状态
+   */
+  async unregister(): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.logger.log('Starting device unregistration - clearing local data');
+
+      // 1. 停止心跳服务
+      this.stopHeartbeat();
+      this.logger.log('Heartbeat service stopped');
+
+      // 2. 清除本地注册信息
+      const clearSuccess = await this.registryService.clearRegistration();
+
+      if (!clearSuccess) {
+        return {
+          success: false,
+          error: 'Failed to clear local registration information'
+        };
+      }
+      this.logger.log('Local registration data cleared');
+
+      // 3. 更新本地数据库状态为未注册
+      try {
+        const config = this.configService.getCurrentConfig();
+        if (config.deviceId) {
+          await this.databaseService.updateDeviceStatus(
+            config.deviceId,
+            config.deviceName || '',
+            'disconnected',
+            ''
+          );
+          this.logger.log('Local database status updated to disconnected');
+        }
+      } catch (dbError) {
+        this.logger.warn('Failed to update database status, but continuing:', dbError);
+        // 不因为数据库更新失败而中断取消注册流程
+      }
+
+      this.logger.log('Device unregistered successfully - system reset to unregistered state');
+      return { success: true };
+
+    } catch (error) {
+      this.logger.error('Unregistration failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to clear local registration data'
+      };
+    }
+  }
+
+  /**
    * 启动定时心跳
    */
   startHeartbeat(): void {

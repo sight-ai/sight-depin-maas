@@ -59,6 +59,7 @@ class DesktopApp {
         this.windowManager.setExitCallback(() => {
           this.logger.log('Exit requested from window manager');
           this.isQuiting = true;
+          this.windowManager.setQuiting(true);
           this.cleanup();
         });
 
@@ -105,6 +106,7 @@ class DesktopApp {
       if (!this.isQuiting) {
         event.preventDefault();
         this.isQuiting = true;
+        this.windowManager.setQuiting(true);
         this.cleanup();
       }
     });
@@ -138,6 +140,7 @@ class DesktopApp {
       () => {
         this.logger.log('Exit requested from tray menu');
         this.isQuiting = true;
+        this.windowManager.setQuiting(true);
         this.cleanup();
       }
     );

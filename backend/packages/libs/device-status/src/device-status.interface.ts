@@ -147,6 +147,7 @@ export abstract class DeviceStatusService implements TDeviceStatusService {
   abstract markInactiveDevicesOffline(inactiveDuration: number): Promise<DeviceStatusData[]>;
   abstract getDeviceList(): Promise<DeviceListItem[]>;
   abstract getCurrentDevice(): Promise<DeviceStatusData | null>;
+  abstract unregister(): Promise<{ success: boolean; error?: string }>;
   abstract getDeviceTasks(deviceId: string): Promise<TaskResult[]>;
   abstract getDeviceEarnings(deviceId: string): Promise<EarningResult[]>;
   abstract getGatewayStatus(): Promise<{ isRegistered: boolean }>;

@@ -7,6 +7,7 @@ export class WindowManager {
   private isDev: boolean;
   private logger: LogManager;
   private onAppExit?: () => void;
+  private isQuiting: boolean = false;
 
   constructor(logger: LogManager, isDev: boolean = false) {
     this.logger = logger;
@@ -123,10 +124,18 @@ export class WindowManager {
   public setCloseToTray(callback: () => void): void {
     if (this.mainWindow) {
       this.mainWindow.on('close', (event) => {
-        event.preventDefault();
-        callback();
+        // 只有在非退出状态下才阻止关闭并隐藏到托盘
+        // 如果应用正在退出，允许正常关闭
+        if (!this.isQuiting) {
+          event.preventDefault();
+          callback();
+        }
       });
     }
+  }
+
+  public setQuiting(quiting: boolean): void {
+    this.isQuiting = quiting;
   }
 
   private setupMenu(): void {
