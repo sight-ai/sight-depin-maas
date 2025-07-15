@@ -10,6 +10,8 @@ import { TaskManagerService } from './services/task-manager.service';
 import { EarningsManagerService } from './services/earnings-manager.service';
 import { DataAccessService } from './services/data-access.service';
 import { UnifiedMinerService } from './services/unified-miner.service';
+import { TaskAggregationService } from './services/task-aggregation.service';
+import { EarningsAggregationService } from './services/earnings-aggregation.service';
 
 // 核心契约接口和标识符
 import {
@@ -51,6 +53,8 @@ const defaultMinerConfig: MinerConfig = {
       provide: DATA_ACCESS_LAYER,
       useClass: DataAccessService
     },
+    TaskAggregationService,
+    EarningsAggregationService,
     {
       provide: TASK_MANAGER,
       useClass: TaskManagerService
@@ -102,7 +106,9 @@ const defaultMinerConfig: MinerConfig = {
     TaskManagerService,
     EarningsManagerService,
     DataAccessService,
-    UnifiedMinerService
+    UnifiedMinerService,
+    TaskAggregationService,
+    EarningsAggregationService
   ]
 })
 export class MinerModule {}

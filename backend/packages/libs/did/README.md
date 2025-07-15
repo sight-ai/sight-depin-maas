@@ -84,7 +84,7 @@ Other modules can use DidService to:
 Example:
 
 ```ts
-// consume didService is an entity of DidServiceImpl
+// assume didService is an entity of DidServiceImpl
 
 // 1. get current Did document
 const didDocument = didService.getDocument();
@@ -139,7 +139,7 @@ Modules (e.g., `Tunnel, Node`) can:
   Example:
 
   ```ts
-  // consume didDocumentManger is an entity of DidDocumentManager
+  // assume didDocumentManger is an entity of DidDocumentManager
   // add
   await didDocumentManager.addDocument(doc);
   // remove

@@ -81,6 +81,27 @@
     },
     "deploy": {
       "command": "gcloud run deploy b20-api-server --image {args.image} --region us-west1"
+    },
+    "docs:serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node scripts/serve-docs.js",
+        "cwd": "packages/apps/api-server"
+      }
+    },
+    "docs:validate": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node scripts/serve-docs.js --validate",
+        "cwd": "packages/apps/api-server"
+      }
+    },
+    "docs:build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npx redoc-cli build openapi.yaml --output docs/api-docs.html",
+        "cwd": "packages/apps/api-server"
+      }
     }
   },
   "tags": []

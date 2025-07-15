@@ -78,7 +78,7 @@ function installNativeModules(targetDir) {
 
   try {
     console.log('📥 Installing modules with pnpm...');
-    execSync('pnpm install --prod --no-optional', {
+    execSync('pnpm install --prod --no-optional --ignore-scripts', {
       cwd: targetDir,
       stdio: 'inherit'
     });

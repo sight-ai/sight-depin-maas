@@ -66,8 +66,7 @@ export class OutcomeChatResponseStreamHandler extends OutcomeBaseMessageHandler 
       // TunnelService会处理连接状态检查和实际的网关通信
       await this.tunnel.sendMessage(message);
 
-      // 记录发送成功
-      this.logger.debug(`消息发送成功: ${message.type} -> ${message.to}`);
+
 
     } catch (error) {
       this.logger.error(`发送到网关失败: ${error instanceof Error ? error.message : '未知错误'}`);

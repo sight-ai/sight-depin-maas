@@ -1,4 +1,5 @@
 import { ModelOfMiner } from "@saito/models";
+import { RegistrationStatus } from './registration-storage';
 
 // Service Tokens
 export const DEVICE_STATUS_SERVICE = Symbol('DEVICE_STATUS_SERVICE');
@@ -71,7 +72,15 @@ export interface TDeviceConfig {
   getDeviceName(): string;
   getGatewayAddress(): string;
   getRewardAddress(): string;
+  getCode(): string;
   isRegistered(): boolean;
+  updateRegistrationStatus(status: RegistrationStatus, error?: string): boolean;
+  getRegistrationStatus(): RegistrationStatus;
+  getRegistrationStatusInfo(): {
+    status: RegistrationStatus;
+    error?: string;
+    lastAttempt?: string;
+  };
 }
 
 export interface TDeviceDatabase {
@@ -133,10 +142,12 @@ export interface TDeviceStatusService {
 export abstract class DeviceStatusService implements TDeviceStatusService {
   abstract register(credentials: DeviceCredentials): Promise<RegistrationResponse>;
   abstract getDeviceStatus(deviceId: string): Promise<DeviceStatusData | null>;
+  abstract getRegistrationInfo(): Promise<any>;
   abstract updateDeviceStatus(deviceId: string, name: string, status: DeviceStatus, rewardAddress: string): Promise<DeviceStatusData>;
   abstract markInactiveDevicesOffline(inactiveDuration: number): Promise<DeviceStatusData[]>;
   abstract getDeviceList(): Promise<DeviceListItem[]>;
   abstract getCurrentDevice(): Promise<DeviceStatusData | null>;
+  abstract unregister(): Promise<{ success: boolean; error?: string }>;
   abstract getDeviceTasks(deviceId: string): Promise<TaskResult[]>;
   abstract getDeviceEarnings(deviceId: string): Promise<EarningResult[]>;
   abstract getGatewayStatus(): Promise<{ isRegistered: boolean }>;

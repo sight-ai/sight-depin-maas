@@ -6,9 +6,11 @@ import { DeviceCommands } from './commands/device';
 import { ModelCommands } from './commands/models';
 import { VllmCommands } from './commands/vllm';
 import { OllamaCommands } from './commands/ollama';
+import { createTransportCommand } from './commands/transport';
 import { AppServices } from './services/app-services';
 import { ProcessManagerService } from './services/process-manager';
 import { UIUtils } from './utils/ui';
+
 import inquirer from 'inquirer';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
@@ -40,6 +42,8 @@ function loadEnvironmentVariables() {
 
 // Load environment variables at startup
 loadEnvironmentVariables();
+
+
 
 const program = new Command();
 
@@ -87,6 +91,9 @@ async function startInteractiveCli(): Promise<void> {
             { name: '🔄 Framework status', value: 'framework-status' },
             { name: '🔀 Switch framework', value: 'framework-switch' },
             { name: '🏥 Framework health', value: 'framework-health' },
+            new inquirer.Separator(),
+            { name: '🌐 Transport status', value: 'transport-status' },
+            { name: '🔄 Switch transport', value: 'transport-switch' },
             new inquirer.Separator(),
             { name: '⚙️  vLLM configuration', value: 'vllm-config' },
             { name: '🎛️  Set GPU memory', value: 'vllm-gpu-memory' },
@@ -201,6 +208,64 @@ async function startInteractiveCli(): Promise<void> {
             });
           } else {
             UIUtils.error(`Failed to get health status: ${healthStatus.error}`);
+          }
+          break;
+        case 'transport-status':
+          UIUtils.showSection('Transport Status');
+          try {
+            const { TransportConfigService } = await import('@saito/tunnel');
+            const { EventEmitter2 } = await import('@nestjs/event-emitter');
+            const eventEmitter = new EventEmitter2();
+            const configService = new TransportConfigService(eventEmitter);
+
+            const config = configService.getCurrentConfig();
+            console.log(`Current Transport Type: ${config.type}`);
+            console.log(`Updated At: ${config.updatedAt}`);
+            console.log(`Requires Restart: ${config.requiresRestart ? 'Yes' : 'No'}`);
+          } catch (error) {
+            UIUtils.error(`Failed to get transport status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          }
+          break;
+        case 'transport-switch':
+          UIUtils.showSection('Switch Transport Type');
+          try {
+            const { type } = await inquirer.prompt([
+              {
+                type: 'list',
+                name: 'type',
+                message: 'Select transport type:',
+                choices: [
+                  { name: 'Socket (WebSocket)', value: 'socket' },
+                  { name: 'Libp2p (Peer-to-peer)', value: 'libp2p' }
+                ]
+              }
+            ]);
+
+            const { restart } = await inquirer.prompt([
+              {
+                type: 'confirm',
+                name: 'restart',
+                message: 'Restart application after switching?',
+                default: true
+              }
+            ]);
+
+            const { TransportConfigService, TransportSwitcherService } = await import('@saito/tunnel');
+            const { EventEmitter2 } = await import('@nestjs/event-emitter');
+            const eventEmitter = new EventEmitter2();
+            const configService = new TransportConfigService(eventEmitter);
+            const switcherService = new TransportSwitcherService(configService, eventEmitter);
+
+            UIUtils.info(`Switching to ${type} transport...`);
+            await switcherService.switchTransport(type, restart, 3000);
+
+            if (restart) {
+              UIUtils.success(`Transport switched to ${type}. Application will restart in 3 seconds.`);
+            } else {
+              UIUtils.success(`Transport switched to ${type}. Please restart the application manually.`);
+            }
+          } catch (error) {
+            UIUtils.error(`Failed to switch transport: ${error instanceof Error ? error.message : 'Unknown error'}`);
           }
           break;
         case 'vllm-config':
@@ -361,7 +426,8 @@ async function startInteractiveCli(): Promise<void> {
 program
   .name('sight')
   .description('Sight AI Command Line Interface')
-  .version('1.0.0');
+  .version('1.0.0')
+  .option('--transport <type>', 'Set transport type (socket|libp2p)', 'libp2p');
 
 /**
  * 启动服务器命令
@@ -374,19 +440,36 @@ program
     try {
       UIUtils.showSection('Starting Backend Server');
 
+      // 获取全局transport选项
+      const globalTransport = program.opts().transport;
+
       if (options.daemon) {
         // 后台模式：使用 ProcessManager 创建独立进程
         UIUtils.info('Starting server in background mode...');
 
-        const result = ProcessManagerService.startDaemonProcess();
+        // 检查是否已有进程在运行
+        const serverStatus = ProcessManagerService.getServerStatus();
 
-        if (result.success) {
-          UIUtils.success('Backend server started in background');
-          UIUtils.info(`Process ID: ${result.pid}`);
-          UIUtils.info('You can now use other commands while the server runs in background');
+        if (serverStatus.running) {
+          UIUtils.warning(`Backend server is already running (PID: ${serverStatus.pid})`);
+          UIUtils.info(`Use 'sight stop' to stop the server first, or 'sight transport switch <type>' to change transport type`);
         } else {
-          UIUtils.error(`Failed to start background server: ${result.error}`);
-          process.exit(1);
+          // 没有运行的服务，正常启动
+          const args = globalTransport ? [`--transport`, globalTransport] : [];
+          const result = ProcessManagerService.startDaemonProcess(args);
+
+          if (result.success) {
+            UIUtils.success('Backend server started in background');
+            UIUtils.info(`Process ID: ${result.pid}`);
+
+            // 获取实际使用的传输类型
+            // Display the actual transport type being used for startup
+            UIUtils.info(`Transport type: ${globalTransport}`);
+            UIUtils.info(`You can now use other commands while the server runs in background`);
+          } else {
+            UIUtils.error(`Failed to start background server: ${result.error}`);
+            process.exit(1);
+          }
         }
       } else {
         // 前台模式：等待 bootstrap 完成
@@ -1215,6 +1298,11 @@ frameworkCommand
   });
 
 /**
+ * 传输层配置命令组
+ */
+program.addCommand(createTransportCommand());
+
+/**
  * 主程序入口
  */
 async function main() {
@@ -1223,6 +1311,7 @@ async function main() {
     if (process.argv.length <= 2) {
       UIUtils.showTitle();
       program.help();
+      return;
     }
 
     // 解析命令行参数

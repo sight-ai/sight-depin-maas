@@ -57,7 +57,7 @@ export class OutcomeCompletionResponseStreamHandler extends OutcomeBaseMessageHa
       // 转发响应消息
       await this.forwardResponse(completionResponse);
 
-      this.logger.debug(`✅ 流式 Completion 响应发送成功 - TaskID: ${completionResponse.payload.taskId}`);
+
 
     } catch (error) {
       this.logger.error(`❌ 发送流式 Completion 响应失败: ${error instanceof Error ? error.message : '未知错误'}`);

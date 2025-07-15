@@ -73,16 +73,25 @@ export class ProcessManagerService implements IProcessManager {
   /**
    * 保存进程ID到文件
    */
-  static savePid(pid: number): void {
+  static savePid(pid: number, additionalArgs: string[] = []): void {
     try {
       const pidFile = this.getPidFilePath();
       const lockFile = this.getLockFilePath();
+
+      // 从启动参数中提取传输类型
+      let transportType = 'libp2p'; // 默认值
+      const transportIndex = additionalArgs.indexOf('--transport');
+      if (transportIndex !== -1 && transportIndex + 1 < additionalArgs.length) {
+        transportType = additionalArgs[transportIndex + 1];
+      }
 
       fs.writeFileSync(pidFile, pid.toString());
       fs.writeFileSync(lockFile, JSON.stringify({
         pid,
         startTime: new Date().toISOString(),
-        executable: process.argv[1]
+        executable: process.argv[1],
+        transportType,
+        startArgs: additionalArgs
       }));
     } catch (error) {
       console.error(`Failed to save PID: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -125,7 +134,7 @@ export class ProcessManagerService implements IProcessManager {
   /**
    * 获取当前运行的后台进程信息
    */
-  static getRunningProcessInfo(): { pid: number; startTime: string; executable: string } | null {
+  static getRunningProcessInfo(): { pid: number; startTime: string; executable: string; transportType?: string; startArgs?: string[] } | null {
     try {
       const lockFile = this.getLockFilePath();
 
@@ -171,7 +180,7 @@ export class ProcessManagerService implements IProcessManager {
   /**
    * 启动后台进程
    */
-  static startDaemonProcess(): { success: boolean; pid?: number; error?: string } {
+  static startDaemonProcess(additionalArgs: string[] = []): { success: boolean; pid?: number; error?: string } {
     try {
       // 检查是否已有进程在运行
       const runningProcess = this.getRunningProcessInfo();
@@ -201,8 +210,8 @@ export class ProcessManagerService implements IProcessManager {
       child.unref();
 
       if (child.pid) {
-        // 保存PID
-        this.savePid(child.pid);
+        // 保存PID和启动参数
+        this.savePid(child.pid, additionalArgs);
 
         return {
           success: true,
@@ -289,6 +298,8 @@ export class ProcessManagerService implements IProcessManager {
     pid?: number;
     startTime?: string;
     executable?: string;
+    transportType?: string;
+    startArgs?: string[];
   } {
     const processInfo = this.getRunningProcessInfo();
 
@@ -297,7 +308,9 @@ export class ProcessManagerService implements IProcessManager {
         running: true,
         pid: processInfo.pid,
         startTime: processInfo.startTime,
-        executable: processInfo.executable
+        executable: processInfo.executable,
+        transportType: processInfo.transportType,
+        startArgs: processInfo.startArgs
       };
     } else {
       return {

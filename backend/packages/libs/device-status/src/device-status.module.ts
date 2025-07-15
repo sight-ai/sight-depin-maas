@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { PersistentModule } from '@saito/persistent';
-import { LocalConfigService } from '@saito/common';
+import { LocalConfigService, SystemInfoService } from '@saito/common';
 import { DeviceStatusRepository } from './device-status.repository';
 import DeviceStatusServiceProvider from './device-status.service';
 
@@ -17,7 +17,7 @@ import DeviceSystemServiceProvider, { DeviceSystemService } from './services/dev
 import DeviceGatewayServiceProvider from './services/device-gateway.service';
 import AutoRegistrationServiceProvider from './services/auto-registration.service';
 import StartupInitializationServiceProvider from './services/startup-initialization.service';
-import { DynamicConfigService } from './services/dynamic-config.service';
+
 import { RegistrationStorage } from './registration-storage';
 
 // 导入增强的设备状态服务
@@ -45,6 +45,7 @@ const TUNNEL_COMMUNICATION_SERVICE = Symbol('TUNNEL_COMMUNICATION_SERVICE');
   providers: [
     // 共享服务
     LocalConfigService,
+    SystemInfoService,
 
     // 新的优化服务组件
     DeviceRegistryServiceProvider,
@@ -56,7 +57,6 @@ const TUNNEL_COMMUNICATION_SERVICE = Symbol('TUNNEL_COMMUNICATION_SERVICE');
     DeviceGatewayServiceProvider,
     AutoRegistrationServiceProvider,
     StartupInitializationServiceProvider,
-    DynamicConfigService,
     RegistrationStorage,
 
     // 增强的设备状态服务
@@ -80,6 +80,7 @@ const TUNNEL_COMMUNICATION_SERVICE = Symbol('TUNNEL_COMMUNICATION_SERVICE');
   exports: [
     // 共享服务
     LocalConfigService,
+    SystemInfoService,
 
     // 新的优化服务组件
     DeviceRegistryServiceProvider,
@@ -91,7 +92,6 @@ const TUNNEL_COMMUNICATION_SERVICE = Symbol('TUNNEL_COMMUNICATION_SERVICE');
     DeviceGatewayServiceProvider,
     AutoRegistrationServiceProvider,
     StartupInitializationServiceProvider,
-    DynamicConfigService,
     RegistrationStorage,
 
     // 增强的设备状态服务
