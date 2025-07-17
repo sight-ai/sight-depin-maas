@@ -37,6 +37,9 @@ testem.log
 
 # System Files
 .DS_Store
+/.DS_Store
+/*/.DS_Store
+/*/*/.DS_Store
 Thumbs.db
 
 /env/.current_env

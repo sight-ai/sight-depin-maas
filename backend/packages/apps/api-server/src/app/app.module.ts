@@ -41,6 +41,7 @@ import { UnifiedConfigController } from './controllers/unified-config.controller
 import { DidController } from './controllers/did.controller';
 import { PeerController } from './controllers/peer.controller';
 import { ServiceStatusController } from './controllers/service-status.controller';
+import { TransportController } from './controllers/transport.controller';
 
 
 @Module({
@@ -72,7 +73,8 @@ import { ServiceStatusController } from './controllers/service-status.controller
     FrameworkConfigController,
     UnifiedConfigController,
     DidController,
-    PeerController
+    PeerController,
+    TransportController
   ],
   providers: [
     {
