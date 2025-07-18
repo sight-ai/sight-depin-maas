@@ -39,7 +39,7 @@ import { OllamaProcessController } from './controllers/ollama-process.controller
 import { FrameworkConfigController } from './controllers/framework-config.controller';
 import { UnifiedConfigController } from './controllers/unified-config.controller';
 import { DidController } from './controllers/did.controller';
-import { PeerController } from './controllers/peer.controller';
+import { PeerController } from './controllers/libp2p-peer.controller';
 import { ServiceStatusController } from './controllers/service-status.controller';
 import { TransportController } from './controllers/transport.controller';
 

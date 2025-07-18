@@ -19,6 +19,7 @@ import { DidLocalBuilder } from './did-local.builder';
 import { DidLocalManager } from './did-local.manager';
 import { DidServiceImpl, DidServiceProvider } from './did.service';
 import { KeyPairManager } from './services/key-pair-manager.service';
+import { libp2pPeersServiceProvider } from './libp2p-neighbors/libp2p-peers.service';
 
 @Module({
   imports: [TunnelModule],
@@ -26,6 +27,7 @@ import { KeyPairManager } from './services/key-pair-manager.service';
     DidServiceProvider,
     DidDocumentOrchestratorProvider,
     DidDocumentManagerProvider,
+    libp2pPeersServiceProvider,
     DidServiceImpl,
     DidDocumentManagerService,
     DidDocumentAssembler,
@@ -68,6 +70,7 @@ import { KeyPairManager } from './services/key-pair-manager.service';
     'KEY_PAIR',
     DidServiceProvider,
     DidDocumentManagerProvider,
+    libp2pPeersServiceProvider,
     DidServiceImpl,
     KeyPairManager,
   ],
