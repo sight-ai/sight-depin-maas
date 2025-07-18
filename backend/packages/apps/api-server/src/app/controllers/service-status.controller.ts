@@ -1,5 +1,9 @@
 import { Controller, Get, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { UnifiedHealthService } from '../services/unified-health.service';
+import * as net from 'net';
+import { DeviceStatusService } from '@saito/device-status';
+import { UnifiedConfigService } from '../services/unified-config.service';
+import { IModelClient, UnifiedModelService } from '@saito/model-inference-client';
 
 /**
  * 服务状态控制器
@@ -15,8 +19,12 @@ export class ServiceStatusController {
   private readonly logger = new Logger(ServiceStatusController.name);
 
   constructor(
-    private readonly unifiedHealthService: UnifiedHealthService
-  ) {}
+    private readonly unifiedHealthService: UnifiedHealthService,
+    private readonly deviceStatusService: DeviceStatusService,
+    private readonly unifiedConfigService: UnifiedConfigService,
+    private readonly ollamaService: UnifiedModelService,
+    private readonly vllmService: UnifiedModelService
+  ) { }
 
   /**
    * 获取所有服务状态
@@ -27,7 +35,7 @@ export class ServiceStatusController {
     try {
       // 获取基础健康状态
       const healthStatus = this.unifiedHealthService.getDetailedHealth();
-      
+
       // 模拟各种服务状态 - 实际实现时需要调用相应的服务
       const services = [
         {
@@ -125,9 +133,22 @@ export class ServiceStatusController {
    */
   private async checkModelServiceStatus(): Promise<'online' | 'warning' | 'offline'> {
     try {
-      // 这里应该检查 Ollama 或 vLLM 服务状态
-      // 目前返回模拟状态
-      return 'online';
+      const framework = this.unifiedConfigService.getCurrentFramework();
+      if (framework === 'ollama') {
+        if (await this.ollamaService.checkStatus()) {
+          return 'online';
+        } else {
+          return 'offline';
+        }
+      } else if (framework === 'vllm') {
+        if (await this.vllmService.checkStatus()) {
+          return 'online';
+        } else {
+          return 'offline';
+        }
+      } else {
+        return 'warning';
+      }
     } catch (error) {
       this.logger.warn('Failed to check model service status:', error);
       return 'offline';
@@ -141,7 +162,8 @@ export class ServiceStatusController {
     try {
       // 这里应该检查网关连接状态
       // 目前返回模拟状态
-      return 'warning';
+      const data = await this.deviceStatusService.getGatewayStatus()
+      return data.isRegistered ? 'online' : 'offline';
     } catch (error) {
       this.logger.warn('Failed to check gateway status:', error);
       return 'offline';
@@ -151,15 +173,27 @@ export class ServiceStatusController {
   /**
    * 检查LibP2P通信状态
    */
-  private async checkLibP2PStatus(): Promise<'online' | 'warning' | 'offline'> {
-    try {
-      // 这里应该检查LibP2P服务状态
-      // 目前返回模拟状态
-      return 'online';
-    } catch (error) {
-      this.logger.warn('Failed to check LibP2P status:', error);
-      return 'offline';
-    }
+  private async checkLibP2PStatus(): Promise<'online' | 'offline'> {
+    return new Promise((resolve) => {
+      const socket = new net.Socket();
+
+      socket.setTimeout(1000); // 1 秒超时
+      socket.once('connect', () => {
+        socket.destroy();
+        resolve('online');
+      });
+
+      socket.once('timeout', () => {
+        socket.destroy();
+        resolve('offline');
+      });
+
+      socket.once('error', () => {
+        resolve('offline');
+      });
+
+      socket.connect(4010, '127.0.0.1');
+    });
   }
 
   /**
@@ -170,7 +204,7 @@ export class ServiceStatusController {
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    
+
     if (days > 0) {
       return `${days}d ${hours}h`;
     } else if (hours > 0) {

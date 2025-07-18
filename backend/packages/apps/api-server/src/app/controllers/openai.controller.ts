@@ -132,6 +132,10 @@ export class OpenAIController {
     }
   }
 
+  @Get('/version')
+  async version(@Res() res: Response) {
+      res.status(200).json({ version: '0.0.1' });
+  }
   /**
    * OpenAI-compatible embeddings endpoint
    * Uses new framework manager architecture

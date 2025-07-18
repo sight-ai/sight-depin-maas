@@ -1,647 +1,57 @@
 /**
- * Dashboard页面组件 
+ * Dashboard 页面组件
  *
- * 遵循SOLID原则：
- * - 单一职责原则：UI组件只负责展示，业务逻辑由Hook处理
- * - 依赖倒置原则：通过抽象接口获取数据
- * - 接口隔离原则：使用专门的Hook接口
+ * 重构后的Dashboard，使用组件化架构和可靠的数据获取
+ * 显示系统概览信息，包括：
+ * - 系统状态和基本信息
+ * - 收益统计
+ * - 系统资源监控
+ * - 服务状态
  */
 
-import React from 'react';
-import { Card, CardContent } from './ui/card';
+import React, { useState } from 'react';
+import { useDashboardData, copyToClipboard } from '../hooks/useDashboardData';
+import { SystemInfo } from './dashboard/SystemInfo';
+import { EarningsStats } from './dashboard/EarningsStats';
+import { SystemResources } from './dashboard/SystemResources';
+import { ServiceStatus } from './dashboard/ServiceStatus';
 import { Button } from './ui/button';
-import {
-  Cpu,
-  HardDrive,
-  Monitor,
-  Zap,
-  AlertCircle,
-  WifiOff,
-  CheckCircle,
-  Copy
-} from 'lucide-react';
-import { useDashboard } from '../hooks/useDashboard';
-import { useDeviceRegistration } from '../hooks/useDeviceRegistration';
+import { RefreshCw, AlertCircle } from 'lucide-react';
 import { BackendStatus } from '../hooks/types';
 
-interface CyberDashboardProps {
-  backendStatus: BackendStatus;
-}
+export const Dashboard: React.FC<{backendStatus: BackendStatus}> = ({backendStatus}) => {
+  const { data, error, refresh } = useDashboardData(backendStatus);
+  const [copySuccess, setCopySuccess] = useState<string | null>(null);
 
-/**
- * 设备注册状态组件
- */
-const DeviceRegistrationStatus: React.FC<{
-  isRegistered: boolean;
-  deviceId: string;
-  deviceName: string;
-  onCopyToClipboard: (text: string) => void;
-}> = ({ isRegistered, deviceId, deviceName, onCopyToClipboard }) => {
-  const formatAddress = (address: string) => {
-    if (!address) return '';
-    if (address.length <= 20) return address;
-    return `${address.slice(0, 10)}...${address.slice(-8)}`;
-  };
-
-  if (!isRegistered) {
-    return (
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-        <div className="flex items-center gap-3">
-          <WifiOff className="h-5 w-5 text-yellow-600" />
-          <div>
-            <h3 className="font-medium text-yellow-800">Device Not Registered</h3>
-            <p className="text-sm text-yellow-600">Register your device to start earning rewards</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-      <div className="space-y-3">
-        <div className="flex items-center gap-3">
-          <CheckCircle className="h-5 w-5 text-green-600" />
-          <div>
-            <h3 className="font-medium text-green-800">Device Registered Successfully</h3>
-            <p className="text-sm text-green-600">Your device is connected and earning rewards</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-gray-600">Device ID:</span>
-            <div className="flex items-center gap-2">
-              <code className="bg-gray-100 px-2 py-1 rounded text-xs">
-                {formatAddress(deviceId)}
-              </code>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => onCopyToClipboard(deviceId)}
-                className="h-6 w-6 p-0"
-              >
-                <Copy className="h-3 w-3" />
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-gray-600">Device Name:</span>
-            <span className="font-medium">{deviceName}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-/**
- * 基础信息组件 
- */
-const BasicInformation: React.FC<{
-  systemStatus: string;
-  systemPort: string;
-  version: string;
-  uptime: string;
-  taskCompleted: number;
-  todayEarnings: number;
-  totalEarnings: number;
-  isLoading: boolean;
-  deviceRegistrationData?: {
-    isRegistered: boolean;
-    deviceId: string;
-    deviceName: string;
-    gateway: string;
-    rewardAddress: string;
-  };
-  onCopyToClipboard: (text: string) => void;
-}> = ({
-  systemStatus,
-  systemPort,
-  version,
-  uptime,
-  taskCompleted,
-  todayEarnings,
-  totalEarnings,
-  isLoading,
-  deviceRegistrationData,
-  onCopyToClipboard
-}) => {
-  // if (isLoading) {
-  //   return (
-  //     <div className="flex items-center justify-center p-8">
-  //       <RefreshCw className="h-6 w-6 animate-spin text-gray-500" />
-  //       <span className="ml-2 text-gray-500">Loading system information...</span>
-  //     </div>
-  //   );
-  // }
-
-  return (
-    <div className="space-y-6 lg:space-y-9">
-      <h2 className="text-xl lg:text-2xl font-medium text-black" style={{ fontWeight: 500, lineHeight: '28.8px', letterSpacing: '-0.48px' }}>
-        Basic Information
-      </h2>
-
-      {/* 设备注册状态显示 */}
-      {deviceRegistrationData && (
-        <DeviceRegistrationStatus
-          isRegistered={deviceRegistrationData.isRegistered}
-          deviceId={deviceRegistrationData.deviceId}
-          deviceName={deviceRegistrationData.deviceName}
-          onCopyToClipboard={onCopyToClipboard}
-        />
-      )}
-
-      {/* 系统信息输入框 - 响应式网格布局 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
-        {/* SIGHTAI_SYSTEM_STATUS */}
-        <div className="responsive-card">
-          <div className="relative">
-            <div className="border border-gray-400 rounded-lg px-4 lg:px-6 py-3 bg-white" style={{ borderRadius: '18px', borderColor: '#79747E', borderWidth: '1.5px' }}>
-              <div className="text-sm lg:text-base text-green-500 font-normal truncate" style={{
-                fontFamily: 'Roboto',
-                lineHeight: '24px',
-                letterSpacing: '0.5px',
-                color: '#00C13A',
-                textShadow: '0px 0px 10.3px rgba(130, 255, 153, 1)'
-              }}>
-                {systemStatus}
-              </div>
-              <div className="absolute -top-3 left-4 bg-white px-1.5 text-xs text-gray-600" style={{
-                fontFamily: 'Roboto',
-                fontSize: '12px',
-                lineHeight: '16px',
-                letterSpacing: '0.4px',
-                color: '#49454F'
-              }}>
-                SIGHTAI_SYSTEM_STATUS
-              </div>
-            </div>
-            <div className="mt-1.5 px-4 lg:px-6 text-xs text-green-500" style={{
-              fontFamily: 'Roboto',
-              fontSize: '12px',
-              lineHeight: '16px',
-              letterSpacing: '0.4px',
-              color: '#00C13A',
-              textShadow: '0px 0px 10.3px rgba(130, 255, 153, 1)'
-            }}>
-              [PORT: {systemPort}]
-            </div>
-          </div>
-        </div>
-
-        {/* Version */}
-        <div className="responsive-card">
-          <div className="relative">
-            <div className="border border-gray-400 rounded-lg px-4 lg:px-6 py-3 bg-white" style={{ borderRadius: '18px', borderColor: '#79747E', borderWidth: '1.5px' }}>
-              <div className="text-sm lg:text-base text-gray-900 font-normal truncate" style={{
-                fontFamily: 'Roboto',
-                lineHeight: '24px',
-                letterSpacing: '0.5px',
-                color: '#1D1B20'
-              }}>
-                {version}
-              </div>
-              <div className="absolute -top-3 left-4 bg-white px-1.5 text-xs text-gray-600" style={{
-                fontFamily: 'Roboto',
-                fontSize: '12px',
-                lineHeight: '16px',
-                letterSpacing: '0.4px',
-                color: '#49454F'
-              }}>
-                Version
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Uptime */}
-        <div className="responsive-card">
-          <div className="relative">
-            <div className="border border-gray-400 rounded-lg px-4 lg:px-6 py-3 bg-white" style={{ borderRadius: '18px', borderColor: '#79747E', borderWidth: '1.5px' }}>
-              <div className="text-sm lg:text-base text-gray-900 font-normal truncate" style={{
-                fontFamily: 'Roboto',
-                lineHeight: '24px',
-                letterSpacing: '0.5px',
-                color: '#1D1B20'
-              }}>
-                {uptime}
-              </div>
-              <div className="absolute -top-3 left-4 bg-white px-1.5 text-xs text-gray-600" style={{
-                fontFamily: 'Roboto',
-                fontSize: '12px',
-                lineHeight: '16px',
-                letterSpacing: '0.4px',
-                color: '#49454F'
-              }}>
-                Uptime
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 统计卡片 - 响应式网格布局 */}
-      <div className="flex">
-        {/* Task Completed */}
-        <div className="responsive-card h-24 lg:h-26 bg-white rounded-2xl flex items-center justify-center shadow-sm">
-          <div className="text-center px-4">
-            <div className="text-2xl lg:text-4xl font-normal text-gray-600 mb-1" style={{
-              fontFamily: 'Aldrich',
-              lineHeight: '24px',
-              letterSpacing: '0.6px',
-              color: '#49454F'
-            }}>
-              {taskCompleted}
-            </div>
-            <div className="text-sm lg:text-lg font-normal text-gray-600" style={{
-              fontFamily: 'Roboto',
-              lineHeight: '24px',
-              letterSpacing: '0.6px',
-              color: '#49454F'
-            }}>
-              Task Completed
-            </div>
-          </div>
-        </div>
-
-        {/* Today Earnings */}
-        <div className="responsive-card h-24 lg:h-26 bg-white rounded-2xl flex items-center justify-center shadow-sm">
-          <div className="text-center px-4">
-            <div className="text-2xl lg:text-4xl font-normal text-gray-600 mb-1" style={{
-              fontFamily: 'Aldrich',
-              lineHeight: '24px',
-              letterSpacing: '0.6px',
-              color: '#49454F'
-            }}>
-              $ {todayEarnings.toFixed(2)}
-            </div>
-            <div className="text-sm lg:text-lg font-normal text-gray-600" style={{
-              fontFamily: 'Roboto',
-              lineHeight: '24px',
-              letterSpacing: '0.6px',
-              color: '#49454F'
-            }}>
-              Today Earnings
-            </div>
-          </div>
-        </div>
-
-        {/* Total Earnings */}
-        <div className="responsive-card h-24 lg:h-26 bg-white rounded-2xl flex items-center justify-center shadow-sm">
-          <div className="text-center px-4">
-            <div className="text-2xl lg:text-4xl font-normal text-gray-600 mb-1" style={{
-              fontFamily: 'Aldrich',
-              lineHeight: '24px',
-              letterSpacing: '0.6px',
-              color: '#49454F'
-            }}>
-              $ {totalEarnings.toFixed(2)}
-            </div>
-            <div className="text-sm lg:text-lg font-normal text-gray-600" style={{
-              fontFamily: 'Roboto',
-              lineHeight: '24px',
-              letterSpacing: '0.6px',
-              color: '#49454F'
-            }}>
-              Total Earnings
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-/**
- * 系统资源性能组件 
- */
-const SystemResourcePerformance: React.FC<{
-  cpuUsage: number;
-  memoryUsage: number;
-  gpuUsage: number;
-  temperatureUsage: number;
-  services: Array<{
-    name: string;
-    status: 'online' | 'offline' | 'warning';
-    uptime: string;
-    connections: number;
-    icon?: string;
-  }>;
-  isLoading: boolean;
-}> = ({ cpuUsage, memoryUsage, gpuUsage, temperatureUsage, services, isLoading }) => {
-  // if (isLoading) {
-  //   return (
-  //     <div className="flex items-center justify-center p-8">
-  //       <RefreshCw className="h-6 w-6 animate-spin text-gray-500" />
-  //       <span className="ml-2 text-gray-500">Loading system metrics...</span>
-  //     </div>
-  //   );
-  // }
-
-  // 进度条组件
-  const ProgressBar: React.FC<{ value: number; color: string }> = ({ value, color }) => (
-    <div className="w-full bg-gray-200 rounded-sm h-3 relative">
-      <div className="absolute inset-0 bg-gray-200 rounded-sm" style={{ backgroundColor: '#E7E7E7' }} />
-      <div
-        className="h-3 rounded-sm transition-all duration-300 relative"
-        style={{
-          width: `${Math.min(value, 100)}%`,
-          background: color
-        }}
-      />
-    </div>
-  );
-
-  return (
-    <div className="space-y-4 lg:space-y-6">
-      <h2 className="text-xl lg:text-2xl font-medium text-black" style={{ fontWeight: 500, lineHeight: '28.8px', letterSpacing: '-0.48px' }}>
-        System Resource Performance
-      </h2>
-
-      {/* 系统指标网格 - 响应式布局 */}
-      <div className="responsive-grid">
-        {/* CPU */}
-        <Card className="responsive-card bg-white rounded-xl border-0 p-3 lg:p-4" style={{
-          boxShadow: '0px 0px 24.8px 0px rgba(198, 198, 198, 0.51)',
-          borderRadius: '12px'
-        }}>
-          <CardContent className="p-0 space-y-2">
-            <div className="flex items-center gap-2">
-              <Cpu className="h-6 w-6 lg:h-7 lg:w-7 text-gray-800" strokeWidth={2} style={{ color: '#1E1E1E' }} />
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm lg:text-base text-gray-800 truncate" style={{
-                    fontFamily: 'Roboto',
-                    lineHeight: '24px',
-                    letterSpacing: '0.5px',
-                    color: 'rgba(0, 0, 0, 0.85)'
-                  }}>
-                    CPU
-                  </span>
-                  <span className="text-base font-medium text-gray-800" style={{
-                    fontFamily: 'Roboto',
-                    fontSize: '16px',
-                    fontWeight: 500,
-                    lineHeight: '24px',
-                    letterSpacing: '0.5px',
-                    color: 'rgba(0, 0, 0, 0.85)'
-                  }}>
-                    {cpuUsage.toFixed(0)}%
-                  </span>
-                </div>
-                <ProgressBar value={cpuUsage} color="#000000" />
-              </div>
-            </div>
-            <div className="text-center text-base" style={{
-              fontFamily: 'Roboto',
-              fontSize: '16px',
-              lineHeight: '24px',
-              letterSpacing: '0.5px',
-              color: '#000000'
-            }}>
-              Neural Processing Unit
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Memory */}
-        <Card className="bg-white rounded-xl border-0 p-4 min-w-0" style={{
-          boxShadow: '0px 0px 24.8px 0px rgba(198, 198, 198, 0.51)',
-          borderRadius: '12px'
-        }}>
-          <CardContent className="p-0 space-y-2">
-            <div className="flex items-center gap-2">
-              <HardDrive className="h-6 w-6 text-gray-800" strokeWidth={2} style={{ width: '24px', height: '24px', color: '#1E1E1E' }} />
-              <div className="flex-1">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-base text-gray-800" style={{
-                    fontFamily: 'Roboto',
-                    fontSize: '16px',
-                    lineHeight: '24px',
-                    letterSpacing: '0.5px',
-                    color: 'rgba(0, 0, 0, 0.85)'
-                  }}>
-                    Memory
-                  </span>
-                  <span className="text-base font-medium text-gray-800" style={{
-                    fontFamily: 'Roboto',
-                    fontSize: '16px',
-                    fontWeight: 500,
-                    lineHeight: '24px',
-                    letterSpacing: '0.5px',
-                    color: 'rgba(0, 0, 0, 0.85)'
-                  }}>
-                    {memoryUsage.toFixed(0)}%
-                  </span>
-                </div>
-                <ProgressBar value={memoryUsage} color="#6D20F5" />
-              </div>
-            </div>
-            <div className="text-center text-base" style={{
-              fontFamily: 'Roboto',
-              fontSize: '16px',
-              lineHeight: '24px',
-              letterSpacing: '0.5px',
-              color: '#000000'
-            }}>
-              Data Storage Buffer
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* GPU */}
-        <Card className="bg-white rounded-xl border-0 p-4 min-w-0" style={{
-          boxShadow: '0px 0px 24.8px 0px rgba(198, 198, 198, 0.51)',
-          borderRadius: '12px'
-        }}>
-          <CardContent className="p-0 space-y-2">
-            <div className="flex items-center gap-2">
-              <Monitor className="h-6 w-6 text-gray-800" strokeWidth={2} style={{ width: '25px', height: '25px', color: '#1E1E1E' }} />
-              <div className="flex-1">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-base text-gray-800" style={{
-                    fontFamily: 'Roboto',
-                    fontSize: '16px',
-                    lineHeight: '24px',
-                    letterSpacing: '0.5px',
-                    color: 'rgba(0, 0, 0, 0.85)'
-                  }}>
-                    GPU
-                  </span>
-                  <span className="text-base font-medium text-gray-800" style={{
-                    fontFamily: 'Roboto',
-                    fontSize: '16px',
-                    fontWeight: 500,
-                    lineHeight: '24px',
-                    letterSpacing: '0.5px',
-                    color: 'rgba(0, 0, 0, 0.85)'
-                  }}>
-                    {gpuUsage.toFixed(0)}%
-                  </span>
-                </div>
-                <ProgressBar value={gpuUsage} color="#E7337A" />
-              </div>
-            </div>
-            <div className="text-center text-base" style={{
-              fontFamily: 'Roboto',
-              fontSize: '16px',
-              lineHeight: '24px',
-              letterSpacing: '0.5px',
-              color: '#000000'
-            }}>
-              Graphics Rendering Unit
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Temperature */}
-        <Card className="bg-white rounded-xl border-0 p-4 min-w-0" style={{
-          boxShadow: '0px 0px 24.8px 0px rgba(198, 198, 198, 0.51)',
-          borderRadius: '12px'
-        }}>
-          <CardContent className="p-0 space-y-2">
-            <div className="flex items-center gap-2">
-              <Zap className="h-6 w-6 text-gray-800" strokeWidth={2} style={{ width: '26px', height: '26px', color: '#1E1E1E' }} />
-              <div className="flex-1">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-base text-gray-800" style={{
-                    fontFamily: 'Roboto',
-                    fontSize: '16px',
-                    lineHeight: '24px',
-                    letterSpacing: '0.5px',
-                    color: 'rgba(0, 0, 0, 0.85)'
-                  }}>
-                    Temp
-                  </span>
-                  <span className="text-base font-medium text-gray-800" style={{
-                    fontFamily: 'Roboto',
-                    fontSize: '16px',
-                    fontWeight: 500,
-                    lineHeight: '24px',
-                    letterSpacing: '0.5px',
-                    color: 'rgba(0, 0, 0, 0.85)'
-                  }}>
-                    {temperatureUsage.toFixed(0)}°C
-                  </span>
-                </div>
-                <ProgressBar value={temperatureUsage} color="#F7D046" />
-              </div>
-            </div>
-            <div className="text-center text-base" style={{
-              fontFamily: 'Roboto',
-              fontSize: '16px',
-              lineHeight: '24px',
-              letterSpacing: '0.5px',
-              color: '#000000'
-            }}>
-              Thermal Management
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 服务状态 - 响应式布局 */}
-      <div className="space-y-3 mt-3 pt-4">
-        <div className="space-y-3">
-          {services.map((service, index) => (
-            <Card key={index} className="bg-white rounded-lg border-0 p-2 w-full max-w-md mx-auto lg:mx-0" style={{
-              boxShadow: '0px 0px 40px 0px rgba(213, 213, 213, 0.57)',
-              borderRadius: '8px'
-            }}>
-              <CardContent className="p-0">
-                <div className="flex items-center justify-between gap-4 px-3 py-2">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    {/* 服务图标 */}
-                    <div className="w-8 h-8 bg-gray-200 rounded flex-shrink-0" style={{
-                      backgroundImage: service.icon ? `url(${service.icon})` : 'none',
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center'
-                    }} />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-normal text-black text-sm truncate" style={{
-                        fontFamily: 'Roboto',
-                        fontSize: '14px',
-                        lineHeight: '20px',
-                        letterSpacing: '0.25px',
-                        color: '#000000'
-                      }}>
-                        {service.name}
-                      </div>
-                      <div className="text-sm text-black" style={{
-                        fontFamily: 'Roboto',
-                        fontSize: '14px',
-                        lineHeight: '20px',
-                        letterSpacing: '0.25px',
-                        color: '#000000'
-                      }}>
-                        Uptime: {service.uptime} ｜Connections: {service.connections}
-                      </div>
-                    </div>
-                  </div>
-                  <Button
-                    className={`px-2 py-2 rounded-full text-base font-normal ${
-                      service.status === 'online' ? 'bg-gray-800 text-gray-100' :
-                      service.status === 'warning' ? 'bg-yellow-500 text-white' :
-                      'bg-red-500 text-white'
-                    }`}
-                    style={{
-                      width: '87px',
-                      height: '32px',
-                      borderRadius: '9999px',
-                      backgroundColor: service.status === 'online' ? '#191717' :
-                                     service.status === 'warning' ? '#F59E0B' : '#EF4444',
-                      color: '#F5F5F5',
-                      fontFamily: 'Inter',
-                      fontSize: '16px',
-                      lineHeight: '16px'
-                    }}
-                  >
-                    {service.status === 'online' ? 'Online' :
-                     service.status === 'warning' ? 'Warning' : 'Offline'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-/**
- * 主Dashboard组件 - 遵循依赖倒置原则
- */
-export const CyberDashboard: React.FC<CyberDashboardProps> = ({ backendStatus }) => {
-  // 使用专用Dashboard Hook获取数据 - 依赖倒置原则
-  const { data, loading, refresh } = useDashboard(backendStatus);
-
-  // 复制到剪贴板功能
-  const handleCopyToClipboard = (text: string) => {
-    if (window.electronAPI?.clipboard) {
-      window.electronAPI.clipboard.writeText(text);
+  // 复制到剪贴板处理
+  const handleCopyToClipboard = async (text: string) => {
+    const success = await copyToClipboard(text);
+    if (success) {
+      setCopySuccess('Copied to clipboard!');
+      setTimeout(() => setCopySuccess(null), 2000);
     } else {
-      navigator.clipboard.writeText(text);
+      setCopySuccess('Failed to copy');
+      setTimeout(() => setCopySuccess(null), 2000);
     }
   };
 
-  // 错误状态处理
-  if (loading.error) {
+  // 错误状态显示
+  if (error && !data) {
     return (
-      <div className="bg-white rounded-2xl p-6 shadow-lg">
-        <div className="flex items-center justify-center p-8">
-          <AlertCircle className="h-8 w-8 text-red-500 mr-3" />
-          <div>
-            <h3 className="text-lg font-medium text-red-800">Failed to load dashboard data</h3>
-            <p className="text-sm text-red-600 mt-1">{loading.error}</p>
-            <button
-              onClick={refresh}
-              className="mt-3 px-4 py-2 bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-colors"
-            >
-              Retry
-            </button>
+      <div className="min-h-screen bg-white p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-center p-8">
+            <div className="text-center">
+              <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <h2 className="text-xl font-semibold text-gray-800 mb-2">
+                Failed to Load Dashboard
+              </h2>
+              <p className="text-gray-600 mb-4">{error}</p>
+              <Button onClick={refresh} className="flex items-center gap-2">
+                <RefreshCw className="h-4 w-4" />
+                Retry
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -649,52 +59,84 @@ export const CyberDashboard: React.FC<CyberDashboardProps> = ({ backendStatus })
   }
 
   return (
-    <div
-      className="bg-white rounded-2xl shadow-lg space-y-6 lg:space-y-9 w-full max-w-7xl mx-auto sm:p-6 lg:p-8"
-      style={{
-        borderRadius: '16px',
-        boxShadow: '0px 0px 42.4px 7px rgba(237, 237, 237, 1)',
-        padding: '16px 12px',
-        minHeight: 'auto'
-      }}
-    >
-      {/* Basic Information Section */}
-      <Card className="bg-white rounded-xl shadow-lg" style={{
-        borderRadius: '12px',
-        boxShadow: '0px 0px 44px 0px rgba(232, 232, 232, 1)',
-        padding: '30px 38px 43px'
-      }}>
-        <CardContent className="p-0">
-          <BasicInformation
-            systemStatus={data?.systemInfo?.status || 'OFFLINE'}
-            systemPort={data?.systemInfo?.port || '8761'}
-            version={data?.systemInfo?.version || 'v0.9.3 Beta'}
-            uptime={data?.systemInfo?.uptime || '0d 0h 0min'}
-            taskCompleted={data?.earnings?.tasks || 0}
-            todayEarnings={data?.earnings?.today || 0}
-            totalEarnings={data?.earnings?.total || 0}
-            isLoading={loading.isLoading}
-            onCopyToClipboard={handleCopyToClipboard}
-          />
-        </CardContent>
-      </Card>
+    <div className="min-h-screen bg-white p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* 页面标题和刷新按钮 */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+            <p className="text-gray-600">System overview and performance metrics</p>
+          </div>
+          <div className="flex items-center gap-4">
+            {copySuccess && (
+              <span className="text-sm text-green-600 bg-green-50 px-3 py-1 rounded-full">
+                {copySuccess}
+              </span>
+            )}
+            <Button
+              onClick={refresh}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </Button>
+          </div>
+        </div>
 
-      {/* System Resource Performance Section */}
-      <div className="space-y-4">
-        <SystemResourcePerformance
-          cpuUsage={data?.systemResources?.cpu?.usage || 0}
-          memoryUsage={data?.systemResources?.memory?.usage || 0}
-          gpuUsage={data?.systemResources?.gpu?.usage || 0}
-          temperatureUsage={data?.systemResources?.gpu?.temperature || 0}
-          services={data?.services || [
-            { name: 'Backend API', status: 'online', uptime: '24h+', connections: 1 },
-            { name: 'Local Model Service', status: 'online', uptime: '12h+', connections: 2 },
-            { name: 'Gateway Connection', status: 'warning', uptime: '0m', connections: 0 },
-            { name: 'LibP2P Communication', status: 'online', uptime: '0m', connections: 0 }
-          ]}
-          isLoading={loading.isLoading}
+        {/* 错误提示（如果有错误但仍有数据显示） */}
+        {error && data && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-yellow-600" />
+              <span className="text-yellow-800">
+                Warning: Some data may be outdated. {error}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* 系统信息 */}
+        <SystemInfo
+          systemStatus={data.systemInfo.status}
+          systemPort={data.systemInfo.port}
+          version={data.systemInfo.version}
+          uptime={data.systemInfo.uptime}
+          deviceInfo={data.deviceInfo}
+          onCopyToClipboard={handleCopyToClipboard}
         />
+
+        {/* 收益统计 */}
+        <EarningsStats
+          taskCompleted={data.earnings.taskCompleted}
+          todayEarnings={data.earnings.todayEarnings}
+          totalEarnings={data.earnings.totalEarnings}
+        />
+
+        {/* 系统资源监控 */}
+        <SystemResources
+          cpuUsage={data.systemResources.cpuUsage}
+          memoryUsage={data.systemResources.memoryUsage}
+          gpuUsage={data.systemResources.gpuUsage}
+          temperatureUsage={data.systemResources.temperatureUsage}
+        />
+
+        {/* 服务状态 */}
+        <ServiceStatus
+          services={data.services}
+        />
+
+        {/* 页面底部信息 */}
+        <div className="text-center text-sm text-gray-500 py-4">
+          <p>
+            Last updated: {new Date().toLocaleTimeString()} |
+            Backend: {backendStatus?.isRunning ? 'Connected' : 'Disconnected'} |
+            Auto-refresh: Every 10 seconds
+          </p>
+        </div>
       </div>
     </div>
   );
 };
+
+export default Dashboard;

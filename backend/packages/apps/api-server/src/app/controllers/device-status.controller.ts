@@ -19,6 +19,50 @@ export class DeviceStatusController {
     @Inject(DidIntegrationService) private readonly didIntegrationService: DidIntegrationService
   ) {}
 
+  @Get()
+  async getDeviceStatus() {
+    try {
+      // 获取设备基本信息
+      const deviceId = await this.deviceStatusService.getDeviceId();
+
+      // 获取注册信息
+      const registrationInfo = await this.deviceStatusService.getRegistrationInfo();
+
+      // 获取网关状态
+      const gatewayStatus = await this.deviceStatusService.getGatewayStatus();
+
+      // 获取DID信息
+      const didInfo = this.didIntegrationService.getCurrentDidInfo();
+
+      // 获取系统信息
+      const systemInfo = await this.deviceSystemService.collectSystemInfo();
+      const deviceType = await this.deviceSystemService.getDeviceType();
+      const deviceModel = await this.deviceSystemService.getDeviceModel();
+
+      return {
+        success: true,
+        data: {
+          deviceId,
+          deviceType,
+          deviceModel,
+          systemInfo,
+          registration: registrationInfo.success ? registrationInfo.data : null,
+          gateway: gatewayStatus,
+          did: didInfo,
+          timestamp: new Date().toISOString()
+        },
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      this.logger.error('Get device status error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
   @Post('/register')
   async register(@Res() res: Response, @Body() body: RegisterDeviceDto) {
     try {
@@ -173,6 +217,38 @@ export class DeviceStatusController {
         error: error instanceof Error ? error.message : 'Internal server error',
         timestamp: new Date().toISOString()
       };
+    }
+  }
+
+  @Post('/unregister')
+  async unregister(@Res() res: Response) {
+    try {
+      this.logger.log('Starting device unregistration process - clearing local data');
+
+      // 执行本地取消注册逻辑：清理本地数据并重置为未注册状态
+      const result = await this.deviceStatusService.unregister();
+
+      if (result.success) {
+        this.logger.log('Device unregistered successfully - local data cleared');
+        res.status(200).json({
+          success: true,
+          message: 'Device unregistered successfully. Local registration data has been cleared.',
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: result.error || 'Failed to clear local registration data',
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      this.logger.error('Unregistration error:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString()
+      });
     }
   }
 

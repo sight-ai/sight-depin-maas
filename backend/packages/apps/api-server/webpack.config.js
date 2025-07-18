@@ -124,8 +124,11 @@ module.exports = composePlugins(withNx(), (config, context) => {
           try {
             console.log('🔧 Installing native modules...');
             execSync(`node "${scriptPath}" "${outputPath}"`, { stdio: 'inherit' });
+            console.log('✅ Native modules installed successfully');
           } catch (error) {
-            console.error('❌ Failed to install native modules:', error.message);
+            console.warn('⚠️  Native modules installation failed, but continuing build:', error.message);
+            console.log('📝 Note: Level database functionality may not work in the packaged app');
+            // 不抛出错误，允许构建继续
           }
         });
       }

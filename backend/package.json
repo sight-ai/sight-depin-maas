@@ -12,7 +12,9 @@
     "analyze:deps": "node scripts/analyze-dependencies.js",
     "clean:all": "rm -rf dist dist-pkg node_modules/.cache",
     "fix": "eslint --fix ./packages/**/*.ts",
-    "desktop:dev": "nx electron-dev desktop-app"
+    "desktop:dev": "nx electron-dev desktop-app",
+    "desktop:copy-backend": "node packages/apps/desktop-app/scripts/copy-backend.js",
+    "desktop:package": "nx run desktop-app:package-mac"
   },
   "private": true,
   "dependencies": {

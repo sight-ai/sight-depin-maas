@@ -116,9 +116,20 @@
       "options": {
         "commands": [
           "nx build api-server",
-          "node packages/apps/desktop-app/scripts/copy-backend.js",
+          "pnpm run desktop:copy-backend",
+          "nx build desktop-app --configuration=production",
+          "nx build-electron desktop-app"
+        ]
+      }
+    },
+    "build-production-with-libp2p": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx build api-server",
+          "source ~/.nvm/nvm.sh && node packages/apps/desktop-app/scripts/copy-backend.js",
           "echo '🔧 开始跨平台构建Go libp2p服务...'",
-          "node packages/apps/desktop-app/scripts/build-libp2p-cross-platform.js",
+          "source ~/.nvm/nvm.sh && node packages/apps/desktop-app/scripts/build-libp2p-cross-platform.js",
           "echo '✅ Go libp2p服务跨平台构建完成！'",
           "nx build desktop-app --configuration=production",
           "nx build-electron desktop-app"

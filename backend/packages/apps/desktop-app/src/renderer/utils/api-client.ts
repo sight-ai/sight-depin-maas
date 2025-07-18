@@ -40,7 +40,7 @@ export class ApiClient {
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
-        signal: controller.signal,
+        // signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           ...options.headers,
@@ -200,7 +200,7 @@ export class ApiClient {
    * 获取当前推理框架
    */
   async getCurrentFramework() {
-    return this.get('/api/v1/config/framework');
+    return this.get('/api/v1/config/current');
   }
 
   /**
@@ -208,6 +208,13 @@ export class ApiClient {
    */
   async getDeviceStatus() {
     return this.get('/api/v1/device-status');
+  }
+
+  /**
+   * 获取设备信息
+   */
+  async getDeviceInfo() {
+    return this.get('/api/v1/device-status/registration-info');
   }
 
   /**
@@ -234,6 +241,13 @@ export class ApiClient {
    */
   async updateDid() {
     return this.post('/api/v1/device-status/update-did');
+  }
+
+  /**
+   * 取消注册设备
+   */
+  async unregisterDevice() {
+    return this.post('/api/v1/device-status/unregister', {});
   }
 
   /**

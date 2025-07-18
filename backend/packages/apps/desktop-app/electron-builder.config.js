@@ -18,6 +18,27 @@ module.exports = {
     },
     'package.json'
   ],
+
+  // 确保原生模块被解包
+  asarUnpack: [
+    'node_modules/level/**/*',
+    'node_modules/classic-level/**/*',
+    'node_modules/abstract-level/**/*',
+    'node_modules/level-supports/**/*',
+    'node_modules/level-transcoder/**/*',
+    'node_modules/module-error/**/*',
+    'node_modules/queue-microtask/**/*',
+    'node_modules/catering/**/*',
+    'node_modules/napi-macros/**/*',
+    'node_modules/node-gyp-build/**/*',
+    'node_modules/browser-level/**/*',
+    'node_modules/level-concat-iterator/**/*',
+    'node_modules/maybe-combine-errors/**/*'
+  ],
+
+  // 原生模块配置
+  nodeGypRebuild: false,
+  buildDependenciesFromSource: false,
   
   // 额外资源
   extraResources: [

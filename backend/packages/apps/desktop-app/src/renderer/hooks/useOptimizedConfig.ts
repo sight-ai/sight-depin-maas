@@ -5,6 +5,88 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { getElectronAPI } from '../utils/electron-api';
+
+// 保持向后兼容的本地函数（已废弃，使用utils中的版本）
+const getElectronAPILocal = () => {
+  // 首先尝试通过window对象访问（推荐方式）
+  if (typeof window !== 'undefined' && (window as any).electronAPI) {
+    return (window as any).electronAPI;
+  }
+
+  // 在浏览器环境中，返回模拟的API接口
+  if (typeof window !== 'undefined' && !window.require) {
+    return {
+      invoke: async (channel: string, ...args: any[]) => {
+        // 返回模拟的配置数据
+        switch (channel) {
+          case 'read-device-config':
+            return {
+              success: true,
+              data: {
+                deviceId: 'mock-device-id',
+                deviceName: 'Mock Device',
+                isRegistered: false
+              }
+            };
+          case 'get-app-settings':
+            return {
+              success: true,
+              data: {
+                theme: 'light',
+                language: 'en',
+                autoStart: false
+              }
+            };
+          case 'get-system-info':
+            return {
+              success: true,
+              data: {
+                platform: 'mock',
+                arch: 'x64',
+                version: '1.0.0'
+              }
+            };
+          case 'get-all-config':
+            return {
+              success: true,
+              data: {
+                device: { deviceId: 'mock-device-id' },
+                app: { theme: 'light' },
+                system: { platform: 'mock' }
+              }
+            };
+          default:
+            return { success: false, error: 'Unknown channel' };
+        }
+      },
+      readDeviceConfig: async () => {
+        return {
+          success: true,
+          data: {
+            deviceId: 'mock-device-id',
+            deviceName: 'Mock Device',
+            isRegistered: false
+          }
+        };
+      },
+      getSystemInfo: async () => {
+        return {
+          success: true,
+          data: {
+            platform: 'mock',
+            arch: 'x64',
+            version: '1.0.0'
+          }
+        };
+      }
+    };
+  }
+
+  // 如果在Node.js环境中，返回null（避免直接require electron）
+  console.warn('Electron API not available, using mock data');
+  return null;
+};
 
 interface ConfigCache {
   data: any;
@@ -100,20 +182,39 @@ export function useOptimizedConfig<T = any>(
     try {
       let result: any = null;
 
-      // 根据配置键选择不同的获取方法
-      if (window.electronAPI) {
+      // 获取Electron API
+      const electronAPI = getElectronAPI();
+
+      if (electronAPI) {
+        // 根据配置键选择不同的获取方法
         switch (configKey) {
           case 'device':
-            result = await window.electronAPI.readDeviceConfig();
+            if (electronAPI.readDeviceConfig) {
+              result = await electronAPI.readDeviceConfig();
+            } else {
+              result = await electronAPI.invoke('read-device-config');
+            }
             break;
           case 'app':
-            result = await (window.electronAPI as any).getAppSettings?.();
+            if (electronAPI.getAppSettings) {
+              result = await electronAPI.getAppSettings();
+            } else {
+              result = await electronAPI.invoke('get-app-settings');
+            }
             break;
           case 'all':
-            result = await (window.electronAPI as any).getAllConfig?.();
+            if (electronAPI.getAllConfig) {
+              result = await electronAPI.getAllConfig();
+            } else {
+              result = await electronAPI.invoke('get-all-config');
+            }
             break;
           case 'system':
-            result = await window.electronAPI.getSystemInfo();
+            if (electronAPI.getSystemInfo) {
+              result = await electronAPI.getSystemInfo();
+            } else {
+              result = await electronAPI.invoke('get-system-info');
+            }
             break;
           default:
             throw new Error(`Unknown config key: ${configKey}`);

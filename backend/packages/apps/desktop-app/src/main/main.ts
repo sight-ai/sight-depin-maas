@@ -55,6 +55,14 @@ class DesktopApp {
         const mainWindow = this.windowManager.createWindow();
         this.logger.log('Window created successfully');
 
+        // 设置退出回调
+        this.windowManager.setExitCallback(() => {
+          this.logger.log('Exit requested from window manager');
+          this.isQuiting = true;
+          this.windowManager.setQuiting(true);
+          this.cleanup();
+        });
+
         // 设置窗口关闭到托盘
         this.windowManager.setCloseToTray(() => {
           if (!this.isQuiting) {
@@ -87,23 +95,40 @@ class DesktopApp {
     });
 
     app.on('window-all-closed', () => {
-      this.cleanup();
-      if (process.platform !== 'darwin') {
-        app.quit();
+      // 在macOS上，即使所有窗口关闭，应用通常也保持活跃
+      // 但如果用户明确要求退出，我们应该退出
+      if (this.isQuiting || process.platform !== 'darwin') {
+        this.cleanup();
       }
     });
 
-    app.on('before-quit', () => {
-      this.isQuiting = true;
-      this.cleanup();
+    app.on('before-quit', (event) => {
+      if (!this.isQuiting) {
+        event.preventDefault();
+        this.isQuiting = true;
+        this.windowManager.setQuiting(true);
+        this.cleanup();
+      }
     });
 
     // 处理应用程序崩溃或异常退出
-    process.on('SIGINT', () => this.cleanup());
-    process.on('SIGTERM', () => this.cleanup());
+    process.on('SIGINT', () => {
+      this.logger.log('Received SIGINT, cleaning up...');
+      this.cleanup();
+    });
+
+    process.on('SIGTERM', () => {
+      this.logger.log('Received SIGTERM, cleaning up...');
+      this.cleanup();
+    });
+
     process.on('uncaughtException', (error) => {
       this.logger.log(`Uncaught Exception: ${error}`, 'ERROR');
       this.cleanup();
+    });
+
+    process.on('unhandledRejection', (reason, promise) => {
+      this.logger.log(`Unhandled Rejection at: ${promise}, reason: ${reason}`, 'ERROR');
     });
   }
 
@@ -112,7 +137,12 @@ class DesktopApp {
       () => this.windowManager.showMainWindow(),
       () => this.windowManager.hideMainWindow(),
       () => this.trayManager.showStatus(this.serviceManager.getBackendStatus()),
-      () => this.cleanup()
+      () => {
+        this.logger.log('Exit requested from tray menu');
+        this.isQuiting = true;
+        this.windowManager.setQuiting(true);
+        this.cleanup();
+      }
     );
   }
 
@@ -122,25 +152,78 @@ class DesktopApp {
   }
 
   private async cleanup(): Promise<void> {
+    if (this.isQuiting) {
+      return; // 防止重复清理
+    }
+
     this.logger.log('Cleaning up...');
     this.isQuiting = true;
 
     try {
-      await this.serviceManager.stopAllServices();
+      // 设置清理超时，防止无限等待
+      const cleanupPromise = this.performCleanup();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Cleanup timeout')), 10000); // 10秒超时
+      });
 
-      // 清理配置服务
-      try {
-        await cleanupDesktopConfigService();
-        this.logger.log('Desktop configuration service cleaned up successfully');
-      } catch (error) {
-        this.logger.log(`Error cleaning up configuration service: ${error}`, 'ERROR');
-      }
+      await Promise.race([cleanupPromise, timeoutPromise]);
     } catch (error) {
       this.logger.log(`Error during cleanup: ${error}`, 'ERROR');
     }
 
-    this.trayManager.destroy();
-    app.quit();
+    // 强制退出
+    this.forceQuit();
+  }
+
+  private async performCleanup(): Promise<void> {
+    // 停止所有服务
+    try {
+      await this.serviceManager.stopAllServices();
+      this.logger.log('All services stopped successfully');
+    } catch (error) {
+      this.logger.log(`Error stopping services: ${error}`, 'ERROR');
+    }
+
+    // 清理配置服务
+    try {
+      await cleanupDesktopConfigService();
+      this.logger.log('Desktop configuration service cleaned up successfully');
+    } catch (error) {
+      this.logger.log(`Error cleaning up configuration service: ${error}`, 'ERROR');
+    }
+
+    // 销毁托盘
+    try {
+      this.trayManager.destroy();
+      this.logger.log('Tray destroyed successfully');
+    } catch (error) {
+      this.logger.log(`Error destroying tray: ${error}`, 'ERROR');
+    }
+  }
+
+  private forceQuit(): void {
+    this.logger.log('Force quitting application...');
+
+    // 关闭所有窗口
+    const windows = BrowserWindow.getAllWindows();
+    windows.forEach(window => {
+      try {
+        if (!window.isDestroyed()) {
+          window.destroy();
+        }
+      } catch (error) {
+        this.logger.log(`Error destroying window: ${error}`, 'ERROR');
+      }
+    });
+
+    // 强制退出应用
+    try {
+      app.quit();
+    } catch (error) {
+      this.logger.log(`Error quitting app: ${error}`, 'ERROR');
+      // 最后的手段：强制退出进程
+      process.exit(0);
+    }
   }
 }
 
