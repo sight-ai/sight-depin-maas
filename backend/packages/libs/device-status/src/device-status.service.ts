@@ -21,6 +21,8 @@ import {
   DEVICE_SYSTEM_SERVICE,
   DeviceStatusService
 } from "./device-status.interface";
+import { RegistrationStatus } from './registration-storage';
+import { DidIntegrationService } from './services/did-integration.service';
 
 /**
  * 优化的设备状态服务
@@ -41,7 +43,8 @@ export class DefaultDeviceStatusService implements TDeviceStatusService, OnModul
     @Inject(DEVICE_HEARTBEAT_SERVICE)
     private readonly heartbeatService: TDeviceHeartbeat,
     @Inject(DEVICE_SYSTEM_SERVICE)
-    private readonly systemService: TDeviceSystem
+    private readonly systemService: TDeviceSystem,
+    private readonly didIntegrationService?: DidIntegrationService
   ) {
     this.initializeService();
   }
@@ -99,6 +102,57 @@ export class DefaultDeviceStatusService implements TDeviceStatusService, OnModul
   }
 
   /**
+   * 取消注册设备 - 清理本地数据并重置为未注册状态
+   */
+  async unregister(): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.logger.log('Starting device unregistration - clearing local data');
+
+      // 1. 停止心跳服务
+      this.stopHeartbeat();
+      this.logger.log('Heartbeat service stopped');
+
+      // 2. 清除本地注册信息
+      const clearSuccess = await this.registryService.clearRegistration();
+
+      if (!clearSuccess) {
+        return {
+          success: false,
+          error: 'Failed to clear local registration information'
+        };
+      }
+      this.logger.log('Local registration data cleared');
+
+      // 3. 更新本地数据库状态为未注册
+      try {
+        const config = this.configService.getCurrentConfig();
+        if (config.deviceId) {
+          await this.databaseService.updateDeviceStatus(
+            config.deviceId,
+            config.deviceName || '',
+            'disconnected',
+            ''
+          );
+          this.logger.log('Local database status updated to disconnected');
+        }
+      } catch (dbError) {
+        this.logger.warn('Failed to update database status, but continuing:', dbError);
+        // 不因为数据库更新失败而中断取消注册流程
+      }
+
+      this.logger.log('Device unregistered successfully - system reset to unregistered state');
+      return { success: true };
+
+    } catch (error) {
+      this.logger.error('Unregistration failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to clear local registration data'
+      };
+    }
+  }
+
+  /**
    * 启动定时心跳
    */
   startHeartbeat(): void {
@@ -146,7 +200,7 @@ export class DefaultDeviceStatusService implements TDeviceStatusService, OnModul
       const systemInfo = await this.systemService.collectSystemInfo();
       await this.heartbeatService.sendHeartbeat(config, systemInfo);
 
-      this.logger.debug(`💓 心跳发送成功 - DeviceID: ${config.deviceId}`);
+
     } catch (error) {
       this.logger.error('心跳发送失败:', error);
       // 不抛出错误，避免中断心跳服务
@@ -237,8 +291,19 @@ export class DefaultDeviceStatusService implements TDeviceStatusService, OnModul
   // 配置访问方法
   // ========================================
 
-  async getGatewayStatus(): Promise<{ isRegistered: boolean }> {
-    return { isRegistered: this.configService.isRegistered() };
+  async getGatewayStatus(): Promise<{
+    isRegistered: boolean;
+    status: RegistrationStatus;
+    error?: string;
+    lastAttempt?: string;
+  }> {
+    const statusInfo = this.configService.getRegistrationStatusInfo();
+    return {
+      isRegistered: this.configService.isRegistered(),
+      status: statusInfo.status,
+      error: statusInfo.error,
+      lastAttempt: statusInfo.lastAttempt
+    };
   }
 
   async getDeviceId(): Promise<string> {
@@ -257,6 +322,10 @@ export class DefaultDeviceStatusService implements TDeviceStatusService, OnModul
     return this.configService.getGatewayAddress();
   }
 
+  async getKey(): Promise<string> {
+    return this.configService.getCode();
+  }
+
   async isRegistered(): Promise<boolean> {
     return this.configService.isRegistered();
   }
@@ -271,6 +340,86 @@ export class DefaultDeviceStatusService implements TDeviceStatusService, OnModul
 
   async getDeviceInfo(): Promise<string> {
     return this.systemService.getDeviceInfo();
+  }
+
+  /**
+   * 获取完整的注册信息
+   */
+  async getRegistrationInfo(): Promise<{
+    success: boolean;
+    data?: {
+      deviceId: string;
+      deviceName: string;
+      gatewayAddress: string;
+      rewardAddress: string;
+      code: string;
+      isRegistered: boolean;
+      registrationStatus: RegistrationStatus;
+      registrationError?: string;
+      lastRegistrationAttempt?: string;
+      timestamp?: string;
+      reportedModels?: string[];
+      basePath?: string;
+      didDoc?: any;
+      systemInfo?: {
+        os: string;
+        cpu: string;
+        memory: string;
+        graphics: any[];
+        ipAddress?: string;
+        deviceType?: string;
+        deviceModel?: string;
+      };
+    };
+    error?: string;
+  }> {
+    try {
+      // 获取配置信息
+      const config = this.configService.getCurrentConfig();
+      const statusInfo = this.configService.getRegistrationStatusInfo();
+
+      // 获取系统信息
+      const systemInfo = await this.systemService.collectSystemInfo();
+
+      // 获取DID信息
+      const didInfo = this.didIntegrationService?.getCurrentDidInfo() || { hasRealDid: false };
+
+      // 获取已上报的模型列表
+      const reportedModels = await this.getLocalModels();
+
+      return {
+        success: true,
+        data: {
+          deviceId: config.deviceId,
+          deviceName: config.deviceName,
+          gatewayAddress: config.gatewayAddress,
+          rewardAddress: config.rewardAddress,
+          code: config.code || '',
+          isRegistered: config.isRegistered,
+          registrationStatus: statusInfo.status,
+          registrationError: statusInfo.error,
+          lastRegistrationAttempt: statusInfo.lastAttempt,
+          basePath: config.basePath,
+          didDoc: didInfo.didDoc,
+          reportedModels: reportedModels?.map(model => model.name || model.model) || [],
+          systemInfo: {
+            os: systemInfo.os,
+            cpu: systemInfo.cpu,
+            memory: systemInfo.memory,
+            graphics: systemInfo.graphics,
+            ipAddress: systemInfo.ipAddress,
+            deviceType: await this.getDeviceType(),
+            deviceModel: await this.getDeviceModel()
+          }
+        }
+      };
+    } catch (error) {
+      this.logger.error('Failed to get registration info:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get registration info'
+      };
+    }
   }
 
   // ========================================

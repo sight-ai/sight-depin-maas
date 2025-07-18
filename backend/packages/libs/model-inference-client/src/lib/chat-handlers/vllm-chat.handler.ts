@@ -187,17 +187,34 @@ export class VllmChatHandler implements IChatHandler {
     const endpoint = `${context.baseUrl}/v1/models`;
 
     try {
+      this.logger.debug(`Fetching models from vLLM endpoint: ${endpoint}`);
+
       const response = await fetch(endpoint, {
+        method: 'GET',
         headers: {
+          'Content-Type': 'application/json',
           ...(this.getApiKey() && { 'Authorization': `Bearer ${this.getApiKey()}` })
-        }
+        },
+        signal: AbortSignal.timeout(10000) // 10秒超时
       });
 
-      if (!response.ok) {
-        throw new Error(`vLLM API error: ${response.status} ${response.statusText}`);
+      if (!response) {
+        throw new Error('No response received from vLLM service');
       }
 
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unable to read error response');
+        throw new Error(`vLLM API error: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
+      this.logger.debug(`vLLM response received successfully from: ${endpoint}`);
       const data = await response.json() as any;
+
+      if (!data) {
+        throw new Error('Empty response from vLLM service');
+      }
+
+      this.logger.debug(`vLLM models response:`, data);
 
       // 转换为统一格式
       const unifiedList: UnifiedModelList = {
@@ -211,10 +228,10 @@ export class VllmChatHandler implements IChatHandler {
         framework: 'vllm'
       };
 
-      context.res.json(unifiedList);
       return unifiedList;
     } catch (error) {
       this.logger.error(`vLLM model list request failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.error(`Endpoint: ${endpoint}`);
       throw error;
     }
   }
@@ -231,7 +248,6 @@ export class VllmChatHandler implements IChatHandler {
       modified_at: new Date().toISOString()
     };
 
-    context.res.json(modelInfo);
     return modelInfo;
   }
 
@@ -262,7 +278,6 @@ export class VllmChatHandler implements IChatHandler {
       }
 
       const data = await response.json();
-      context.res.json(data);
       return data;
     } catch (error) {
       this.logger.error(`vLLM embeddings request failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -276,7 +291,6 @@ export class VllmChatHandler implements IChatHandler {
   async handleVersion(context: RequestContext): Promise<string> {
     // vLLM 没有专门的版本端点，返回默认版本信息
     const version = 'vLLM-unknown';
-    context.res.json({ version });
     return version;
   }
 

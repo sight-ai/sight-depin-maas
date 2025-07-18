@@ -21,7 +21,7 @@ export class VllmRequestDispatcher implements IRequestDispatcher {
    */
   async dispatch(context: RequestContext): Promise<any> {
     try {
-      this.logger.debug(`Dispatching vLLM request: ${context.type}`);
+      this.logger.debug(`Dispatching vLLM request: ${context.type} to ${context.baseUrl}`);
 
       switch (context.type) {
         case RequestType.CHAT:

@@ -4,6 +4,7 @@ import { promisify } from 'util';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import { VllmConfigService } from './vllm-config.service';
 
 const execAsync = promisify(exec);
 
@@ -13,6 +14,15 @@ export interface VllmProcessConfig {
   maxModelLen: number;
   port: number;
   host: string;
+  // 新增的显存控制参数
+  maxNumSeqs?: number;
+  maxNumBatchedTokens?: number;
+  enforceEager?: boolean;
+  swapSpace?: number;
+  tensorParallelSize?: number;
+  pipelineParallelSize?: number;
+  blockSize?: number;
+  quantization?: 'awq' | 'gptq' | 'squeezellm' | 'fp8' | 'int8' | null;
 }
 
 export interface VllmProcessStatus {
@@ -23,6 +33,32 @@ export interface VllmProcessStatus {
   startTime?: Date;
   memoryUsage?: number;
   cpuUsage?: number;
+  // 新增字段
+  health?: {
+    status: 'healthy' | 'unhealthy' | 'unknown';
+    responseTime?: number;
+    lastCheck?: Date;
+    error?: string;
+  };
+  models?: {
+    total: number;
+    loaded: string[];
+    currentModel?: string;
+  };
+  resources?: {
+    memoryUsageMB?: number;
+    cpuUsagePercent?: number;
+    gpuMemoryUsage?: {
+      used: number;
+      total: number;
+      utilization: number;
+    };
+  };
+  performance?: {
+    requestsPerSecond?: number;
+    averageResponseTime?: number;
+    tokensPerSecond?: number;
+  };
 }
 
 @Injectable()
@@ -32,6 +68,8 @@ export class VllmProcessManagerService {
   private currentConfig: VllmProcessConfig | null = null;
   private readonly pidFile = path.join(os.tmpdir(), 'vllm-service.pid');
   private readonly logFile = path.join(os.tmpdir(), 'vllm-service.log');
+
+  constructor(private readonly vllmConfigService: VllmConfigService) {}
 
   /**
    * 启动vLLM服务
@@ -46,10 +84,12 @@ export class VllmProcessManagerService {
         };
       }
 
-      this.logger.log('Starting vLLM service with configuration:', config);
+      // 合并用户配置和保存的配置
+      const mergedConfig = this.mergeWithSavedConfig(config);
+      this.logger.log('Starting vLLM service with merged configuration:', mergedConfig);
 
       // 构建启动命令
-      const args = this.buildVllmArgs(config);
+      const args = this.buildVllmArgs(mergedConfig);
       
       // 启动vLLM进程
       this.vllmProcess = spawn('python', ['-m', 'vllm.entrypoints.openai.api_server', ...args], {
@@ -58,7 +98,7 @@ export class VllmProcessManagerService {
         env: {
           ...process.env,
           CUDA_VISIBLE_DEVICES: process.env['CUDA_VISIBLE_DEVICES'] || '0',
-          VLLM_GPU_MEMORY_UTILIZATION: config.gpuMemoryUtilization.toString(),
+          VLLM_GPU_MEMORY_UTILIZATION: mergedConfig.gpuMemoryUtilization.toString(),
         }
       });
 
@@ -73,7 +113,7 @@ export class VllmProcessManagerService {
       this.setupLogging();
       
       // 保存当前配置
-      this.currentConfig = config;
+      this.currentConfig = mergedConfig;
 
       // 等待服务启动
       await this.waitForServiceReady(config.port, 30000); // 30秒超时
@@ -196,29 +236,65 @@ export class VllmProcessManagerService {
   }
 
   /**
-   * 获取vLLM服务状态
+   * 获取vLLM服务状态 - 增强版本
    */
   async getVllmStatus(): Promise<VllmProcessStatus> {
     try {
-      const pid = await this.getVllmPid();
-      const isRunning = pid ? await this.isProcessRunning(pid) : false;
+      // 执行健康检查
+      const healthCheck = await this.performVllmHealthCheck();
 
-      if (!isRunning) {
-        return { isRunning: false };
+      if (!healthCheck.isHealthy) {
+        return {
+          isRunning: false,
+          health: {
+            status: 'unhealthy',
+            responseTime: healthCheck.responseTime,
+            lastCheck: new Date(),
+            error: healthCheck.error
+          }
+        };
       }
 
-      // 获取进程信息
-      const processInfo = await this.getProcessInfo(pid!);
+      // 尝试获取PID（如果是通过此服务启动的）
+      const pid = await this.getVllmPid();
 
-      return {
+      // 获取模型信息
+      const modelsInfo = await this.getVllmModelsInfo();
+
+      const result: VllmProcessStatus = {
         isRunning: true,
-        pid: pid!,
         port: this.currentConfig?.port || 8000,
         config: this.currentConfig || undefined,
-        startTime: processInfo.startTime,
-        memoryUsage: processInfo.memoryUsage,
-        cpuUsage: processInfo.cpuUsage
+        health: {
+          status: 'healthy',
+          responseTime: healthCheck.responseTime,
+          lastCheck: new Date()
+        },
+        models: modelsInfo
       };
+
+      // 如果有PID，获取进程信息
+      if (pid && await this.isProcessRunning(pid)) {
+        const processInfo = await this.getProcessInfo(pid);
+        result.pid = pid;
+        result.startTime = processInfo.startTime;
+        result.memoryUsage = processInfo.memoryUsage;
+        result.cpuUsage = processInfo.cpuUsage;
+
+        // 设置资源使用信息
+        result.resources = {
+          memoryUsageMB: processInfo.memoryUsage ? Math.round(processInfo.memoryUsage / 1024 / 1024) : undefined,
+          cpuUsagePercent: processInfo.cpuUsage
+        };
+
+        // 尝试获取GPU内存使用情况
+        const gpuMemoryInfo = await this.getGpuMemoryUsage();
+        if (gpuMemoryInfo) {
+          result.resources.gpuMemoryUsage = gpuMemoryInfo;
+        }
+      }
+
+      return result;
 
     } catch (error) {
       this.logger.error('Failed to get vLLM status:', error);
@@ -238,7 +314,63 @@ export class VllmProcessManagerService {
       '--host', config.host
     ];
 
+    // 添加可选的显存控制参数
+    if (config.maxNumSeqs !== undefined) {
+      args.push('--max-num-seqs', config.maxNumSeqs.toString());
+    }
+
+    if (config.maxNumBatchedTokens !== undefined) {
+      args.push('--max-num-batched-tokens', config.maxNumBatchedTokens.toString());
+    }
+
+    if (config.enforceEager === true) {
+      args.push('--enforce-eager');
+    }
+
+    if (config.swapSpace !== undefined && config.swapSpace > 0) {
+      args.push('--swap-space', config.swapSpace.toString());
+    }
+
+    if (config.tensorParallelSize !== undefined && config.tensorParallelSize > 1) {
+      args.push('--tensor-parallel-size', config.tensorParallelSize.toString());
+    }
+
+    if (config.pipelineParallelSize !== undefined && config.pipelineParallelSize > 1) {
+      args.push('--pipeline-parallel-size', config.pipelineParallelSize.toString());
+    }
+
+    if (config.blockSize !== undefined) {
+      args.push('--block-size', config.blockSize.toString());
+    }
+
+    if (config.quantization) {
+      args.push('--quantization', config.quantization);
+    }
+
     return args;
+  }
+
+  /**
+   * 从配置服务获取默认配置并合并用户配置
+   */
+  private mergeWithSavedConfig(userConfig: Partial<VllmProcessConfig>): VllmProcessConfig {
+    const savedConfig = this.vllmConfigService.getFullConfig();
+
+    return {
+      model: userConfig.model || savedConfig.model || 'microsoft/DialoGPT-medium',
+      gpuMemoryUtilization: userConfig.gpuMemoryUtilization || savedConfig.gpuMemoryUtilization || 0.9,
+      maxModelLen: userConfig.maxModelLen || savedConfig.maxModelLen || 4096,
+      port: userConfig.port || savedConfig.port || 8000,
+      host: userConfig.host || savedConfig.host || '0.0.0.0',
+      maxNumSeqs: userConfig.maxNumSeqs || savedConfig.maxNumSeqs,
+      maxNumBatchedTokens: userConfig.maxNumBatchedTokens || savedConfig.maxNumBatchedTokens,
+      enforceEager: userConfig.enforceEager !== undefined ? userConfig.enforceEager : savedConfig.enforceEager,
+      swapSpace: userConfig.swapSpace || savedConfig.swapSpace,
+      tensorParallelSize: userConfig.tensorParallelSize || savedConfig.tensorParallelSize,
+      pipelineParallelSize: userConfig.pipelineParallelSize || savedConfig.pipelineParallelSize,
+      blockSize: userConfig.blockSize || savedConfig.blockSize,
+      quantization: userConfig.quantization || savedConfig.quantization
+    };
   }
 
   /**
@@ -260,6 +392,195 @@ export class VllmProcessManagerService {
       this.logger.log(`vLLM process exited with code ${code} and signal ${signal}`);
       this.cleanup().catch(err => this.logger.error('Cleanup error:', err));
     });
+  }
+
+  /**
+   * 获取vLLM实时监控信息
+   */
+  async getVllmMonitoringInfo(): Promise<{
+    service: {
+      status: 'running' | 'stopped' | 'error';
+      uptime?: number;
+      responseTime?: number;
+      model?: string;
+      config?: VllmProcessConfig;
+    };
+    models: {
+      total: number;
+      loaded: string[];
+      currentModel?: string;
+    };
+    resources: {
+      memory?: {
+        used: number;
+        unit: 'MB' | 'GB';
+      };
+      cpu?: {
+        usage: number;
+        unit: '%';
+      };
+      gpu?: {
+        memoryUsed: number;
+        memoryTotal: number;
+        utilization: number;
+        unit: 'MB';
+      };
+    };
+    health: {
+      lastCheck: Date;
+      checks: Array<{
+        name: string;
+        status: 'pass' | 'fail';
+        responseTime?: number;
+        error?: string;
+      }>;
+    };
+  }> {
+    const result: {
+      service: {
+        status: 'running' | 'stopped' | 'error';
+        uptime?: number;
+        responseTime?: number;
+        model?: string;
+        config?: VllmProcessConfig;
+      };
+      models: {
+        total: number;
+        loaded: string[];
+        currentModel?: string;
+      };
+      resources: {
+        memory?: {
+          used: number;
+          unit: 'MB' | 'GB';
+        };
+        cpu?: {
+          usage: number;
+          unit: '%';
+        };
+        gpu?: {
+          memoryUsed: number;
+          memoryTotal: number;
+          utilization: number;
+          unit: 'MB';
+        };
+      };
+      health: {
+        lastCheck: Date;
+        checks: Array<{
+          name: string;
+          status: 'pass' | 'fail';
+          responseTime?: number;
+          error?: string;
+        }>;
+      };
+    } = {
+      service: {
+        status: 'stopped'
+      },
+      models: {
+        total: 0,
+        loaded: []
+      },
+      resources: {},
+      health: {
+        lastCheck: new Date(),
+        checks: []
+      }
+    };
+
+    try {
+      // 执行多项健康检查
+      const healthChecks = await Promise.allSettled([
+        this.performVllmHealthCheck(),
+        this.getVllmModelsInfo(),
+        this.getVllmPid()
+      ]);
+
+      // 处理健康检查结果
+      const healthCheck = healthChecks[0].status === 'fulfilled' ? healthChecks[0].value : null;
+      const modelsInfo = healthChecks[1].status === 'fulfilled' ? healthChecks[1].value : null;
+      const pid = healthChecks[2].status === 'fulfilled' ? healthChecks[2].value : null;
+
+      // 设置服务状态
+      if (healthCheck?.isHealthy) {
+        result.service.status = 'running';
+        result.service.responseTime = healthCheck.responseTime;
+        result.service.model = this.currentConfig?.model;
+        result.service.config = this.currentConfig || undefined;
+
+        // 如果有PID，计算运行时间
+        if (pid && await this.isProcessRunning(pid)) {
+          const processInfo = await this.getProcessInfo(pid);
+          if (processInfo.startTime) {
+            result.service.uptime = Date.now() - processInfo.startTime.getTime();
+          }
+
+          // 设置资源使用情况
+          if (processInfo.memoryUsage) {
+            const memoryMB = Math.round(processInfo.memoryUsage / 1024 / 1024);
+            result.resources.memory = {
+              used: memoryMB > 1024 ? Math.round(memoryMB / 1024) : memoryMB,
+              unit: memoryMB > 1024 ? 'GB' : 'MB'
+            };
+          }
+
+          if (processInfo.cpuUsage) {
+            result.resources.cpu = {
+              usage: Math.round(processInfo.cpuUsage * 100) / 100,
+              unit: '%'
+            };
+          }
+
+          // 获取GPU使用情况
+          const gpuMemoryInfo = await this.getGpuMemoryUsage();
+          if (gpuMemoryInfo) {
+            result.resources.gpu = {
+              memoryUsed: gpuMemoryInfo.used,
+              memoryTotal: gpuMemoryInfo.total,
+              utilization: gpuMemoryInfo.utilization,
+              unit: 'MB'
+            };
+          }
+        }
+      } else {
+        result.service.status = healthCheck ? 'error' : 'stopped';
+      }
+
+      // 设置模型信息
+      if (modelsInfo) {
+        result.models = modelsInfo;
+      }
+
+      // 设置健康检查结果
+      result.health.checks = [
+        {
+          name: 'API Connectivity',
+          status: healthCheck?.isHealthy ? 'pass' : 'fail',
+          responseTime: healthCheck?.responseTime,
+          error: healthCheck?.error
+        },
+        {
+          name: 'Model Loading',
+          status: modelsInfo && modelsInfo.total >= 0 ? 'pass' : 'fail'
+        },
+        {
+          name: 'Configuration',
+          status: this.currentConfig ? 'pass' : 'fail'
+        }
+      ];
+
+    } catch (error) {
+      this.logger.error('Failed to get vLLM monitoring info:', error);
+      result.service.status = 'error';
+      result.health.checks.push({
+        name: 'General Health',
+        status: 'fail',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+
+    return result;
   }
 
   /**
@@ -298,6 +619,146 @@ export class VllmProcessManagerService {
     }
     
     throw new Error(`Process ${pid} did not stop within ${timeout}ms`);
+  }
+
+  /**
+   * 执行vLLM健康检查
+   */
+  private async performVllmHealthCheck(): Promise<{
+    isHealthy: boolean;
+    responseTime?: number;
+    error?: string;
+  }> {
+    const startTime = Date.now();
+
+    try {
+      const host = this.currentConfig?.host || '127.0.0.1';
+      const port = this.currentConfig?.port || 8000;
+
+      const response = await fetch(`http://${host}:${port}/v1/models`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000) // 5秒超时
+      });
+
+      const responseTime = Date.now() - startTime;
+
+      if (response.ok) {
+        return {
+          isHealthy: true,
+          responseTime
+        };
+      } else {
+        return {
+          isHealthy: false,
+          responseTime,
+          error: `HTTP ${response.status}: ${response.statusText}`
+        };
+      }
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      return {
+        isHealthy: false,
+        responseTime,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * 获取vLLM模型信息
+   */
+  private async getVllmModelsInfo(): Promise<{
+    total: number;
+    loaded: string[];
+    currentModel?: string;
+  }> {
+    try {
+      const host = this.currentConfig?.host || '127.0.0.1';
+      const port = this.currentConfig?.port || 8000;
+
+      const response = await fetch(`http://${host}:${port}/v1/models`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000)
+      });
+
+      if (response.ok) {
+        const data = await response.json() as any;
+        const models = (data.data || []).map((model: any) => model.id || model.model || 'unknown');
+
+        return {
+          total: models.length,
+          loaded: models,
+          currentModel: this.currentConfig?.model || models[0]
+        };
+      }
+    } catch (error) {
+      this.logger.debug('Failed to get vLLM models info:', error);
+    }
+
+    // 如果API调用失败，返回配置中的模型信息
+    return {
+      total: this.currentConfig?.model ? 1 : 0,
+      loaded: this.currentConfig?.model ? [this.currentConfig.model] : [],
+      currentModel: this.currentConfig?.model
+    };
+  }
+
+  /**
+   * 获取GPU内存使用情况
+   */
+  private async getGpuMemoryUsage(): Promise<{
+    used: number;
+    total: number;
+    utilization: number;
+  } | null> {
+    try {
+      // 使用nvidia-smi获取GPU信息
+      const { stdout } = await execAsync('nvidia-smi --query-gpu=memory.used,memory.total,utilization.gpu --format=csv,noheader,nounits');
+      const lines = stdout.trim().split('\n');
+
+      if (lines.length > 0) {
+        const parts = lines[0].split(',').map(s => s.trim());
+        if (parts.length >= 3) {
+          return {
+            used: parseInt(parts[0]),
+            total: parseInt(parts[1]),
+            utilization: parseFloat(parts[2])
+          };
+        }
+      }
+    } catch (error) {
+      this.logger.debug('Failed to get GPU memory usage (nvidia-smi not available):', error);
+    }
+
+    return null;
+  }
+
+  /**
+   * 检查vLLM服务是否可访问（通过HTTP）
+   */
+  private async checkVllmService(): Promise<boolean> {
+    try {
+      // 尝试多个常见端口
+      const ports = [8000, 8001, 8080];
+      const vllmHost = process.env.VLLM_HOST || '127.0.0.1';
+
+      for (const port of ports) {
+        try {
+          const response = await fetch(`http://${vllmHost}:${port}/v1/models`, {
+            method: 'GET',
+            signal: AbortSignal.timeout(3000) // 3秒超时
+          });
+          if (response.ok) {
+            return true;
+          }
+        } catch (error) {
+          // 继续尝试下一个端口
+        }
+      }
+      return false;
+    } catch (error) {
+      return false;
+    }
   }
 
   /**

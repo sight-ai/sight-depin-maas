@@ -164,6 +164,6 @@ export class VllmClientService implements IModelClient {
    * 获取基础URL
    */
   private getBaseUrl(): string {
-    return process.env['VLLM_API_URL'] || 'http://localhost:8000';
+    return process.env['VLLM_API_URL'] || 'http://127.0.0.1:8000';
   }
 }

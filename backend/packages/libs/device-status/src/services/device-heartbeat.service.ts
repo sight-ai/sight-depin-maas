@@ -71,7 +71,7 @@ export class DeviceHeartbeatService implements TDeviceHeartbeat {
       // 发送心跳
       await this.sendHeartbeatViaTunnel(config, systemInfo);
 
-      this.logger.debug(`💓 定时心跳发送成功 - DeviceID: ${config.deviceId}`);
+
     } catch (error) {
       this.logger.error('定时心跳发送失败:', error);
       // 不抛出错误，避免中断定时任务

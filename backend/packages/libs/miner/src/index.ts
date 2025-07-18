@@ -21,5 +21,7 @@ export * from './lib/services/task-manager.service';
 export * from './lib/services/earnings-manager.service';
 export * from './lib/services/data-access.service';
 export * from './lib/services/unified-miner.service';
+export * from './lib/services/task-aggregation.service';
+export * from './lib/services/earnings-aggregation.service';
 
 export { SaitoRuntime, createLocalRuntime } from './runtime';

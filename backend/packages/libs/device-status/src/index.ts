@@ -13,7 +13,7 @@ export { default as DeviceSystemServiceProvider } from './services/device-system
 export { default as DeviceGatewayServiceProvider } from './services/device-gateway.service';
 export { default as AutoRegistrationServiceProvider } from './services/auto-registration.service';
 export { default as StartupInitializationServiceProvider } from './services/startup-initialization.service';
-export * from './services/dynamic-config.service';
+
 export { default as TunnelCommunicationServiceProvider } from './services/tunnel-communication.service';
 export * from './services/tunnel-communication.service';
 export * from './services/did-integration.service';

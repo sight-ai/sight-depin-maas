@@ -47,12 +47,14 @@ export class DeviceRegistryService implements TDeviceRegistry {
       console.log(credentials)
       // 创建设备配置
       const deviceConfig = await this.createDeviceConfig(credentials);
-
+      // this.logger.debug(`begin to register.`)
       // 向网关注册
       const gatewayResult = await this.gatewayService.registerWithGateway(
         deviceConfig, 
         localModels
       );
+
+      // this.logger.debug(`gateway register resule: ${JSON.stringify(gatewayResult, null, 2)}.`)
 
       if (!gatewayResult.success) {
         return gatewayResult;

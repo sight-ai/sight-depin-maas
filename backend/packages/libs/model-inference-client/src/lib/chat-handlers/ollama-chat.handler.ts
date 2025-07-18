@@ -291,7 +291,6 @@ export class OllamaChatHandler implements IChatHandler {
         framework: 'ollama'
       };
 
-      context.res.json(unifiedList);
       return unifiedList;
     } catch (error) {
       this.logger.error(`Ollama model list request failed: ${error instanceof Error ? error.message : 'Unknown error'}`);

@@ -87,9 +87,18 @@ export class FrameworkSwitchService {
         }, 1000); // 1秒后重启，给当前响应时间返回
       }
 
+      // 检查是否在开发模式
+      const isDevelopment = process.env.NODE_ENV === 'development' ||
+                           process.env.NX_TASK_TARGET_TARGET === 'serve' ||
+                           process.argv.includes('--dev');
+
+      const restartMessage = isDevelopment
+        ? 'Please restart the application manually to apply changes.'
+        : (options.restartBackend !== false ? 'Backend service will restart in 1 second.' : '');
+
       return {
         success: true,
-        message: `Successfully switched to framework: ${framework}. ${options.restartBackend !== false ? 'Backend service will restart in 1 second.' : ''}`
+        message: `Successfully switched to framework: ${framework}. ${restartMessage}`
       };
 
     } catch (error) {
@@ -379,18 +388,34 @@ export class FrameworkSwitchService {
 
   /**
    * 重启后端服务
-   * 通过退出当前进程来触发进程管理器重启
+   * 在开发模式下只重新初始化客户端，在生产模式下重启进程
    */
   private async restartBackendService(): Promise<void> {
     try {
       this.logger.log('Restarting sight-local-backend service...');
 
-      // 给日志一点时间写入
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // 检查是否在开发模式下运行
+      const isDevelopment = process.env.NODE_ENV === 'development' ||
+                           process.env.NX_TASK_TARGET_TARGET === 'serve' ||
+                           process.argv.includes('--dev');
 
-      // 优雅退出，让进程管理器重启服务
-      // 使用退出码 0 表示正常重启
-      process.exit(0);
+      if (isDevelopment) {
+        this.logger.log('Development mode detected, skipping process restart...');
+        this.logger.warn('Framework switch completed. Please restart the application manually to apply changes.');
+
+        // 在开发模式下，不重启进程，只记录日志
+        // 用户需要手动重启应用来应用框架切换
+        return;
+      } else {
+        this.logger.log('Production mode detected, restarting process...');
+
+        // 给日志一点时间写入
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // 优雅退出，让进程管理器重启服务
+        // 使用退出码 0 表示正常重启
+        process.exit(0);
+      }
 
     } catch (error) {
       this.logger.error('Failed to restart backend service:', error);

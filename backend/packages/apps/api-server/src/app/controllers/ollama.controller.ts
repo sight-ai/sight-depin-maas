@@ -9,6 +9,7 @@ import {
   OllamaGenerateRequest
 } from '@saito/models';
 import z from 'zod';
+import { UnifiedModelListService } from '../services/unified-model-list.service';
 
 /**
  * Clean Ollama Controller
@@ -27,7 +28,8 @@ export class ModelController {
   private readonly logger = new Logger(ModelController.name);
 
   constructor(
-    private readonly unifiedModelService: UnifiedModelService
+    private readonly unifiedModelService: UnifiedModelService,
+    private readonly unifiedModelListService: UnifiedModelListService
   ) {}
 
   /**
@@ -79,10 +81,8 @@ export class ModelController {
   @Get('/api/tags')
   async listModels(@Res() res: Response) {
     try {
-      const modelList = await this.unifiedModelService.listModels();
-
-      // Return in Ollama format
-      res.json({ models: modelList.models });
+      const result = await this.unifiedModelListService.getOllamaFormatModels();
+      res.json(result);
 
     } catch (error) {
       this.logger.error(`List models error: ${error instanceof Error ? error.message : 'Unknown error'}`);

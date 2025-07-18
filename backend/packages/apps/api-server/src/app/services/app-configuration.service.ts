@@ -1,14 +1,15 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { LocalConfigService } from '@saito/common';
-import { 
+import { LocalConfigService, EnhancedSystemMonitorService } from '@saito/common';
+import {
   FrameworkSwitchService,
-  ResourceManagerService 
+  ResourceManagerService
 } from '@saito/model-inference-framework-management';
-import { 
+import {
   EnhancedDeviceStatusService,
-  EnvironmentDetectorService 
+  EnvironmentDetectorService
 } from '@saito/device-status';
 import { UnifiedModelService } from '@saito/model-inference-client';
+import { UnifiedConfigService } from './unified-config.service';
 import {
   AppConfigSchema,
   FrameworkConfigSchema,
@@ -49,6 +50,25 @@ export interface AppStatusInfo {
     valid: boolean;
     errors: string[];
   };
+  resourceUsage?: {
+    cpu: {
+      usage: number;
+      cores: number;
+    };
+    memory: {
+      usage: number;
+      total: number;
+    };
+    gpu?: Array<{
+      id: string;
+      name: string;
+      usage: number;
+      memory: {
+        used: number;
+        total: number;
+      };
+    }>;
+  };
   lastUpdated: string;
 }
 
@@ -67,6 +87,8 @@ export class AppConfigurationService implements OnModuleInit {
     private readonly frameworkSwitchService: FrameworkSwitchService,
     private readonly deviceStatusService: EnhancedDeviceStatusService,
     private readonly environmentDetector: EnvironmentDetectorService,
+    private readonly systemMonitorService: EnhancedSystemMonitorService,
+    private readonly unifiedConfigService: UnifiedConfigService,
   ) {}
 
   /**
@@ -165,10 +187,11 @@ export class AppConfigurationService implements OnModuleInit {
    */
   async getAppStatus(): Promise<AppStatusInfo> {
     try {
-      const [environment, deviceStatus, healthCheck] = await Promise.all([
+      const [environment, deviceStatus, healthCheck, systemMetrics] = await Promise.all([
         this.environmentDetector.detectCurrentEnvironment(),
         this.deviceStatusService.getDeviceStatusOverview(),
-        this.deviceStatusService.performHealthCheck()
+        this.deviceStatusService.performHealthCheck(),
+        this.systemMonitorService.getSystemMetrics()
       ]);
 
       const configValidation = this.localConfigService.validateConfig();
@@ -188,6 +211,25 @@ export class AppConfigurationService implements OnModuleInit {
         configuration: {
           valid: configValidation.isValid,
           errors: configValidation.errors
+        },
+        resourceUsage: {
+          cpu: {
+            usage: systemMetrics.cpu.usage,
+            cores: systemMetrics.cpu.cores
+          },
+          memory: {
+            usage: systemMetrics.memory.usage,
+            total: systemMetrics.memory.total
+          },
+          gpu: systemMetrics.gpus.map((gpu, index) => ({
+            id: index.toString(),
+            name: gpu.name,
+            usage: gpu.usage,
+            memory: {
+              used: Math.round(gpu.memory * gpu.usage / 100),
+              total: gpu.memory
+            }
+          }))
         },
         lastUpdated: new Date().toISOString()
       };

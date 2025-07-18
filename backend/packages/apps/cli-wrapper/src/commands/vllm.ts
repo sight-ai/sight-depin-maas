@@ -4,11 +4,19 @@ import { UIUtils } from '../utils/ui';
 import { TableUtils } from '../utils/table';
 
 /**
- * vLLM配置参数接口 - 只保留核心配置
+ * vLLM配置参数接口 - 扩展显存控制配置
  */
 export interface VllmConfigOptions {
   gpuMemoryUtilization?: number;
   maxModelLen?: number;
+  maxNumSeqs?: number;
+  maxNumBatchedTokens?: number;
+  enforceEager?: boolean;
+  swapSpace?: number;
+  tensorParallelSize?: number;
+  pipelineParallelSize?: number;
+  blockSize?: number;
+  quantization?: 'awq' | 'gptq' | 'squeezellm' | 'fp8' | 'int8' | null;
 }
 
 /**
